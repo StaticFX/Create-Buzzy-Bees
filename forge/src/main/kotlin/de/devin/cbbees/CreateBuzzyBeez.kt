@@ -64,7 +64,7 @@ import thedarkcolour.kotlinforforge.forge.MOD_BUS
 @Mod(CreateBuzzyBeez.ID)
 object CreateBuzzyBeez {
     const val ID = "cbbees"
-    const val MOD_VERSION = "1.1.0"
+    const val MOD_VERSION = "1.2.2"
 
     val REGISTRATE: CreateRegistrate = de.devin.cbbees.compat.KFFCreateRegistrate.create(ID)
         .setTooltipModifierFactory { item ->

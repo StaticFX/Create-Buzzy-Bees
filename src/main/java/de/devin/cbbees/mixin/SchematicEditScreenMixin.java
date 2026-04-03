@@ -36,7 +36,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
     @Unique
     private IconButton ccr$constructButton;
 
-    @Inject(method = "init", at = @At("TAIL"))
+    @Inject(method = {"init", "m_7856_"}, at = @At("TAIL"))
     private void ccr$addConstructButtons(CallbackInfo ci) {
         SchematicHandler handler = CreateClient.SCHEMATIC_HANDLER;
         if (!handler.isDeployed()) return;

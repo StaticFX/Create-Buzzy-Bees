@@ -35,7 +35,7 @@ public abstract class SchematicPromptScreenMixin extends AbstractSimiScreen {
     @Unique
     private IconButton ccr$groupButton;
 
-    @Inject(method = "init", at = @At("TAIL"))
+    @Inject(method = {"init", "m_7856_"}, at = @At("TAIL"))
     private void ccr$addGroupButton(CallbackInfo ci) {
         int x = guiLeft;
         int y = guiTop + 2;

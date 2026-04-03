@@ -275,6 +275,14 @@ processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+jar {
+    manifest {
+        attributes([
+            'MixinConfigs': 'cbbees.mixins.json'
+        ])
+    }
+}
+
 idea {
     module {
         downloadSources = true

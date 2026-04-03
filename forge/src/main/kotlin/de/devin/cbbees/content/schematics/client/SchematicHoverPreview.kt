@@ -261,6 +261,11 @@ object SchematicHoverPreview {
 
     /**
      * Builds a SchematicLevel + renderer asynchronously on a background thread.
+     *
+     * Captures the current thread's context classloader and sets it on the
+     * ForkJoinPool worker thread. In production Forge, ForkJoinPool threads
+     * use AppClassLoader which cannot see mod classes (SchematicLevel,
+     * GhostSchematicRenderer) loaded by Forge's TransformingClassLoader.
      */
     private fun startBuildRenderer(index: Int, template: StructureTemplate, mirror: Mirror) {
         if (rendererBuilding[index]) return
@@ -272,8 +277,10 @@ object SchematicHoverPreview {
         }
         val size = schematicSize
         val gen = buildGeneration
+        val contextClassLoader = Thread.currentThread().contextClassLoader
 
         CompletableFuture.runAsync {
+            Thread.currentThread().contextClassLoader = contextClassLoader
             val schematicLevel = SchematicLevel(level)
             val settings = StructurePlaceSettings()
             settings.mirror = mirror

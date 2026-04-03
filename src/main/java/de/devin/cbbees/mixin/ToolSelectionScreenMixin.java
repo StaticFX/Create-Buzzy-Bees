@@ -105,7 +105,7 @@ public abstract class ToolSelectionScreenMixin {
     /*  Closing / equipping                                                */
     /* ------------------------------------------------------------------ */
 
-    @Inject(method = "onClose", at = @At("HEAD"), cancellable = true)
+    @Inject(method = {"onClose", "m_7379_"}, at = @At("HEAD"), cancellable = true)
     private void ccr$handleCustomClose(CallbackInfo ci) {
         // Safety clamp
         if (selection >= ccr$totalSize()) {
