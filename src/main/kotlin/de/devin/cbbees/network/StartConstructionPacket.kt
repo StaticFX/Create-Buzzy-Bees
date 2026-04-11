@@ -2,13 +2,14 @@ package de.devin.cbbees.network
 
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
-import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.core.BlockPos
@@ -56,9 +57,9 @@ class StartConstructionPacket(
             context.enqueueWork {
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
 
-                // Construction can only be started from the Construction Planner
-                val mainHand = player.mainHandItem
-                if (!AllItems.CONSTRUCTION_PLANNER.isIn(mainHand)) {
+                // Find the Construction Planner (main hand first, then inventory for drone view)
+                val mainHand = ConstructionPlannerItem.findPlanner(player)
+                if (mainHand.isEmpty) {
                     player.displayClientMessage(
                         Component.translatable("cbbees.construction.requires_planner"), true
                     )
@@ -108,31 +109,35 @@ class StartConstructionPacket(
                     }
                 }
 
-                val batches = bridge.generateBuildTasks(job)
-                if (batches.isNotEmpty()) {
-                    job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
-                    job.batches.addAll(batches)
+                ConstructionPlannerItem.clearSchematic(schematicStack)
 
-                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
-                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                val server = player.server ?: return@enqueueWork
+                val bounds = mainHand.get(AllDataComponents.SCHEMATIC_BOUNDS)
+                val expectedBlocks = bounds?.let { it.x * it.y * it.z } ?: 0
+                val blocksPerTick = CBBeesConfig.taskGenerationBlocksPerTick.get()
+                val tracker = JobCalculationProgress.newTracker(
+                    jobId, player.uuid, "cbbees.progress.processing_schematic", expectedBlocks, server,
+                )
+                tracker.start()
+
+                bridge.generateBuildTasksAsync(job, server, blocksPerTick, tracker) { batches ->
+                    if (batches.isNotEmpty()) {
+                        job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
+                        job.batches.addAll(batches)
+
+                        ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
+                            ServerBeeNetworkManager.reconnectPortableHive(it)
+                        }
+                        GlobalJobPool.dispatchNewJob(job)
+
+                        tracker.complete("cbbees.construction.started", batches.size)
+                    } else {
+                        tracker.fail()
                     }
-                    GlobalJobPool.dispatchNewJob(job)
-
-                    // Construction Planner is reusable — clear all schematic data
-                    ConstructionPlannerItem.clearSchematic(schematicStack)
-
-                    // Requirement 2: Immediate sync for ghosts
-                    HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-
-                    player.displayClientMessage(
-                        Component.translatable("cbbees.construction.started", batches.size),
-                        true
-                    )
-                } else {
-                    player.displayClientMessage(Component.translatable("cbbees.construction.no_tasks"), true)
                 }
             }
         }
+
     }
 
     override fun type(): CustomPacketPayload.Type<out CustomPacketPayload> = TYPE

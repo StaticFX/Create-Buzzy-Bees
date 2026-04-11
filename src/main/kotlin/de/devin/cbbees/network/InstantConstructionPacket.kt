@@ -2,14 +2,15 @@ package de.devin.cbbees.network
 
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.SchematicPlacement
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
-import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -60,9 +61,9 @@ class InstantConstructionPacket(
         fun handle(payload: InstantConstructionPacket, context: IPayloadContext) {
             context.enqueueWork {
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
-                val mainHand = player.mainHandItem
+                val mainHand = ConstructionPlannerItem.findPlanner(player)
 
-                if (!AllItems.CONSTRUCTION_PLANNER.isIn(mainHand)) {
+                if (mainHand.isEmpty) {
                     player.displayClientMessage(
                         Component.translatable("cbbees.construction.requires_planner"), true
                     )
@@ -118,26 +119,31 @@ class InstantConstructionPacket(
                     )
                 }
 
-                val batches = bridge.generateBuildTasks(job)
-                if (batches.isNotEmpty()) {
-                    job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
-                    job.batches.addAll(batches)
+                val server = player.server ?: return@enqueueWork
+                val bounds = mainHand.get(AllDataComponents.SCHEMATIC_BOUNDS)
+                val expectedBlocks = bounds?.let { it.x * it.y * it.z } ?: 0
+                val blocksPerTick = CBBeesConfig.taskGenerationBlocksPerTick.get()
+                val tracker = JobCalculationProgress.newTracker(
+                    jobId, player.uuid, "cbbees.progress.processing_schematic", expectedBlocks, server,
+                )
+                tracker.start()
 
-                    ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
-                        ServerBeeNetworkManager.reconnectPortableHive(it)
+                ConstructionPlannerItem.clearSchematic(mainHand)
+
+                bridge.generateBuildTasksAsync(job, server, blocksPerTick, tracker) { batches ->
+                    if (batches.isNotEmpty()) {
+                        job.centerPos = bridge.getAnchor() ?: batches[0].targetPosition
+                        job.batches.addAll(batches)
+
+                        ServerBeeNetworkManager.findPortableHive(player.uuid)?.let {
+                            ServerBeeNetworkManager.reconnectPortableHive(it)
+                        }
+                        GlobalJobPool.dispatchNewJob(job)
+
+                        tracker.complete("cbbees.construction.started", batches.size)
+                    } else {
+                        tracker.fail()
                     }
-                    GlobalJobPool.dispatchNewJob(job)
-                    ConstructionPlannerItem.clearSchematic(mainHand)
-                    HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-
-                    player.displayClientMessage(
-                        Component.translatable("cbbees.construction.started", batches.size), true
-                    )
-                } else {
-                    ConstructionPlannerItem.clearSchematic(mainHand)
-                    player.displayClientMessage(
-                        Component.translatable("cbbees.construction.no_tasks"), true
-                    )
                 }
             }
         }

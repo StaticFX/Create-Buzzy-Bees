@@ -1,11 +1,15 @@
 package de.devin.cbbees.content.bee
 
 import com.mojang.serialization.Dynamic
-import de.devin.cbbees.content.bee.brain.MechanicalBumbleBrainProvider
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.client.BeeClientTracker
+import de.devin.cbbees.content.bee.state.StuckCheckData
+import de.devin.cbbees.content.bee.state.TransportBeeState
+import de.devin.cbbees.content.bee.state.TransportBeeStateMachine
+import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.items.AllItems
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
@@ -26,9 +30,11 @@ import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.ai.control.FlyingMoveControl
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.navigation.PathNavigation
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.phys.Vec3
 import software.bernie.geckolib.animatable.GeoEntity
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.animation.AnimatableManager
@@ -87,7 +93,16 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     override val homeId: UUID? get() = entityData.get(BEEHIVE_ID).getOrNull()
     override fun setHomeId(uuid: UUID) { entityData.set(BEEHIVE_ID, Optional.of(uuid)) }
     override fun beeItemStack(): ItemStack = ItemStack(AllItems.MECHANICAL_BUMBLE_BEE.get())
-    override fun taskMemory(): MemoryModuleType<*> = BeeMemoryModules.TRANSPORT_TASK.get()
+
+    // ── State machine fields ──
+    var beeState = TransportBeeState.FLYING_TO_SOURCE
+    var transportTask: TransportTask? = null
+    override var walkTargetPos: BlockPos? = null
+    override var hiveInstance: BeeHive? = null
+    override var hivePos: BlockPos? = null
+    override var returningToOwner: Player? = null
+    override var orphanedTicks: Int = 0
+    override val stuckData = StuckCheckData()
 
     /**
      * Consumes spring tension for an action. BumbleBee uses flat rates (no BeeContext).
@@ -129,9 +144,10 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
 
     override fun customServerAiStep() {
         this.level().profiler.push("mechanicalBumbleBrain")
-        this.getBrain().tick(this.level() as ServerLevel, this)
+        TransportBeeStateMachine.tick(
+            this, this.level() as ServerLevel, (this.level() as ServerLevel).gameTime
+        )
         this.level().profiler.pop()
-        super.customServerAiStep()
     }
 
     override fun getAnimatableInstanceCache(): AnimatableInstanceCache? {
@@ -139,18 +155,16 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     }
 
     override fun brainProvider(): Brain.Provider<*> {
-        return MechanicalBumbleBrainProvider.brain()
+        @Suppress("UNCHECKED_CAST")
+        return Brain.provider(
+            listOf<net.minecraft.world.entity.ai.memory.MemoryModuleType<*>>(),
+            listOf<net.minecraft.world.entity.ai.sensing.SensorType<out net.minecraft.world.entity.ai.sensing.Sensor<in MechanicalBumbleBeeEntity>>>()
+        ) as Brain.Provider<MechanicalBumbleBeeEntity>
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun makeBrain(dynamic: Dynamic<*>): Brain<MechanicalBumbleBeeEntity> {
-        val brain = this.brainProvider().makeBrain(dynamic)
-        return MechanicalBumbleBrainProvider.makeBrain(brain as Brain<MechanicalBumbleBeeEntity>)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun getBrain(): Brain<MechanicalBumbleBeeEntity> {
-        return super.getBrain() as Brain<MechanicalBumbleBeeEntity>
+        return this.brainProvider().makeBrain(dynamic) as Brain<MechanicalBumbleBeeEntity>
     }
 
     override fun defineSynchedData(builder: SynchedEntityData.Builder) {
@@ -163,7 +177,7 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     override fun createNavigation(level: Level): PathNavigation =
         MechanicalBeelike.createFlyingNavigation(this, level)
 
-    override fun travel(travelVector: net.minecraft.world.phys.Vec3) =
+    override fun travel(travelVector: Vec3) =
         MechanicalBeelike.travelFlying(this, travelVector)
 
     override fun remove(reason: RemovalReason) {
@@ -174,28 +188,52 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
         super.remove(reason)
     }
 
-    override fun tick() {
-        super.tick()
-        if (level().isClientSide) return
-        syncTargetPos()
-        if (rechargeFinishTick < 0) {
-            BeeSeparation.applyFlightOffset(this)
+    override fun onAddedToLevel() {
+        super.onAddedToLevel()
+        if (level().isClientSide) {
+            BeeClientTracker.onBeeAdded(this)
         }
     }
 
+    override fun onRemovedFromLevel() {
+        super.onRemovedFromLevel()
+        if (level().isClientSide) {
+            BeeClientTracker.onBeeRemoved(this)
+        }
+    }
+
+    override fun tick() {
+        super.tick()
+        if (level().isClientSide) return
+        // Legacy entity bee from old save — drop as item and discard
+        val beeItem = beeItemStack()
+        level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
+        // Drop inventory items
+        for (i in 0 until inventory.containerSize) {
+            val stack = inventory.getItem(i)
+            if (!stack.isEmpty) {
+                level().addFreshEntity(ItemEntity(level(), x, y, z, stack.copy()))
+                inventory.setItem(i, ItemStack.EMPTY)
+            }
+        }
+        discard()
+    }
+
+    private var lastSyncedTargetPos: BlockPos? = null
+
     private fun syncTargetPos() {
-        val brain = getBrain()
-        val walkTarget = brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null)
-        if (walkTarget != null) {
-            entityData.set(TARGET_POS, Optional.of(walkTarget.target.currentBlockPosition()))
-        } else {
-            entityData.set(TARGET_POS, Optional.empty())
+        val newPos: BlockPos? = walkTargetPos
+
+        if (newPos != lastSyncedTargetPos) {
+            lastSyncedTargetPos = newPos
+            entityData.set(TARGET_POS, if (newPos != null) Optional.of(newPos) else Optional.empty())
         }
     }
 
     override fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
     // Fly through water — no swimming, no water drag
+    override fun isNoGravity(): Boolean = true
     override fun isInWater(): Boolean = false
 
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
@@ -203,9 +241,9 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
 
     override fun push(entity: Entity) { /* no-op */ }
     override fun doPush(entity: Entity) { /* no-op */ }
-
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
+    override fun pushEntities() { /* no-op — skip expensive nearby entity scan */ }
 
     override fun addAdditionalSaveData(compound: CompoundTag) {
         super.addAdditionalSaveData(compound)

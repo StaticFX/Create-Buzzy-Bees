@@ -8,6 +8,7 @@ import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlock
+import de.devin.cbbees.content.deployer.SchematicDeployerBlock
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
 import net.minecraft.data.recipes.RecipeCategory
@@ -47,6 +48,28 @@ object AllBlocks {
                 .pattern("W")
                 .pattern("V")
                 .pattern("B")
+                .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .model { _, _ -> } // Hand-written item model in resources
+        .build()
+        .register()
+
+    val SCHEMATIC_DEPLOYER: BlockEntry<SchematicDeployerBlock> = CreateBuzzyBeez.REGISTRATE
+        .block("schematic_deployer") { SchematicDeployerBlock(it) }
+        .initialProperties { Blocks.IRON_BLOCK }
+        .properties { p -> p.noOcclusion() }
+        .blockstate { _, _ -> } // Hand-written blockstate in resources
+        .item()
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('C', CreateAllBlocks.BRASS_CASING.get())
+                .define('R', net.minecraft.world.item.Items.REDSTONE)
+                .pattern("BEB")
+                .pattern("RCR")
+                .pattern("BBB")
                 .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }

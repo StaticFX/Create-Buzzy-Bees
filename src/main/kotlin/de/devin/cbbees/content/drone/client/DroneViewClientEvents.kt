@@ -27,6 +27,12 @@ object DroneViewClientEvents {
 
     private var lastDroneBlockPos: BlockPos? = null
 
+    /** Tracks which WASD keys were down last tick, for nudge mode edge detection. */
+    private var prevUp = false
+    private var prevDown = false
+    private var prevLeft = false
+    private var prevRight = false
+
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
@@ -74,15 +80,42 @@ object DroneViewClientEvents {
         val mc = Minecraft.getInstance()
         val opts = mc.options
 
+        val up = opts.keyUp.isDown
+        val down = opts.keyDown.isDown
+        val left = opts.keyLeft.isDown
+        val right = opts.keyRight.isDown
+
+        val shiftHeld = GLFW.glfwGetKey(mc.window.window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(mc.window.window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS
+
+        if (shiftHeld) {
+            // Nudge mode: move exactly 1 block per key press
+            var dx = 0f
+            var dz = 0f
+            if (up && !prevUp) dz -= 1f
+            if (down && !prevDown) dz += 1f
+            if (left && !prevLeft) dx -= 1f
+            if (right && !prevRight) dx += 1f
+
+            prevUp = up; prevDown = down; prevLeft = left; prevRight = right
+
+            if (dx != 0f || dz != 0f) {
+                PacketDistributor.sendToServer(MoveDronePacket(dx, dz))
+            }
+            return
+        }
+
+        prevUp = up; prevDown = down; prevLeft = left; prevRight = right
+
         var dx = 0f
         var dz = 0f
 
         // Fixed orientation: yaw=180 means north (-Z) is "up" on screen
         // W = north (-Z), S = south (+Z), A = west (-X), D = east (+X)
-        if (opts.keyUp.isDown) dz -= 1f
-        if (opts.keyDown.isDown) dz += 1f
-        if (opts.keyLeft.isDown) dx -= 1f
-        if (opts.keyRight.isDown) dx += 1f
+        if (up) dz -= 1f
+        if (down) dz += 1f
+        if (left) dx -= 1f
+        if (right) dx += 1f
 
         if (dx == 0f && dz == 0f) return
 
@@ -141,7 +174,10 @@ object DroneViewClientEvents {
             handler.onMouseInput(GLFW.GLFW_MOUSE_BUTTON_RIGHT, true)
         } else if (!ConstructionPlannerItem.hasSchematic(planner)) {
             // Browsing state: enter group or select schematic
-            if (player.isShiftKeyDown) {
+            // Use raw GLFW check because onMovementInput clears shiftKeyDown during drone view
+            val shiftHeld = GLFW.glfwGetKey(mc.window.window, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS
+                    || GLFW.glfwGetKey(mc.window.window, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS
+            if (shiftHeld) {
                 ConstructionPlannerHandler.instantConstruct()
             } else {
                 ConstructionPlannerHandler.confirmSelection()
@@ -200,5 +236,6 @@ object DroneViewClientEvents {
     fun onLogout(event: ClientPlayerNetworkEvent.LoggingOut) {
         DroneViewClientState.reset()
         lastDroneBlockPos = null
+        prevUp = false; prevDown = false; prevLeft = false; prevRight = false
     }
 }

@@ -49,7 +49,7 @@ import kotlin.math.roundToInt
 data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
 
 /**
- * Constructor Backpack - A wearable equipment item that manages constructor robots and their upgrades.
+ * Constructor Backpack - A wearable equipment item that manages construction bees and their upgrades.
  *
  * This item can be worn in the Curios "back" slot. When opened, it provides a GUI with:
  * - 4 Slots for bee items (MechanicalBeeItem or MechanicalBumbleBeeItem).
@@ -267,10 +267,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
 
-        // Count robots and upgrades in the backpack
         val robotCount = getRobotCount(stack)
-        val upgrades = getUpgrades(stack)
-
         tooltipComponents.add(
             Component.translatable("tooltip.cbbees.beehive.bees", robotCount, ROBOT_SLOTS)
                 .withStyle(ChatFormatting.GRAY)
@@ -282,26 +279,6 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
             Component.translatable("tooltip.cbbees.beehive.honey", honey, maxHoney)
                 .withStyle(ChatFormatting.GOLD)
         )
-
-        if (upgrades.isNotEmpty()) {
-            tooltipComponents.add(
-                Component.translatable("tooltip.cbbees.beehive.naturified_header")
-                    .withStyle(ChatFormatting.GOLD)
-            )
-            for ((type, count) in upgrades) {
-                tooltipComponents.add(
-                    Component.literal(" - ")
-                        .append(Component.translatable(type.descriptionKey))
-                        .append(Component.literal(" x$count"))
-                        .withStyle(ChatFormatting.BLUE)
-                )
-            }
-        } else {
-            tooltipComponents.add(
-                Component.translatable("tooltip.cbbees.beehive.no_naturified")
-                    .withStyle(ChatFormatting.DARK_GRAY)
-            )
-        }
     }
 
     private fun isBeeItem(item: net.minecraft.world.item.Item): Boolean {

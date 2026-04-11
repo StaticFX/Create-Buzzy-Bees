@@ -105,7 +105,7 @@ interface BeeHive : INetworkComponent {
      * Marks the given task as completed by the given bee.
      * @return optionally next task batch to be processed, or null if all tasks are completed.
      */
-    fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch?
+    fun notifyTaskCompleted(task: BeeTask, beeId: java.util.UUID): TaskBatch?
 
     /**
      * Called when a bee arrives at the hive to recharge its spring.

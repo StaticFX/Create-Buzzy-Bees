@@ -7,7 +7,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
 
 /**
- * Constructor Robot Item - Represents a robot that can be stored in the Constructor Backpack.
+ * Constructor Bee Item - Represents a bee that can be stored in the Constructor Backpack.
  *
  * Features:
  * - Stackable up to 64
@@ -18,7 +18,7 @@ import net.minecraft.world.item.TooltipFlag
 class MechanicalBeeItem(properties: Properties) : Item(properties) {
 
     companion object {
-        /** Maximum stack size for robots */
+        /** Maximum stack size for bees */
         const val MAX_STACK_SIZE = 64
     }
 

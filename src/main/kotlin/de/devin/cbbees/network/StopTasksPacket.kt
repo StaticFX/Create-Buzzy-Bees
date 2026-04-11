@@ -9,7 +9,7 @@ import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**
- * Packet sent from client to server to stop all ongoing robot tasks for the player.
+ * Packet sent from client to server to stop all ongoing bee tasks for the player.
  * Used when the player wants to cancel construction or deconstruction.
  */
 class StopTasksPacket private constructor() : CustomPacketPayload {

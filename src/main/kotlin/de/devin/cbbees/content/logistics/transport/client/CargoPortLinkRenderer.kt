@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.logistics.transport.client
 
+import com.simibubi.create.AllItems
 import com.simibubi.create.content.equipment.goggles.GogglesItem
 import de.devin.cbbees.content.logistics.transport.TransportPortBlockEntity
 import de.devin.cbbees.util.ClientSide
@@ -27,6 +28,10 @@ object CargoPortLinkRenderer {
         if (mc.screen != null) return
 
         if (!GogglesItem.isWearingGoggles(player)) return
+
+        // Only show frequency links while holding a wrench
+        val holdingWrench = AllItems.WRENCH.isIn(player.mainHandItem) || AllItems.WRENCH.isIn(player.offhandItem)
+        if (!holdingWrench) return
 
         val target = mc.hitResult
         if (target !is BlockHitResult) return

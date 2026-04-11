@@ -415,11 +415,7 @@ object ConstructionPlannerHandler {
                 InstantConstructionPacket(filename, anchor, rotation, mirror)
             )
 
-            player.displayClientMessage(
-                Component.translatable("cbbees.construction.started_instant", filename.removeSuffix(".nbt"))
-                    .withStyle { it.withColor(0x00FF00) },
-                true
-            )
+            // Feedback handled server-side via TaskProgressReporter
         }
 
         val owner = player.gameProfile.name
@@ -441,11 +437,6 @@ object ConstructionPlannerHandler {
     /** Returns the currently selected entry, if any. */
     fun getSelectedEntry(): HudEntry? = currentItems.getOrNull(selectedIndex)
 
-    private fun isAltDown(): Boolean {
-        return Minecraft.getInstance().window.let { window ->
-            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
-                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
-        }
-    }
+    private fun isAltDown(): Boolean = de.devin.cbbees.registry.AllKeys.SCHEMATIC_MODIFIER.isDown
 
 }

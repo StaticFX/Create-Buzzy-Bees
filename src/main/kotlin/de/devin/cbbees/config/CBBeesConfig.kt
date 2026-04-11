@@ -9,17 +9,17 @@ object CBBeesConfig {
     val enableExternalBrowser: ModConfigSpec.BooleanValue
 
     val maxBeesPerHive: ModConfigSpec.IntValue
-    val minActiveRobotsAtRpm: ModConfigSpec.IntValue
+    val minActiveBeesAtRpm: ModConfigSpec.IntValue
     val beePickupItems: ModConfigSpec.BooleanValue
 
     // Beehive RPM scaling
     val hiveBaseRange: ModConfigSpec.IntValue
     val hiveRangePerRpm: ModConfigSpec.DoubleValue
     val hiveRpmSpeedDivisor: ModConfigSpec.DoubleValue
-    val hiveRpmRobotDivisor: ModConfigSpec.DoubleValue
+    val hiveRpmBeeDivisor: ModConfigSpec.DoubleValue
 
     // Bee defaults
-    val defaultMaxActiveRobots: ModConfigSpec.IntValue
+    val defaultMaxActiveBees: ModConfigSpec.IntValue
     val defaultWorkRange: ModConfigSpec.DoubleValue
 
     // Upgrade values
@@ -43,6 +43,11 @@ object CBBeesConfig {
     val springDrainPickup: ModConfigSpec.DoubleValue
     val springDrainDeposit: ModConfigSpec.DoubleValue
     val springRechargeTicks: ModConfigSpec.IntValue
+
+    // Performance settings
+    val maxBlockOperationsPerTick: ModConfigSpec.IntValue
+    val taskGenerationBlocksPerTick: ModConfigSpec.IntValue
+    val maxCheckpointsPerTick: ModConfigSpec.IntValue
 
     // Honey fuel settings
     val portableHoneyPerRewind: ModConfigSpec.IntValue
@@ -70,9 +75,9 @@ object CBBeesConfig {
             .comment("Maximum number of active bees per hive")
             .defineInRange("maxBeesPerHive", 16, 1, 64)
 
-        minActiveRobotsAtRpm = builder
+        minActiveBeesAtRpm = builder
             .comment("Minimum active bees when the hive has any RPM, so even slow shafts deploy at least this many bees")
-            .defineInRange("minActiveRobotsAtRpm", 1, 0, 64)
+            .defineInRange("minActiveBeesAtRpm", 1, 0, 64)
 
         hiveBaseRange = builder
             .comment("Base work range of a beehive before RPM scaling (at minimum RPM)")
@@ -86,9 +91,9 @@ object CBBeesConfig {
             .comment("RPM divisor for bee speed and spring efficiency: multiplier = 1 + RPM / this value")
             .defineInRange("hiveRpmSpeedDivisor", 256.0, 1.0, 1024.0)
 
-        hiveRpmRobotDivisor = builder
+        hiveRpmBeeDivisor = builder
             .comment("RPM divisor for workforce scaling: extra bees = RPM / this value")
-            .defineInRange("hiveRpmRobotDivisor", 8.0, 1.0, 256.0)
+            .defineInRange("hiveRpmBeeDivisor", 8.0, 1.0, 256.0)
 
         builder.pop()
 
@@ -99,9 +104,9 @@ object CBBeesConfig {
             .comment("Whether bees pick up item drops when breaking blocks")
             .define("beePickupItems", true)
 
-        defaultMaxActiveRobots = builder
+        defaultMaxActiveBees = builder
             .comment("Default max active robots before RPM/upgrade scaling")
-            .defineInRange("defaultMaxActiveRobots", 4, 1, 64)
+            .defineInRange("defaultMaxActiveBees", 4, 1, 64)
 
         defaultWorkRange = builder
             .comment("Default work range for BeeContext before hive overrides")
@@ -210,6 +215,23 @@ object CBBeesConfig {
         honeyBlockFuelValue = builder
             .comment("Honey fuel value per honey block")
             .defineInRange("honeyBlockFuelValue", 400, 1, 10000)
+
+        builder.pop()
+
+        builder.comment("Performance Tuning")
+            .push("performance")
+
+        maxBlockOperationsPerTick = builder
+            .comment("Maximum number of block place/break operations all bees can perform per server tick. Lower values reduce TPS impact with many bees.")
+            .defineInRange("maxBlockOperationsPerTick", 20, 1, 200)
+
+        taskGenerationBlocksPerTick = builder
+            .comment("Maximum schematic blocks scanned per server tick when generating build/removal tasks. Lower values reduce server hitches on large schematics; higher values finish calculation faster.")
+            .defineInRange("taskGenerationBlocksPerTick", 500, 50, 10000)
+
+        maxCheckpointsPerTick = builder
+            .comment("Maximum bee checkpoint actions (block place/break arrivals) processed per server tick. Higher values let more bees work simultaneously but increase per-tick server load.")
+            .defineInRange("maxCheckpointsPerTick", 30, 1, 500)
 
         builder.pop()
 

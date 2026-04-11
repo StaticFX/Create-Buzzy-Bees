@@ -47,16 +47,17 @@ public abstract class ToolSelectionScreenMixin {
     @Shadow protected Consumer<ToolType> callback;
     @Shadow private float yOffset;
 
-    /** Number of extra tool slots we add (Construct + Unselect). */
-    @Unique private static final int CCR$EXTRA_TOOLS = 2;
+    /** Number of extra tool slots we add (Construct + Unselect + Program). */
+    @Unique private static final int CCR$EXTRA_TOOLS = 3;
 
-    @Unique private static final String[] CCR$NAMES = { "gui.cbbees.tool.construct", "gui.cbbees.tool.unselect" };
-    @Unique private static final String[] CCR$DESCS = { "gui.cbbees.tool.construct.desc", "gui.cbbees.tool.unselect.desc" };
-    @Unique private static final AllIcons[] CCR$ICONS = { AllIcons.I_PLAY, AllIcons.I_TRASH };
-    @Unique private static final int[] CCR$NAME_COLORS = { 0x88FF88, 0xFFAA88 };
+    @Unique private static final String[] CCR$NAMES = { "gui.cbbees.tool.construct", "gui.cbbees.tool.unselect", "gui.cbbees.tool.program" };
+    @Unique private static final String[] CCR$DESCS = { "gui.cbbees.tool.construct.desc", "gui.cbbees.tool.unselect.desc", "gui.cbbees.tool.program.desc" };
+    @Unique private static final AllIcons[] CCR$ICONS = { AllIcons.I_PLAY, AllIcons.I_TRASH, AllIcons.I_CONFIRM };
+    @Unique private static final int[] CCR$NAME_COLORS = { 0x88FF88, 0xFFAA88, 0x88CCFF };
     @Unique private static final ConstructionToolState.CustomTool[] CCR$TOOL_ENUM = {
         ConstructionToolState.CustomTool.CONSTRUCT,
-        ConstructionToolState.CustomTool.UNSELECT
+        ConstructionToolState.CustomTool.UNSELECT,
+        ConstructionToolState.CustomTool.PROGRAM
     };
 
     /* ------------------------------------------------------------------ */

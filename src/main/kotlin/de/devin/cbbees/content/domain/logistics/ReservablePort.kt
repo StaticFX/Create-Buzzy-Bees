@@ -39,6 +39,18 @@ interface ReservablePort : INetworkComponent {
     fun addItemStack(stack: ItemStack): ItemStack
 
     /**
+     * Checks whether the attached inventory has any free space at all.
+     */
+    fun hasInventorySpace(): Boolean {
+        val handler = getItemHandler(world) ?: return false
+        for (i in 0 until handler.slots) {
+            val slotStack = handler.getStackInSlot(i)
+            if (slotStack.isEmpty || slotStack.count < slotStack.maxStackSize) return true
+        }
+        return false
+    }
+
+    /**
      * Reserves [items] at this port for the given bee. One reservation per bee;
      * calling again replaces the previous reservation.
      */

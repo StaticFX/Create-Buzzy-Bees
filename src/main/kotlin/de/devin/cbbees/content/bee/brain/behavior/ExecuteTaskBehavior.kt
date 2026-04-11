@@ -21,7 +21,28 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
     1
 ) {
 
+    companion object {
+        /** Global throttle: limits block operations across ALL bees per tick to prevent TPS drops. */
+        private var operationsThisTick = 0
+        private var lastThrottleTick = -1L
+
+        fun canExecuteAction(gameTime: Long): Boolean {
+            if (gameTime != lastThrottleTick) {
+                lastThrottleTick = gameTime
+                operationsThisTick = 0
+            }
+            return operationsThisTick < de.devin.cbbees.config.CBBeesConfig.maxBlockOperationsPerTick.get()
+        }
+
+        fun recordAction() {
+            operationsThisTick++
+        }
+    }
+
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
+        // Global throttle: too many block ops this tick → wait
+        if (!canExecuteAction(level.gameTime)) return false
+
         val isDropOff = owner.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
             ?.getCurrentTask()?.action is DropOffItemsAction
 
@@ -83,6 +104,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 
         BeeDebug.log(owner, "Executing: ${task.action.getDescription()}")
 
+        recordAction()
         val done = task.action.execute(level, owner, owner.getBeeContext())
 
         if (done) {
@@ -95,7 +117,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
 
             task.complete()
             if (!batch.advance()) {
-                val nextBatch = hive.notifyTaskCompleted(task, owner)
+                val nextBatch = hive.notifyTaskCompleted(task, owner.uuid)
 
                 if (nextBatch != null) {
                     BeeDebug.log(owner, "Batch done — received next batch")
@@ -112,7 +134,7 @@ class ExecuteTaskBehavior : Behavior<MechanicalBeeEntity>(
                     BeeDebug.log(owner, "Skipping drop-off (inventory empty)")
                     nextTask.complete()
                     if (!batch.advance()) {
-                        val nextBatch = hive.notifyTaskCompleted(nextTask, owner)
+                        val nextBatch = hive.notifyTaskCompleted(nextTask, owner.uuid)
                         if (nextBatch != null) {
                             owner.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), nextBatch)
                         } else {

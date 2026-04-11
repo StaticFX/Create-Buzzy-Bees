@@ -1,10 +1,13 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.content.bee.debug.BeeDebug
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.TransportDispatcher
+import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.drone.DroneViewManager
+import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent
@@ -21,32 +24,49 @@ object CCRServerEvents {
 
     private var tickCounter = 0
     private var syncCounter = 0
+    private var beeSyncCounter = 0
 
-    /**
-     * Called every server tick.
-     */
     @SubscribeEvent
     @JvmStatic
     fun onServerTick(event: ServerTickEvent.Post) {
-        tickCounter++
+        val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
+        val overworld = server.overworld()
+        val gameTime = overworld.gameTime
 
-        // Core logic every 10 ticks (0.5 seconds)
+        val profiler = overworld.profiler
+
+        // Drain deferred callbacks (e.g. async task generation chunks) — exactly one
+        // batch per tick. Anything scheduled inside a callback runs next tick.
+        ServerTickScheduler.runScheduled()
+
+        // ── Tick non-entity bees EVERY tick ──
+        profiler.push("beeManager")
+        ServerBeeManager.init(overworld)
+        ServerBeeManager.tickAll(overworld, gameTime)
+        profiler.pop()
+
+        JobCalculationProgress.tickEvictions(server.tickCount)
+
+        // No per-tick sync needed — bees use checkpoint-based flight plans
+
+        // ── Core logic every 10 ticks (0.5 seconds) ──
+        tickCounter++
         if (tickCounter < 10) return
         tickCounter = 0
 
-        val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: return
-        val gameTime = server.overworld().gameTime
+        ServerBeeNetworkManager.getNetworks().forEach { it.purgeStaleComponents(gameTime) }
+        ServerBeeNetworkManager.rebuildIndexes()
 
         GlobalJobPool.tick(gameTime)
         TransportDispatcher.tick(gameTime)
         ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
         DroneViewManager.validateDrones()
 
-        // Sync packets every 40 ticks (2 seconds) to reduce network and serialization overhead
+        // Sync packets every 40 ticks (2 seconds)
         syncCounter++
         if (syncCounter >= 4) {
             syncCounter = 0
-            for (player in server.playerList.players) {
+            server.playerList.players.forEach { player ->
                 HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                 NetworkSyncPacket.sendTo(player)
             }
@@ -83,8 +103,10 @@ object CCRServerEvents {
         ServerBeeNetworkManager.clear()
         GlobalJobPool.clear()
         TransportDispatcher.clear()
+        ServerBeeManager.clear()
         BeeDebug.clear()
         PlannerUploadPacket.shutdown()
         DroneViewManager.clear()
+        ServerTickScheduler.clear()
     }
 }

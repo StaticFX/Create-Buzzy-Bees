@@ -9,8 +9,10 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
+import de.devin.cbbees.content.deployer.ProgrammedSchematicItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
+import de.devin.cbbees.content.schematics.PickupPlannerItem
 import de.devin.cbbees.content.upgrades.*
 import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
 import net.minecraft.data.recipes.RecipeCategory
@@ -43,7 +45,7 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Mechanical Bee - goes in beehive/backpack robot slots (stackable, consumed on deploy)
+    // Mechanical Bee - goes in beehive/backpack bee slots (stackable, consumed on deploy)
     val MECHANICAL_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee") { props ->
             MechanicalBeeItem(props)
@@ -88,6 +90,13 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
+    // Pickup Planner - select areas for item collection by bumble bees
+    val PICKUP_PLANNER: ItemEntry<PickupPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("pickup_planner") { props -> PickupPlannerItem(props) }
+        .model { _, _ -> }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
     val DECONSTRUCTION_PLANNER: ItemEntry<DeconstructionPlannerItem> = CreateBuzzyBeez.REGISTRATE
         .item("deconstruction_planner") { props ->
@@ -107,6 +116,15 @@ object AllItems {
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Programmed Schematic - stores a schematic program for automated deployment
+    val PROGRAMMED_SCHEMATIC: ItemEntry<ProgrammedSchematicItem> = CreateBuzzyBeez.REGISTRATE
+        .item("programmed_schematic") { props ->
+            ProgrammedSchematicItem(props)
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
     // ===== Backpack Upgrades =====

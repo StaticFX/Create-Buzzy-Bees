@@ -3,6 +3,8 @@ package de.devin.cbbees.content.schematics.client
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.content.deployer.SchematicProgram
+import de.devin.cbbees.network.ProgramSchematicPacket
 import de.devin.cbbees.network.StartDeconstructionPacket
 import de.devin.cbbees.network.StopTasksPacket
 import de.devin.cbbees.registry.AllKeys
@@ -245,6 +247,21 @@ object DeconstructionHandler {
 
         if (AllKeys.STOP_ACTION.matches(key, 0)) {
             PacketDistributor.sendToServer(StopTasksPacket.INSTANCE)
+            return true
+        }
+
+        if (AllKeys.PROGRAM_ACTION.matches(key, 0) && DeconstructionSelection.isComplete()) {
+            val first = DeconstructionSelection.firstPos!!
+            val second = DeconstructionSelection.secondPos!!
+
+            val program = SchematicProgram.Deconstruction(first, second)
+            PacketDistributor.sendToServer(ProgramSchematicPacket(program))
+
+            Minecraft.getInstance().player?.displayClientMessage(
+                Component.translatable("cbbees.schematic.programmed")
+                    .withStyle { it.withColor(0x88CCFF) },
+                true
+            )
             return true
         }
 

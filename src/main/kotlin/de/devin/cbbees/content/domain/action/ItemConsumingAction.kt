@@ -1,26 +1,24 @@
 package de.devin.cbbees.content.domain.action
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeWorker
 import net.minecraft.world.item.ItemStack
 
 /**
- * Interface for actions that require items to be consumed from the bee's inventory.
- * Implemented by actions like placing blocks, belts, or fertilizing crops.
+ * Actions that consume items from the bee's inventory (placing blocks, belts, etc.).
  */
 interface ItemConsumingAction {
     val requiredItems: List<ItemStack>
 
-    fun hasItems(bee: MechanicalBeeEntity): Boolean {
-        return requiredItems.all { req ->
-            bee.countInInventory(req) >= req.count
+    fun hasItems(worker: BeeWorker): Boolean =
+        requiredItems.all { req ->
+            worker.getInventoryContents()
+                .filter { ItemStack.isSameItemSameComponents(it, req) }
+                .sumOf { it.count } >= req.count
         }
-    }
 
-    fun consumeItems(bee: MechanicalBeeEntity): Boolean {
-        if (!hasItems(bee)) return false
-        for (req in requiredItems) {
-            bee.removeFromInventory(req, req.count)
-        }
+    fun consumeItems(worker: BeeWorker): Boolean {
+        if (!hasItems(worker)) return false
+        requiredItems.forEach { req -> worker.removeFromInventory(req, req.count) }
         return true
     }
 }

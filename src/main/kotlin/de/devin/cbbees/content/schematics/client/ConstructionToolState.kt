@@ -12,7 +12,7 @@ import net.neoforged.api.distmarker.OnlyIn
  */
 @OnlyIn(Dist.CLIENT)
 object ConstructionToolState {
-    enum class CustomTool { NONE, CONSTRUCT, UNSELECT }
+    enum class CustomTool { NONE, CONSTRUCT, UNSELECT, PROGRAM }
 
     @JvmStatic
     var activeTool = CustomTool.NONE

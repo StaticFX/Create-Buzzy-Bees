@@ -3,7 +3,7 @@ package de.devin.cbbees.content.schematics
 import net.minecraft.world.item.Item
 
 /**
- * Deconstruction Planner - Tool for selecting areas to be dismantled by constructor robots.
+ * Deconstruction Planner - Tool for selecting areas to be dismantled by construction bees.
  *
  * This item works similarly to Create's Schematic and Quill:
  * 1. Hold the item in your main hand

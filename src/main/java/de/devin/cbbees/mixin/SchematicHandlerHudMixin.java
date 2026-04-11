@@ -6,6 +6,8 @@ import de.devin.cbbees.content.drone.client.DroneViewClientState;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
+import de.devin.cbbees.content.deployer.SchematicProgram;
+import de.devin.cbbees.network.ProgramSchematicPacket;
 import de.devin.cbbees.network.StartConstructionPacket;
 import de.devin.cbbees.network.StopTasksPacket;
 import de.devin.cbbees.network.UnselectSchematicPacket;
@@ -101,6 +103,27 @@ public abstract class SchematicHandlerHudMixin {
             mc.player.displayClientMessage(
                 Component.translatable("gui.cbbees.tool.unselect.done")
                     .withStyle(style -> style.withColor(0xFFAA88)),
+                true
+            );
+            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            cir.setReturnValue(true);
+        } else if (tool == ConstructionToolState.CustomTool.PROGRAM) {
+            // Read placement data and send a ProgramSchematicPacket
+            String schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE);
+            String owner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER);
+            if (schematicFile == null || owner == null) return;
+
+            BlockPos anchor = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
+            Rotation rotation = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
+            Mirror mirror = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+
+            SchematicProgram program = new SchematicProgram.Construction(
+                schematicFile, anchor, rotation, mirror, owner
+            );
+            PacketDistributor.sendToServer(new ProgramSchematicPacket(program));
+            mc.player.displayClientMessage(
+                Component.translatable("cbbees.schematic.programmed")
+                    .withStyle(style -> style.withColor(0x88CCFF)),
                 true
             );
             ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);

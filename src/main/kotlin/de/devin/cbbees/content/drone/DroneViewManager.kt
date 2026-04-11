@@ -30,25 +30,15 @@ object DroneViewManager {
     }
 
     private fun activateDrone(player: ServerPlayer) {
-        val backpack = findBackpack(player)
-        if (backpack == null) {
-            player.displayClientMessage(Component.translatable("cbbees.drone_view.no_backpack"), true)
-            return
-        }
+        val backpack = findBackpack(player) ?: return
 
         val beehiveItem = backpack.item as PortableBeehiveItem
 
         // Check upgrade
-        if (beehiveItem.getUpgradeCount(backpack, UpgradeType.DRONE_VIEW) <= 0) {
-            player.displayClientMessage(Component.translatable("cbbees.drone_view.no_upgrade"), true)
-            return
-        }
+        if (beehiveItem.getUpgradeCount(backpack, UpgradeType.DRONE_VIEW) <= 0) return
 
         // Check bees
-        if (beehiveItem.getTotalRobotCount(backpack) <= 0) {
-            player.displayClientMessage(Component.translatable("cbbees.drone_view.no_bees"), true)
-            return
-        }
+        if (beehiveItem.getTotalRobotCount(backpack) <= 0) return
 
         // Consume bee
         beehiveItem.consumeBee(backpack)

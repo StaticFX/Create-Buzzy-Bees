@@ -2,11 +2,16 @@ package de.devin.cbbees.content.bee
 
 import com.mojang.serialization.Dynamic
 import com.simibubi.create.AllItems
-import de.devin.cbbees.content.bee.brain.BeeBrainProvider
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.client.BeeClientTracker
+import de.devin.cbbees.content.bee.server.BeeWorker
+import de.devin.cbbees.content.bee.state.ConstructionBeeState
+import de.devin.cbbees.content.bee.state.ConstructionBeeStateMachine
+import de.devin.cbbees.content.bee.state.StuckCheckData
+import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import de.devin.cbbees.content.domain.network.BeeNetwork
+import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.items.AllItems as CBeesItems
@@ -58,7 +63,7 @@ import kotlin.jvm.optionals.getOrNull
  * 6. Returning to the hive when all tasks are done.
  */
 class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Level) : PathfinderMob(entityType, level),
-    GeoEntity, MechanicalBeelike {
+    GeoEntity, MechanicalBeelike, BeeWorker {
 
     companion object {
         private val OWNER_UUID: EntityDataAccessor<Optional<UUID>> =
@@ -87,12 +92,20 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
     private val geoCache = GeckoLibUtil.createInstanceCache(this)
 
-    /** Calculated stats for this robot based on backpack upgrades */
+    /** Calculated stats for this bee based on backpack upgrades */
     private var beeContext: BeeContext? = null
 
     /** Inventory for carrying items needed by tasks. 4 slots covers composite blocks (e.g. bracket = girder + shaft). */
     override var inventory = SimpleContainer(4)
         private set
+
+    /** BeeWorker identity — delegates to Entity.getUUID(). */
+    override val uuid: UUID get() = getUUID()
+
+    // BeeWorker positional accessors — delegate to Entity getters
+    override fun getWorkerX(): Double = getX()
+    override fun getWorkerY(): Double = getY()
+    override fun getWorkerZ(): Double = getZ()
 
     override var networkId: UUID = UUID.randomUUID()
 
@@ -122,8 +135,17 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     override val homeId: UUID? get() = entityData.get(BEEHIVE_ID).getOrNull()
     override fun setHomeId(uuid: UUID) { entityData.set(BEEHIVE_ID, Optional.of(uuid)) }
     override fun beeItemStack(): ItemStack = ItemStack(CBeesItems.MECHANICAL_BEE.get())
-    override fun taskMemory(): MemoryModuleType<*> = BeeMemoryModules.CURRENT_TASK.get()
     override fun getBeeContextForRecharge(): BeeContext = getBeeContext()
+
+    // ── State machine fields (replaces Brain memories) ──
+    var beeState = ConstructionBeeState.GATHERING
+    var currentTask: TaskBatch? = null
+    override var walkTargetPos: BlockPos? = null
+    override var hiveInstance: BeeHive? = null
+    override var hivePos: BlockPos? = null
+    override var returningToOwner: Player? = null
+    override var orphanedTicks: Int = 0
+    override val stuckData = StuckCheckData()
 
     /**
      * Consumes spring tension for an action. Applies efficiency modifiers from [beeContext].
@@ -186,10 +208,10 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         if (isDrone) return
 
         this.level().profiler.push("beeBrain")
-        this.getBrain().tick(this.level() as ServerLevel, this)
+        ConstructionBeeStateMachine.tick(
+            this, this.level() as ServerLevel, (this.level() as ServerLevel).gameTime
+        )
         this.level().profiler.pop()
-
-        super.customServerAiStep()
     }
 
     override fun getAnimatableInstanceCache(): AnimatableInstanceCache? {
@@ -197,18 +219,18 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     }
 
     override fun brainProvider(): Brain.Provider<*> {
-        return BeeBrainProvider.brain()
+        // Empty brain — all AI logic handled by ConstructionBeeStateMachine
+        @Suppress("UNCHECKED_CAST")
+        return Brain.provider(
+            listOf<net.minecraft.world.entity.ai.memory.MemoryModuleType<*>>(),
+            listOf<net.minecraft.world.entity.ai.sensing.SensorType<out net.minecraft.world.entity.ai.sensing.Sensor<in MechanicalBeeEntity>>>()
+        ) as Brain.Provider<MechanicalBeeEntity>
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun makeBrain(dynamic: Dynamic<*>): Brain<MechanicalBeeEntity> {
-        val brain = this.brainProvider().makeBrain(dynamic)
-        return BeeBrainProvider.makeBrain(brain as Brain<MechanicalBeeEntity>)
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun getBrain(): Brain<MechanicalBeeEntity> {
-        return super.getBrain() as Brain<MechanicalBeeEntity>
+        // Empty brain — state machine handles all AI
+        return this.brainProvider().makeBrain(dynamic) as Brain<MechanicalBeeEntity>
     }
 
     override fun defineSynchedData(builder: SynchedEntityData.Builder) {
@@ -230,7 +252,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         if (!level().isClientSide && !isDrone) {
             network()?.releaseReservations(this.uuid)
             // Release current batch so it can be retried by another bee
-            val batch = getBrain().getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
+            val batch = currentTask
             if (batch != null && batch.status != TaskStatus.COMPLETED) {
                 val tick = (level() as? ServerLevel)?.gameTime ?: 0L
                 batch.release(gameTick = tick)
@@ -238,6 +260,20 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
             beehive()?.onBeeRemoved(this)
         }
         super.remove(reason)
+    }
+
+    override fun onAddedToLevel() {
+        super.onAddedToLevel()
+        if (level().isClientSide) {
+            BeeClientTracker.onBeeAdded(this)
+        }
+    }
+
+    override fun onRemovedFromLevel() {
+        super.onRemovedFromLevel()
+        if (level().isClientSide) {
+            BeeClientTracker.onBeeRemoved(this)
+        }
     }
 
     fun setOwner(uuid: UUID) {
@@ -250,15 +286,22 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         super.tick()
         if (level().isClientSide) return
 
+        // Legacy entity bees from old saves — drop as item and discard.
+        // All new bees use ServerBeeManager (non-entity system).
+        if (!isDrone) {
+            val beeItem = beeItemStack()
+            level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
+            dropInventory()
+            discard()
+            return
+        }
+
         if (isDrone) {
             tickDrone()
             return
         }
 
         syncTargetPos()
-        if (rechargeFinishTick < 0) {
-            BeeSeparation.applyFlightOffset(this)
-        }
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
@@ -306,25 +349,21 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         }
     }
 
+    private var lastSyncedTargetPos: BlockPos? = null
+
     private fun syncTargetPos() {
-        val brain = getBrain()
-        val walkTarget = brain.getMemory(MemoryModuleType.WALK_TARGET).orElse(null)
-        if (walkTarget != null) {
-            entityData.set(TARGET_POS, Optional.of(walkTarget.target.currentBlockPosition()))
-            return
-        }
-        val batch = brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).orElse(null)
-        val task = batch?.getCurrentTask()
-        if (task != null) {
-            entityData.set(TARGET_POS, Optional.of(task.targetPos))
-        } else {
-            entityData.set(TARGET_POS, Optional.empty())
+        val newPos: BlockPos? = walkTargetPos ?: currentTask?.getCurrentTask()?.targetPos
+
+        if (newPos != lastSyncedTargetPos) {
+            lastSyncedTargetPos = newPos
+            entityData.set(TARGET_POS, if (newPos != null) Optional.of(newPos) else Optional.empty())
         }
     }
 
     override fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
-    // Mechanical bees fly through water — no swimming, no water drag
+    // Mechanical bees fly — no gravity, no swimming, no water drag
+    override fun isNoGravity(): Boolean = true
     override fun isInWater(): Boolean = false
 
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
@@ -338,6 +377,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
     @Deprecated("Overrides deprecated MC method", level = DeprecationLevel.WARNING)
     override fun isPushable(): Boolean = false
+    override fun pushEntities() { /* no-op — skip expensive nearby entity scan */ }
 
     override fun addAdditionalSaveData(compound: CompoundTag) {
         super.addAdditionalSaveData(compound)
@@ -408,16 +448,16 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     /**
      * Gets the owner player entity.
      */
-    internal fun getOwnerPlayer(): ServerPlayer? {
+    override fun getOwnerPlayer(): ServerPlayer? {
         return getOwnerUUID()?.let { level().getPlayerByUUID(it) } as? ServerPlayer
     }
 
-    fun getBeeContext(): BeeContext = beeContext ?: BeeContext()
+    override fun getBeeContext(): BeeContext = beeContext ?: BeeContext()
 
     /**
      * Inserts a stack into the bee's inventory. Returns the remainder that didn't fit.
      */
-    fun addToInventory(stack: ItemStack): ItemStack {
+    override fun addToInventory(stack: ItemStack): ItemStack {
         var remaining = stack.copy()
         // First pass: merge into existing matching slots
         for (i in 0 until inventory.containerSize) {
@@ -442,7 +482,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         return remaining
     }
 
-    fun getInventoryContents(): List<ItemStack> {
+    override fun getInventoryContents(): List<ItemStack> {
         val list = mutableListOf<ItemStack>()
         for (i in 0 until inventory.containerSize) {
             val stack = inventory.getItem(i)
@@ -451,10 +491,17 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         return list
     }
 
-    fun isInventoryFull(): Boolean {
+    override fun isInventoryFull(): Boolean {
         for (i in 0 until inventory.containerSize) {
             val stack = inventory.getItem(i)
             if (stack.isEmpty || stack.count < stack.maxStackSize) return false
+        }
+        return true
+    }
+
+    override fun isInventoryEmpty(): Boolean {
+        for (i in 0 until inventory.containerSize) {
+            if (!inventory.getItem(i).isEmpty) return false
         }
         return true
     }
@@ -470,7 +517,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         return count
     }
 
-    fun removeFromInventory(stack: ItemStack, count: Int): Boolean {
+    override fun removeFromInventory(stack: ItemStack, count: Int) {
         var toRemove = count
         for (i in 0 until inventory.containerSize) {
             if (toRemove <= 0) break
@@ -482,13 +529,12 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
                 if (slotStack.isEmpty) inventory.setItem(i, ItemStack.EMPTY)
             }
         }
-        return toRemove <= 0
     }
 
     /**
      * Drops all items in the bee's inventory on the ground at its current position.
      */
-    fun dropInventory() {
+    override fun dropInventory() {
         for (i in 0 until inventory.containerSize) {
             val stack = inventory.getItem(i)
             if (!stack.isEmpty) {

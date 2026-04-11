@@ -29,19 +29,29 @@ class BeeNetwork(
     private var _ports: List<LogisticsPort>? = null
     private var _transportPorts: List<TransportPort>? = null
     private var _reservablePorts: List<ReservablePort>? = null
+    private var _transportPortsByPos: Map<BlockPos, TransportPort>? = null
 
     private fun invalidateComponentCaches() {
         _hives = null
         _ports = null
         _transportPorts = null
         _reservablePorts = null
+        _transportPortsByPos = null
     }
 
     /**
      * Removes components whose block entity no longer exists at their position in the world.
      * Guards against ghost components that weren't properly unregistered.
+     *
+     * Protected by a tick-based guard so it runs at most once per tick per network,
+     * avoiding hundreds of redundant [net.minecraft.world.level.Level.getBlockEntity] calls.
      */
-    fun purgeStaleComponents() {
+    private var lastPurgeTick: Long = -1
+
+    fun purgeStaleComponents(currentTick: Long = -1L) {
+        if (currentTick >= 0 && currentTick == lastPurgeTick) return
+        if (currentTick >= 0) lastPurgeTick = currentTick
+
         val removed = _components.removeAll { comp ->
             val be = comp as? BlockEntity ?: return@removeAll false
             // Check if the block entity is marked as removed
@@ -59,13 +69,13 @@ class BeeNetwork(
     val hives: List<BeeHive> get() = _hives ?: components.filterIsInstance<BeeHive>().also { _hives = it }
     val ports: List<LogisticsPort> get() = _ports ?: components.filterIsInstance<LogisticsPort>().also { _ports = it }
     val transportPorts: List<TransportPort> get() = _transportPorts ?: components.filterIsInstance<TransportPort>().also { _transportPorts = it }
+    val transportPortsByPos: Map<BlockPos, TransportPort> get() = _transportPortsByPos ?: transportPorts.associateBy { it.pos }.also { _transportPortsByPos = it }
     val reservablePorts: List<ReservablePort> get() = _reservablePorts ?: components.filterIsInstance<ReservablePort>().also { _reservablePorts = it }
 
     /**
      * The aggregate operational range of all anchors in this network.
      */
     fun isInRange(pos: BlockPos): Boolean {
-        purgeStaleComponents()
         return components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
     }
 
@@ -74,7 +84,6 @@ class BeeNetwork(
      * Considers both block-based anchors (mechanical beehives) and portable beehives.
      */
     fun isInLogisticsRange(pos: BlockPos): Boolean {
-        purgeStaleComponents()
         return components.any { c ->
             (c is BlockEntity || c is PortableBeeHive) && topology.isAnchor(c) && topology.isLogisticsRange(c, pos)
         }
@@ -82,20 +91,17 @@ class BeeNetwork(
 
     fun findProvider(stack: ItemStack): LogisticsPort? {
         return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+            .maxByOrNull { it.priority() }
     }
 
     fun findDropOff(stack: ItemStack): LogisticsPort? {
         return ports.filter { it.isValidForDropOff() && (stack.isEmpty || it.testFilter(stack)) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+            .maxByOrNull { it.priority() }
     }
 
     fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
         return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(stack, excludeBeeId) }
-            .sortedByDescending { it.priority() }
-            .firstOrNull()
+            .maxByOrNull { it.priority() }
     }
 
     fun releaseReservations(beeId: UUID) {
@@ -122,7 +128,6 @@ class BeeNetwork(
     }
 
     fun canConnect(component: INetworkComponent): Boolean {
-        purgeStaleComponents()
         if (components.isEmpty()) {
             de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: network $id is EMPTY → true")
             return true

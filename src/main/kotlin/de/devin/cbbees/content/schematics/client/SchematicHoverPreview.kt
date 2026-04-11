@@ -315,10 +315,15 @@ object SchematicHoverPreview {
                 blockEntity.setLevel(schematicLevel)
             }
 
+            // Build geometry on the render thread to avoid native memory corruption
+            // in ByteBufferBuilder/jemalloc from concurrent vertex buffer access
             val renderer = GhostSchematicRenderer(schematicLevel)
-            renderer.prebuildGeometry()
-
             Minecraft.getInstance().execute {
+                try {
+                    renderer.prebuildGeometry()
+                } catch (e: Exception) {
+                    de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("Schematic preview build failed: ${e.message}")
+                }
                 if (gen == buildGeneration) {
                     renderers[index] = renderer
                 }

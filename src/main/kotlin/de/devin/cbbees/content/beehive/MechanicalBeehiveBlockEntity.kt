@@ -3,7 +3,8 @@ package de.devin.cbbees.content.beehive
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import de.devin.cbbees.content.bee.*
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.server.BeeType
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -12,9 +13,6 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.items.AllItems
-import de.devin.cbbees.registry.AllEffects
-import de.devin.cbbees.registry.AllEntityTypes
-import net.minecraft.world.effect.MobEffectInstance
 import net.createmod.catnip.lang.Lang
 import net.createmod.catnip.lang.LangNumberFormat
 import net.minecraft.ChatFormatting
@@ -24,6 +22,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -86,60 +85,58 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
-        val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level!!).apply {
-            setPos(Vec3.atCenterOf(blockPos.above()).add(BeeSeparation.spawnOffset(level!!.random)))
-            this.networkId = this@MechanicalBeehiveBlockEntity.network().id
-            this.springTension = 1.0f
-        }
-
-        bee.setHomeId(this.homeId)
-        bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), this.blockPos)
-        bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
-        bee.getBrain().setMemory(BeeMemoryModules.CURRENT_TASK.get(), batch)
-
-        batch.assignToRobot(bee)
-
-        // Apply hive speed bonus as a MobEffect (scales with RPM)
+        val spawnPos = Vec3.atCenterOf(blockPos.above()).add(
+            BeeSeparation.spawnOffset(level!!.random)
+        )
         val ctx = getBeeContext()
-        if (ctx.speedMultiplier > 1.0) {
-            val amplifier = ((ctx.speedMultiplier - 1.0) / 0.20).toInt().coerceIn(0, 9)
-            bee.addEffect(MobEffectInstance(AllEffects.HIVE_SPEED, -1, amplifier, false, false, false))
-        }
 
-        level!!.addFreshEntity(bee)
-        activeBeesByJob.getOrPut(batch.job.jobId) { mutableSetOf() }.add(bee.uuid)
+        val bee = ServerBeeManager.spawnConstructionBee(
+            hive = this,
+            batch = batch,
+            networkId = network().id,
+            spawnPos = spawnPos,
+            context = ctx,
+            beeType = batch.beeType,
+        )
+
+        activeBeesByJob.getOrPut(batch.job.jobId) { mutableSetOf() }.add(bee.id)
         sync()
-
         return true
     }
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getAvailableBeeCount() <= 0) return false
-        if (getActiveBeeCountForJob(batch.job.jobId) >= getBeeContext().maxActiveRobots) return false
+        if (getActiveBeeCountForJob(batch.job.jobId) >= getBeeContext().maxActiveBees) return false
 
         this.setChanged()
 
-        // Only consume regular Mechanical Bees for construction batches —
-        // Bumble Bees are transport-only and dispatched by TransportDispatcher
-        val beeItem = consumeBeeOfType(MechanicalBeeItem::class.java)
+        // Pickup batches use bumble bees; everything else uses construction bees
+        val beeItemClass = if (batch.beeType == BeeType.TRANSPORT)
+            MechanicalBumbleBeeItem::class.java
+        else
+            MechanicalBeeItem::class.java
+        val beeItem = consumeBeeOfType(beeItemClass)
         if (beeItem.isEmpty) return false
         return spawnBee(beeItem, batch)
     }
 
-    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
+    override fun notifyTaskCompleted(task: BeeTask, beeId: UUID): TaskBatch? {
         val nextBatch = GlobalJobPool.workBacklog(this)
-
-        nextBatch?.assignToRobot(bee)
-
+        nextBatch?.assignToBee(beeId, level!!.gameTime)
         return nextBatch
     }
 
     override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
+        onBeeRemovedById(bee.uuid)
+    }
+
+    /** UUID-based removal for non-entity bees. */
+    fun onBeeRemovedById(beeId: UUID) {
         var found = false
         val iter = activeBeesByJob.iterator()
         while (iter.hasNext()) {
             val (_, bees) = iter.next()
-            if (bees.remove(bee.uuid)) {
+            if (bees.remove(beeId)) {
                 found = true
                 if (bees.isEmpty()) iter.remove()
                 break
@@ -161,10 +158,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             val beeIter = bees.iterator()
             while (beeIter.hasNext()) {
                 val beeId = beeIter.next()
-                // Check if entity exists by scanning loaded entities
-                val entity = (level as? net.minecraft.server.level.ServerLevel)
-                    ?.getEntity(beeId)
-                if (entity == null || !entity.isAlive) {
+                // Check both entity system AND non-entity ServerBeeManager
+                val existsAsEntity = (level as? ServerLevel)?.getEntity(beeId)?.isAlive == true
+                val existsAsData = ServerBeeManager.getBee(beeId) != null
+                if (!existsAsEntity && !existsAsData) {
                     beeIter.remove()
                     cleaned = true
                 }
@@ -271,28 +268,28 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
         val rpm = abs(getSpeed())
         val speedDiv = CBBeesConfig.hiveRpmSpeedDivisor.get()
-        val robotDiv = CBBeesConfig.hiveRpmRobotDivisor.get()
+        val beeDivisor = CBBeesConfig.hiveRpmBeeDivisor.get()
         val baseRange = CBBeesConfig.hiveBaseRange.get()
         val rangePerRpm = CBBeesConfig.hiveRangePerRpm.get()
 
         if (rpm > 0) {
             context.speedMultiplier *= (1.0 + (rpm / speedDiv))
             context.springEfficiency = 1.0 + (rpm / speedDiv)
-            val extraRobots = (rpm / robotDiv).toInt()
-            context.maxActiveRobots = maxOf(
-                context.maxActiveRobots + extraRobots,
-                CBBeesConfig.minActiveRobotsAtRpm.get()
+            val extraBees = (rpm / beeDivisor).toInt()
+            context.maxActiveBees = maxOf(
+                context.maxActiveBees + extraBees,
+                CBBeesConfig.minActiveBeesAtRpm.get()
             )
             context.workRange = baseRange + rpm * rangePerRpm
-            context.maxContributedBees += extraRobots
+            context.maxContributedBees += extraBees
         } else {
-            context.maxActiveRobots = 0
+            context.maxActiveBees = 0
             context.maxContributedBees = 0
             context.workRange = 0.0
         }
 
         // Cap at config limit
-        context.maxActiveRobots = minOf(context.maxActiveRobots, CBBeesConfig.maxBeesPerHive.get())
+        context.maxActiveBees = minOf(context.maxActiveBees, CBBeesConfig.maxBeesPerHive.get())
 
         return context
     }
@@ -409,7 +406,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             .style(ChatFormatting.GRAY)
             .add(
                 Lang.builder("cbbees")
-                    .text(ChatFormatting.GOLD, LangNumberFormat.format(context.maxActiveRobots.toDouble()))
+                    .text(ChatFormatting.GOLD, LangNumberFormat.format(context.maxActiveBees.toDouble()))
             )
             .forGoggles(tooltip, 1)
 

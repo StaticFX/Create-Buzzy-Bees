@@ -2,8 +2,6 @@ package de.devin.cbbees.content.bee.client
 
 import com.simibubi.create.content.equipment.goggles.GogglesItem
 import de.devin.cbbees.config.CBBeesClientConfig
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.NetworkedBee
 import de.devin.cbbees.util.ClientSide
 import net.createmod.catnip.outliner.Outliner
@@ -23,6 +21,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent
 object BeeTargetLineHandler {
 
     private const val LINE_COLOR = 0xFFD700 // Gold
+    private const val MAX_DIST_SQ = 64.0 * 64.0 // 64-block radius
 
     /** Set by [de.devin.cbbees.network.BeeDebugSyncPacket] from the server. */
     @JvmStatic
@@ -31,42 +30,44 @@ object BeeTargetLineHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        // Update pause state for wall-clock freeze, tick rotation smoothing
+        val paused = Minecraft.getInstance().isPaused
+        BeeClientTracker.setPaused(paused)
+        if (!paused) BeeClientTracker.tickClient()
+
         if (!CBBeesClientConfig.showBeeTargetLines.get()) return
 
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
-        val level = mc.level ?: return
+        mc.level ?: return
         if (mc.screen != null) return
 
         if (!GogglesItem.isWearingGoggles(player)) return
 
-        val searchBox = player.boundingBox.inflate(64.0)
         val lookedAtEntity = mc.crosshairPickEntity
+        val playerPos = player.position()
 
-        // Scan both bee types
-        processEntities(level.getEntitiesOfClass(MechanicalBeeEntity::class.java, searchBox), lookedAtEntity)
-        processEntities(level.getEntitiesOfClass(MechanicalBumbleBeeEntity::class.java, searchBox), lookedAtEntity)
-    }
+        // Use the tracked bee set instead of scanning all entities
+        for (bee in BeeClientTracker.getBees()) {
+            val entity = bee as? Entity ?: continue
+            if (entity.distanceToSqr(playerPos) > MAX_DIST_SQ) continue
 
-    private fun <T> processEntities(bees: List<T>, lookedAtEntity: Entity?) where T : Entity, T : NetworkedBee {
-        for (bee in bees) {
             val target = bee.getTargetPos() ?: continue
+            if (!debugEnabled && entity != lookedAtEntity) continue
 
-            if (!debugEnabled && bee != lookedAtEntity) continue
-
-            val start = bee.position().add(0.0, (bee.bbHeight / 2).toDouble(), 0.0)
+            val start = entity.position().add(0.0, (entity.bbHeight / 2).toDouble(), 0.0)
             val end = Vec3.atCenterOf(target)
 
             val network = bee.network()
             val color = network?.color ?: LINE_COLOR
 
             Outliner.getInstance()
-                .showLine("bee_target_${bee.id}", start, end)
+                .showLine("bee_target_${entity.id}", start, end)
                 .colored(color)
                 .lineWidth(1 / 16f)
 
             Outliner.getInstance()
-                .chaseAABB("bee_target_block_${bee.id}", AABB(target))
+                .chaseAABB("bee_target_block_${entity.id}", AABB(target))
                 .colored(color)
                 .lineWidth(1 / 16f)
         }

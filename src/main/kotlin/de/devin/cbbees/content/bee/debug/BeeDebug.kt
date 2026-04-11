@@ -61,4 +61,25 @@ object BeeDebug {
             }
         }
     }
+
+    /**
+     * Sends a debug message about a block at a given position to all nearby debug-enabled players.
+     */
+    fun logAtPos(level: net.minecraft.world.level.Level, pos: net.minecraft.core.BlockPos, label: String, message: String) {
+        if (enabledPlayers.isEmpty()) return
+        if (level.isClientSide) return
+
+        val server = level.server ?: return
+
+        val text = Component.literal("[$label ${pos.x},${pos.y},${pos.z}] ")
+            .withStyle(ChatFormatting.AQUA)
+            .append(Component.literal(message).withStyle(ChatFormatting.GRAY))
+
+        for (uuid in enabledPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            if (player.level() == level && player.blockPosition().closerThan(pos, 128.0)) {
+                player.sendSystemMessage(text)
+            }
+        }
+    }
 }

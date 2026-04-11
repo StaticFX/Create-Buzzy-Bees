@@ -11,6 +11,7 @@
     "SchematicHandlerFindMixin",
     "SchematicHandlerHudMixin",
     "SchematicPromptScreenMixin",
+    "SchematicToolBaseMixin",
     "ToolSelectionScreenMixin"
   ],
   "injectors": {

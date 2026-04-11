@@ -1,7 +1,5 @@
 package de.devin.cbbees.content.domain.job
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -121,9 +119,9 @@ data class BeeJob(
      * Gets the next pending task and assigns it to a robot.
      */
     @Synchronized
-    fun claimNextTaskBatch(bee: MechanicalBeeEntity): TaskBatch? {
+    fun claimNextTaskBatch(beeId: UUID, gameTime: Long): TaskBatch? {
         val batch = batches.firstOrNull { it.status == TaskStatus.PENDING }
-        batch?.assignToRobot(bee)
+        batch?.assignToBee(beeId, gameTime)
         return batch
     }
 
@@ -164,7 +162,6 @@ data class BeeJob(
         status = JobStatus.CANCELLED
         tasks.forEach {
             if (it.status == TaskStatus.PENDING || it.status == TaskStatus.IN_PROGRESS) {
-                it.mechanicalBee?.brain?.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
                 it.cancel()
             }
         }

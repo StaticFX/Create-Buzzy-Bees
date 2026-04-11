@@ -126,16 +126,14 @@ object GlobalJobPool : SavedData() {
                 if (!batch.isCooldownElapsed(gameTime)) continue
                 if (!job.isPhaseReady(batch.phase)) continue
 
-                val candidateNetworks = allNetworks.filter { network ->
+                val targetNetwork = allNetworks.filter { network ->
                     val firstComp = network.components.firstOrNull()
                     firstComp != null && firstComp.world == job.level &&
                             network.isInRange(batch.targetPosition) &&
                             network.hives.any { it.getAvailableBeeCount() > 0 }
-                }.sortedBy { network ->
+                }.minByOrNull { network ->
                     network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
-                }
-
-                val targetNetwork = candidateNetworks.firstOrNull() ?: continue
+                } ?: continue
                 batch.assignedNetworkId = targetNetwork.id
                 targetNetwork.dispatchBatch(batch)
             }
@@ -146,86 +144,86 @@ object GlobalJobPool : SavedData() {
 
     fun getAllJobs(): List<BeeJob> = jobBacklog
 
-    @Synchronized
     fun workBacklog(beeHive: BeeHive): TaskBatch? {
         val network = beeHive.network()
         val gameTime = (beeHive.world as? net.minecraft.server.level.ServerLevel)?.gameTime ?: 0L
+        val networkId = network.id
+        val hivePos = beeHive.pos
 
         fun isDispatchable(batch: TaskBatch): Boolean =
             batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
                     && batch.job.isPhaseReady(batch.phase)
 
-        // 1. Find batches already assigned to this network
-        val assignedBatch = jobBacklog.flatMap { it.batches }
-            .filter { isDispatchable(it) && it.assignedNetworkId == network.id }
-            .minByOrNull { it.targetPosition.distSqr(beeHive.pos) }
-
-        if (assignedBatch != null) {
-            assignedBatch.status = TaskStatus.PICKED
-            return assignedBatch
+        // 1. Find closest dispatchable batch already assigned to this network (no intermediate allocations)
+        var bestAssigned: TaskBatch? = null
+        var bestAssignedDist = Double.MAX_VALUE
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+            for (batch in job.batches) {
+                if (!isDispatchable(batch)) continue
+                if (batch.assignedNetworkId != networkId) continue
+                val dist = batch.targetPosition.distSqr(hivePos)
+                if (dist < bestAssignedDist) {
+                    bestAssignedDist = dist
+                    bestAssigned = batch
+                }
+            }
         }
 
-        // 2. Fallback: try to find any unassigned batch that this network can do
-        // This handles cases where a job was dispatched before the network was fully ready or split/merge events
-        val job = jobBacklog.filter { network.isInRange(it.centerPos) }
-            .sortedBy { it.centerPos.distSqr(beeHive.pos) }
-            .firstOrNull { j -> j.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) } }
-            ?: return null
+        if (bestAssigned != null) {
+            bestAssigned.status = TaskStatus.PICKED
+            return bestAssigned
+        }
 
-        val batch =
-            job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == network.id) }
-                ?: return null
+        // 2. Fallback: find closest unassigned batch this network can handle
+        var bestJob: BeeJob? = null
+        var bestJobDist = Double.MAX_VALUE
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+            if (!network.isInRange(job.centerPos)) continue
+            val hasDispatchable = job.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
+            if (!hasDispatchable) continue
+            val dist = job.centerPos.distSqr(hivePos)
+            if (dist < bestJobDist) {
+                bestJobDist = dist
+                bestJob = job
+            }
+        }
+
+        val job = bestJob ?: return null
+        val batch = job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
+            ?: return null
 
         // Verification
         if (!network.isInRange(batch.targetPosition)) return null
 
-        batch.assignedNetworkId = network.id
+        batch.assignedNetworkId = networkId
         batch.status = TaskStatus.PICKED
         return batch
     }
 
-    @Synchronized
+    /**
+     * Registers a new job for processing. The job is added to the backlog immediately
+     * but batch-to-network assignment is deferred to [redispatchPendingBatches] which
+     * runs every few ticks. This avoids a synchronous O(batches × networks × hives)
+     * spike when placing large schematics.
+     */
     fun dispatchNewJob(job: BeeJob) {
         // Prevent duplicate active jobs with same uniqueness key
-        if (job.uniquenessKey != null && jobBacklog.any { it.uniquenessKey == job.uniquenessKey && it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }) {
-            return
-        }
-
-        val batchesToDistribute = job.batches
-            .filter { it.status == TaskStatus.PENDING && job.isPhaseReady(it.phase) }
-            .sortedByDescending { it.priority }
-
-        if (batchesToDistribute.isEmpty()) return
-
-        val allNetworks = ServerBeeNetworkManager.getNetworks()
-        var assignedCount = 0
-        var unassignedCount = 0
-
-        for (batch in batchesToDistribute) {
-            // Find networks that can do this batch
-            val candidateNetworks = allNetworks.filter { network ->
-                val firstComp = network.components.firstOrNull()
-                firstComp != null && firstComp.world == job.level &&
-                        network.isInRange(batch.targetPosition)
-            }.sortedBy { network ->
-                // Prefer network with closest hive
-                network.hives.minOf { it.pos.distSqr(batch.targetPosition) }
-            }
-
-            val targetNetwork = candidateNetworks.firstOrNull()
-            if (targetNetwork != null) {
-                batch.assignedNetworkId = targetNetwork.id
-                targetNetwork.dispatchBatch(batch)
-                assignedCount++
-            } else {
-                unassignedCount++
-            }
-        }
-
-        CreateBuzzyBeez.LOGGER.debug("[JobPool] Dispatched job: ${batchesToDistribute.size} batches, $assignedCount assigned, $unassignedCount unassigned, ${allNetworks.size} networks available")
+        if (job.uniquenessKey != null && jobBacklog.any {
+            it.uniquenessKey == job.uniquenessKey &&
+            it.status != JobStatus.COMPLETED &&
+            it.status != JobStatus.CANCELLED
+        }) return
 
         if (!jobBacklog.contains(job)) jobBacklog.add(job)
         this.setDirty()
+
+        // Dispatch immediately so bees start flying without waiting for the next
+        // 10-tick redispatch cycle
+        redispatchPendingBatches(0L)
+
+        CreateBuzzyBeez.LOGGER.debug("[JobPool] Registered job with ${job.batches.size} batches")
     }
 
     override fun save(

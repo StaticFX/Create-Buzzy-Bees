@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,powered=false": { "model": "cbbees:block/schematic_deployer" },
+    "facing=south,powered=false": { "model": "cbbees:block/schematic_deployer", "y": 180 },
+    "facing=west,powered=false":  { "model": "cbbees:block/schematic_deployer", "y": 270 },
+    "facing=east,powered=false":  { "model": "cbbees:block/schematic_deployer", "y": 90 },
+    "facing=north,powered=true":  { "model": "cbbees:block/schematic_deployer_powered" },
+    "facing=south,powered=true":  { "model": "cbbees:block/schematic_deployer_powered", "y": 180 },
+    "facing=west,powered=true":   { "model": "cbbees:block/schematic_deployer_powered", "y": 270 },
+    "facing=east,powered=true":   { "model": "cbbees:block/schematic_deployer_powered", "y": 90 }
+  }
+}

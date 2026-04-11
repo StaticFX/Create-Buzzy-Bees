@@ -15,7 +15,7 @@ class MechanicalBeeRenderer(context: EntityRendererProvider.Context) :
     GeoEntityRenderer<MechanicalBeeEntity>(context, MechanicalBeeModel()) {
 
     init {
-        // Shadow radius for the robot
+        // Shadow radius for the bee
         this.shadowRadius = 0.3f
     }
 
@@ -29,6 +29,13 @@ class MechanicalBeeRenderer(context: EntityRendererProvider.Context) :
     ) {
         // Drones are invisible to all players — they exist only as a camera anchor
         if (entity.isDrone) return
+
+        // Distance-based shadow culling
+        val cam = Minecraft.getInstance().gameRenderer.mainCamera.position
+        val distSq = entity.distanceToSqr(cam)
+        val shadowDist = de.devin.cbbees.config.CBBeesClientConfig.beeShadowDistance.get()
+        this.shadowRadius = if (distSq < shadowDist.toLong() * shadowDist) 0.3f else 0.0f
+
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight)
     }
 }

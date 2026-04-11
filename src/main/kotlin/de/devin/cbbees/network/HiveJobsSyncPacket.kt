@@ -228,7 +228,7 @@ class HiveJobsSyncPacket(
             val hiveList = net.hives
             val statsActive = hiveList.sumOf { it.getActiveBeeCount() }
             val statsStored = hiveList.sumOf { it.getAvailableBeeCount() }
-            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveRobots }
+            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveBees }
 
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { job ->
@@ -243,17 +243,29 @@ class HiveJobsSyncPacket(
 
                     val reason = StuckReasonResolver.firstReasonOrNull(net, job)
 
-                    // Only send ghost blocks if no schematic placement is available
-                    // (client can derive ghosts from the placement data itself)
+                    // For jobs with schematic placement, skip per-batch detail entirely —
+                    // the client renders ghosts from the schematic file. Only send a single
+                    // summary batch to keep the packet small.
                     val hasPlacement = job.schematicPlacement != null
-                    val batches = job.batches.map { b ->
-                        ClientBatchInfo(
-                            status = b.status.name,
-                            target = b.targetPosition,
+                    val batches = if (hasPlacement) {
+                        // Single summary entry — no per-batch overhead for large schematics
+                        listOf(ClientBatchInfo(
+                            status = "SUMMARY",
+                            target = job.centerPos,
                             required = emptyList(),
                             assignedBeeIds = emptyList(),
-                            ghostBlocks = if (hasPlacement) emptyMap() else collectGhostBlocks(b)
-                        )
+                            ghostBlocks = emptyMap()
+                        ))
+                    } else {
+                        job.batches.map { b ->
+                            ClientBatchInfo(
+                                status = b.status.name,
+                                target = b.targetPosition,
+                                required = emptyList(),
+                                assignedBeeIds = emptyList(),
+                                ghostBlocks = collectGhostBlocks(b)
+                            )
+                        }
                     }
                     ClientJobInfo(
                         jobId = job.jobId,

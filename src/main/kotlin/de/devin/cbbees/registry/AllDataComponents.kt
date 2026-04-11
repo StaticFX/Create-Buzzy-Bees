@@ -1,6 +1,7 @@
 package de.devin.cbbees.registry
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.deployer.SchematicProgram
 import de.devin.cbbees.content.upgrades.UpgradeGrid
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
@@ -26,6 +27,12 @@ object AllDataComponents {
         REGISTER.registerComponentType("upgrade_grid") { builder ->
             builder.persistent(UpgradeGrid.CODEC)
                 .networkSynchronized(UpgradeGrid.STREAM_CODEC)
+        }
+
+    val SCHEMATIC_PROGRAM: DeferredHolder<DataComponentType<*>, DataComponentType<SchematicProgram>> =
+        REGISTER.registerComponentType("schematic_program") { builder ->
+            builder.persistent(SchematicProgram.CODEC)
+                .networkSynchronized(SchematicProgram.STREAM_CODEC)
         }
 
     fun register(bus: IEventBus) {

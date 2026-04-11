@@ -102,7 +102,14 @@ object DeconstructionRenderer {
         }
         val hintWidth = mc.font.width(hintText)
 
-        val secondHint = Component.translatable("gui.cbbees.deconstruction.hint_scroll")
+        val secondHint = if (second != null) {
+            Component.translatable(
+                "gui.cbbees.deconstruction.hint_program",
+                AllKeys.PROGRAM_ACTION.translatedKeyMessage
+            )
+        } else {
+            Component.translatable("gui.cbbees.deconstruction.hint_scroll")
+        }
         val secondHintWidth = mc.font.width(secondHint)
 
         // Compact hint (shown above panel when Alt not held)
@@ -188,10 +195,5 @@ object DeconstructionRenderer {
         guiGraphics.pose().popPose()
     }
 
-    private fun isAltDown(): Boolean {
-        return Minecraft.getInstance().window.let { window ->
-            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
-                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
-        }
-    }
+    private fun isAltDown(): Boolean = de.devin.cbbees.registry.AllKeys.SCHEMATIC_MODIFIER.isDown
 }

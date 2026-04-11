@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.domain.task
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.job.BeeJob
 import net.minecraft.core.BlockPos
 import java.util.UUID
@@ -10,7 +10,9 @@ class TaskBatch(
     val job: BeeJob,
     val targetPosition: BlockPos,
     /** Execution phase — all batches in phase N must complete before phase N+1 is dispatched. */
-    val phase: Int = 0
+    val phase: Int = 0,
+    /** Which bee type should handle this batch. Hive uses this to consume the right item. */
+    val beeType: BeeType = BeeType.CONSTRUCTION,
 ) {
     companion object {
         const val MAX_RETRIES = 5
@@ -91,10 +93,10 @@ class TaskBatch(
         }
     }
 
-    fun assignToRobot(bee: MechanicalBeeEntity) {
+    fun assignToBee(beeId: UUID, gameTime: Long) {
         status = TaskStatus.IN_PROGRESS
-        assignedBeeId = bee.uuid
-        startedAtTick = bee.level().gameTime
-        tasks.forEach { it.assignToRobot(bee) }
+        assignedBeeId = beeId
+        startedAtTick = gameTime
+        tasks.forEach { it.assignToBee(beeId) }
     }
 }
