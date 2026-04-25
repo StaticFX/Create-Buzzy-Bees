@@ -1,7 +1,7 @@
 package de.devin.cbbees.registry
 
-import com.simibubi.create.api.registry.CreateRegistries
 import com.simibubi.create.content.kinetics.fan.processing.FanProcessingType
+import com.simibubi.create.content.kinetics.fan.processing.FanProcessingTypeRegistry
 import com.simibubi.create.foundation.recipe.RecipeApplier
 import de.devin.cbbees.CreateBuzzyBeez
 import net.createmod.catnip.theme.Color
@@ -16,39 +16,64 @@ import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
-import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.registries.DeferredRegister
-import java.util.function.Supplier
 
-/**
- * Forge 1.20.1 — uses SimpleContainer instead of SingleRecipeInput.
- */
 object AllCBeesFanProcessingTypes {
 
     val GLUEING_CATALYST_BLOCK: TagKey<net.minecraft.world.level.block.Block> =
         TagKey.create(Registries.BLOCK, CreateBuzzyBeez.asResource("fan_processing_catalysts/glueing"))
 
-    private val REGISTER: DeferredRegister<FanProcessingType> =
-        DeferredRegister.create(CreateRegistries.FAN_PROCESSING_TYPE, CreateBuzzyBeez.ID)
+    lateinit var GLUEING: GlueingType
+        private set
 
-    val GLUEING = REGISTER.register("glueing", Supplier { GlueingType() })
+    private var injected = false
 
-    fun register(modEventBus: IEventBus) {
-        REGISTER.register(modEventBus)
+    fun register(modEventBus: net.minecraftforge.eventbus.api.IEventBus) {
+        GLUEING = GlueingType()
+        // Inject on every server start — SORTED_TYPES may be cleared between world loads
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener<net.minecraftforge.event.server.ServerAboutToStartEvent> {
+            injectIntoSortedTypes()
+        }
+        // Also inject after all mods finish loading (for client-side checks like JEI)
+        modEventBus.addListener<net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent> {
+            injectIntoSortedTypes()
+        }
+    }
+
+    private fun injectIntoSortedTypes() {
+        try {
+            val sortedField = FanProcessingTypeRegistry::class.java.getDeclaredField("SORTED_TYPES")
+            sortedField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val sortedList = sortedField.get(null) as MutableList<FanProcessingType>
+            if (GLUEING !in sortedList) {
+                sortedList.clear()
+                com.simibubi.create.api.registry.CreateBuiltInRegistries.FAN_PROCESSING_TYPE.forEach { sortedList.add(it) }
+                if (GLUEING !in sortedList) sortedList.add(GLUEING)
+                sortedList.sortBy { -it.priority }
+                CreateBuzzyBeez.LOGGER.info("[GLUEING] Injected ${sortedList.size} fan processing types")
+            }
+        } catch (e: Exception) {
+            CreateBuzzyBeez.LOGGER.error("[GLUEING] Failed", e)
+        }
     }
 
     class GlueingType : FanProcessingType {
         override fun isValidAt(level: Level, pos: BlockPos): Boolean {
-            val blockState = level.getBlockState(pos)
-            return blockState.`is`(GLUEING_CATALYST_BLOCK)
+            val state = level.getBlockState(pos)
+            val isHoney = state.block == net.minecraft.world.level.block.Blocks.HONEY_BLOCK
+            val isTag = state.`is`(GLUEING_CATALYST_BLOCK)
+            if (isHoney) CreateBuzzyBeez.LOGGER.info("[GLUEING] isValidAt: isHoney=$isHoney, isTag=$isTag, block=${state.block}")
+            return isTag
         }
 
         override fun getPriority(): Int = 500
 
         override fun canProcess(stack: ItemStack, level: Level): Boolean {
-            return AllCBeesRecipeTypes.GLUEING.find(
+            val result = AllCBeesRecipeTypes.GLUEING.find(
                 SimpleContainer(stack), level
             ).isPresent
+            CreateBuzzyBeez.LOGGER.info("[GLUEING] canProcess ${stack.item} = $result")
+            return result
         }
 
         override fun process(stack: ItemStack, level: Level): List<ItemStack>? {
