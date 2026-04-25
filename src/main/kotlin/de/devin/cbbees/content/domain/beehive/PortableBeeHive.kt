@@ -1,9 +1,8 @@
 package de.devin.cbbees.content.domain.beehive
 
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
-import de.devin.cbbees.registry.AllDataComponents
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -11,8 +10,9 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.logistics.ports.PortType
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.registry.AllEntityTypes
+import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.BlockPos
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
@@ -43,7 +43,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (getAvailableBeeCount() <= 0) {
             return false
         }
-        if (getActiveBeeCount() >= getBeeContext().maxActiveRobots) return false
+        if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
 
         val beeItem = consumeBee()
         if (beeItem.isEmpty) return false
@@ -56,28 +56,21 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     }
 
     private fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
-        val bee = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), player.level()).apply {
-            setOwner(player.uuid)
-            setPos(player.position().add(0.0, 2.0, 0.0))
-            this.networkId = this@PortableBeeHive.network().id
-        }
-
-        // Always charge honey to wind the spring for deployment
         val ctx = getBeeContext()
-        val honeyCost =
-            (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+        val honeyCost = (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
         consumeHoney(honeyCost)
-        bee.springTension = 1.0f
 
-        bee.setHomeId(player.uuid)
-        bee.brain.setMemory(BeeMemoryModules.HIVE_POS.get(), player.blockPosition().above(2))
-        bee.brain.setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(this))
-        bee.brain.setMemory(BeeMemoryModules.CURRENT_TASK.get(), Optional.of(batch))
+        val spawnPos = player.position().add(0.0, 2.0, 0.0)
+        val bee = ServerBeeManager.spawnConstructionBee(
+            hive = this,
+            batch = batch,
+            networkId = network().id,
+            spawnPos = spawnPos,
+            context = ctx,
+            ownerId = player.uuid,
+        )
 
-        batch.assignToRobot(bee)
-
-        player.level().addFreshEntity(bee)
-        activeBees.add(bee.uuid)
+        activeBees.add(bee.id)
         return true
     }
 
@@ -90,17 +83,17 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
      * Called by the watchdog to prevent ghost bee counts from blocking new dispatches.
      */
     fun cleanupOrphanedBees() {
-        val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return
+        val level = player.level() as? ServerLevel ?: return
         activeBees.removeIf { beeId ->
             val entity = level.getEntity(beeId)
             entity == null || !entity.isAlive
         }
     }
 
-    override fun notifyTaskCompleted(task: BeeTask, bee: MechanicalBeeEntity): TaskBatch? {
+    override fun notifyTaskCompleted(task: BeeTask, beeId: UUID): TaskBatch? {
         if (!isValid()) return null
         val nextBatch = GlobalJobPool.workBacklog(this)
-        nextBatch?.assignToRobot(bee)
+        nextBatch?.assignToBee(beeId, player.level().gameTime)
         return nextBatch
     }
 

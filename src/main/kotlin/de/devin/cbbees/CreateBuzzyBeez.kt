@@ -19,6 +19,9 @@ import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
+import de.devin.cbbees.content.drone.client.DroneRangeRenderer
+import de.devin.cbbees.content.drone.client.DroneViewClientEvents
+import de.devin.cbbees.content.drone.client.DroneViewHUD
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
 import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
 import de.devin.cbbees.content.schematics.external.CreateModSchematicSource
@@ -102,16 +105,26 @@ object CreateBuzzyBeez {
             AllPackets.register(it)
         }
 
+        MOD_BUS.addListener<net.neoforged.neoforge.event.RegisterGameTestsEvent> { event ->
+            LOGGER.info("[cbbees] Registering game tests...")
+            de.devin.cbbees.gametest.CBBeesGameTests.onRegisterGameTests(event)
+        }
+
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(ConstructionPlannerClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeTargetLineHandler::class.java)
+            NeoForge.EVENT_BUS.register(de.devin.cbbees.content.bee.client.BeeWorldRenderer::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
             NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
             NeoForge.EVENT_BUS.register(CargoPortLinkRenderer::class.java)
+            NeoForge.EVENT_BUS.register(DroneViewClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(DroneRangeRenderer::class.java)
+            NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.ProgrammedSchematicRenderer::class.java)
+            NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.DeployerPreviewRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
             MOD_BUS.addListener<RegisterGuiLayersEvent> { event ->
@@ -126,6 +139,12 @@ object CreateBuzzyBeez {
                     asResource("deconstruction_planner_hud")
                 ) { guiGraphics, deltaTracker ->
                     DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
+                }
+                event.registerAbove(
+                    VanillaGuiLayers.CHAT,
+                    asResource("drone_view_hud")
+                ) { guiGraphics, deltaTracker ->
+                    DroneViewHUD.renderHUD(guiGraphics, deltaTracker)
                 }
             }
         }
@@ -144,10 +163,15 @@ object CreateBuzzyBeez {
                 AllBlockEntityTypes.LOGISTICS_PORT.get(),
                 { be, side -> be.getItemHandler(be.world) }
             )
+            event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                AllBlockEntityTypes.SCHEMATIC_DEPLOYER.get(),
+                { be, _ -> de.devin.cbbees.content.deployer.SchematicDeployerItemHandler(be) }
+            )
             event.registerItem(
                 Capabilities.FluidHandler.ITEM,
-                { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },
-                AllItems.PORTABLE_BEEHIVE.get()
+                { stack, _ -> de.devin.cbbees.content.backpack.BeehiveFluidHandler(stack) },
+                de.devin.cbbees.items.AllItems.PORTABLE_BEEHIVE.get()
             )
         }
 

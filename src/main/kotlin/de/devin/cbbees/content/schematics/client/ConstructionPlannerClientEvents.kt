@@ -1,8 +1,11 @@
 package de.devin.cbbees.content.schematics.client
 
+import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllKeys
+import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
+import net.minecraft.network.chat.Component
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.InputEvent
@@ -26,11 +29,12 @@ object ConstructionPlannerClientEvents {
     fun onClientTick(event: ClientTickEvent.Post) {
         ConstructionPlannerHandler.tick()
         ConstructionPlannerHUD.update()
+        checkStuckJobTooltip()
 
         // Clear custom tool state if player is no longer holding the planner
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
             val player = Minecraft.getInstance().player
-            if (player == null || !AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+            if (player == null || DroneViewClientState.findActivePlanner(player).isEmpty) {
                 ConstructionToolState.activeTool = ConstructionToolState.CustomTool.NONE
             }
         }
@@ -39,7 +43,7 @@ object ConstructionPlannerClientEvents {
         // when the player switches to holding the planner
         val player = Minecraft.getInstance().player
         if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
-            if (player != null && AllItems.CONSTRUCTION_PLANNER.isIn(player.mainHandItem)) {
+            if (player != null && !DroneViewClientState.findActivePlanner(player).isEmpty) {
                 Minecraft.getInstance().setScreen(ConstructionPlannerScreen())
             }
         }
@@ -115,4 +119,30 @@ object ConstructionPlannerClientEvents {
         SchematicHoverPreview.render(event)
     }
 
+    /**
+     * Shows the stall reason as an action bar message when the player
+     * looks at a stuck job's red AABB outline.
+     */
+    private fun checkStuckJobTooltip() {
+        val mc = Minecraft.getInstance()
+        val player = mc.player ?: return
+        if (mc.screen != null) return
+
+        val eyePos = player.getEyePosition(1f)
+        val lookDir = player.lookAngle
+        val jobId = ConstructionRenderer.findJobAtRay(eyePos, lookDir, 5.0) ?: return
+        val job = ConstructionRenderer.getJobInfo(jobId) ?: return
+        val reason = job.reason ?: return
+
+        val reasonText = if (reason.startsWith("cbbees.")) {
+            Component.translatable(reason)
+        } else {
+            Component.literal(reason)
+        }
+        player.displayClientMessage(
+            Component.literal("${ChatFormatting.RED}${ChatFormatting.BOLD}! ")
+                .append(reasonText.copy().withStyle(ChatFormatting.RED)),
+            true
+        )
+    }
 }

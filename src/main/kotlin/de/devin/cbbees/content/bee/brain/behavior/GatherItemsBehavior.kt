@@ -37,6 +37,20 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
     1 // Re-evaluate every tick to prevent MoveToTaskBehavior from hijacking the walk target
 ) {
 
+    // Tick-scoped cache to avoid recomputing missing items in both checkExtraStartConditions and start
+    private var cachedMissing: List<ItemStack>? = null
+    private var cachedMissingTick: Long = -1
+    private var cachedMissingBeeId: UUID? = null
+
+    private fun getMissingItemsCached(bee: MechanicalBeeEntity, batch: TaskBatch, gameTime: Long): List<ItemStack> {
+        if (gameTime == cachedMissingTick && bee.uuid == cachedMissingBeeId) return cachedMissing!!
+        val result = computeMissingItems(bee, batch)
+        cachedMissing = result
+        cachedMissingTick = gameTime
+        cachedMissingBeeId = bee.uuid
+        return result
+    }
+
     override fun checkExtraStartConditions(level: ServerLevel, owner: MechanicalBeeEntity): Boolean {
         if (owner.springTension <= 0f) return false
 
@@ -62,7 +76,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             }
         }
 
-        val missing = computeMissingItems(owner, batch)
+        val missing = getMissingItemsCached(owner, batch, level.gameTime)
         if (missing.isNotEmpty()) {
             BeeDebug.log(owner, "Gather: need ${missing.size} item type(s)")
         }
@@ -71,7 +85,7 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
 
     override fun start(level: ServerLevel, entity: MechanicalBeeEntity, gameTime: Long) {
         val batch = entity.brain.getMemory(BeeMemoryModules.CURRENT_TASK.get()).get()
-        val missing = computeMissingItems(entity, batch)
+        val missing = getMissingItemsCached(entity, batch, gameTime)
         if (missing.isEmpty()) return
 
         val network = entity.network()
@@ -153,11 +167,14 @@ class GatherItemsBehavior : Behavior<MechanicalBeeEntity>(
             }
         }
 
-        // 3. No provider found anywhere
+        // 3. No provider found anywhere — release batch so the bee enters REST and goes home.
+        //    DropOffItemsBehavior will handle returning any carried items to a port or the player.
         BeeDebug.log(entity, "No providers for ${missing.size} missing item type(s) — releasing batch")
         network.releaseReservations(entity.uuid)
         batch.release(gameTick = gameTime)
         entity.brain.eraseMemory(BeeMemoryModules.CURRENT_TASK.get())
+        // Clear walk target in case it was set to a destroyed port position
+        entity.brain.eraseMemory(MemoryModuleType.WALK_TARGET)
     }
 
     /**

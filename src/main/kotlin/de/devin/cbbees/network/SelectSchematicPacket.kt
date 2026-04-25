@@ -4,7 +4,7 @@ import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.foundation.utility.CreatePaths
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
@@ -53,9 +53,9 @@ class SelectSchematicPacket(
         fun handle(payload: SelectSchematicPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
                 val player = ctx.player() as? ServerPlayer ?: return@enqueueWork
-                val stack = player.mainHandItem
+                val stack = ConstructionPlannerItem.findPlanner(player)
 
-                if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return@enqueueWork
+                if (stack.isEmpty) return@enqueueWork
 
                 // Sanitize filename
                 val name = payload.schematicName

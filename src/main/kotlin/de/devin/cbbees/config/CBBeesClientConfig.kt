@@ -12,6 +12,8 @@ object CBBeesClientConfig {
     val ghostBlockOpacity: ModConfigSpec.DoubleValue
     val renderGhostBlockEntities: ModConfigSpec.BooleanValue
     val maxGhostBlockEntities: ModConfigSpec.IntValue
+    val beeShadowDistance: ModConfigSpec.IntValue
+    val beeItemRenderDistance: ModConfigSpec.IntValue
 
     init {
         val builder = ModConfigSpec.Builder()
@@ -46,6 +48,14 @@ object CBBeesClientConfig {
         maxGhostBlockEntities = builder
             .comment("Maximum number of block entities to render per ghost preview. Lower values improve performance.")
             .defineInRange("maxGhostBlockEntities", 64, 1, 1024)
+
+        beeShadowDistance = builder
+            .comment("Maximum distance (blocks) at which bee shadows are rendered. Lower for better FPS with many bees.")
+            .defineInRange("beeShadowDistance", 16, 4, 32)
+
+        beeItemRenderDistance = builder
+            .comment("Maximum distance (blocks) at which carried items on bumble bees are rendered.")
+            .defineInRange("beeItemRenderDistance", 24, 8, 64)
 
         builder.pop()
 

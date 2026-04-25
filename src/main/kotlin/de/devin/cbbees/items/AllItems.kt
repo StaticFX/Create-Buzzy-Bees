@@ -9,8 +9,10 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
+import de.devin.cbbees.content.deployer.ProgrammedSchematicItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
+import de.devin.cbbees.content.schematics.PickupPlannerItem
 import de.devin.cbbees.content.upgrades.*
 import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
 import net.minecraft.data.recipes.RecipeCategory
@@ -43,7 +45,7 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Mechanical Bee - goes in beehive/backpack robot slots (stackable, consumed on deploy)
+    // Mechanical Bee - goes in beehive/backpack bee slots (stackable, consumed on deploy)
     val MECHANICAL_BEE: ItemEntry<MechanicalBeeItem> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee") { props ->
             MechanicalBeeItem(props)
@@ -88,7 +90,26 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
+    // Pickup Planner - select areas for item collection by bumble bees
+    val PICKUP_PLANNER: ItemEntry<PickupPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("pickup_planner") { props -> PickupPlannerItem(props) }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', Items.PAPER)
+                .define('H', Items.HOPPER)
+                .pattern(" E ")
+                .pattern("BPB")
+                .pattern(" H ")
+                .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Deconstruction Planner - select areas for removal
     val DECONSTRUCTION_PLANNER: ItemEntry<DeconstructionPlannerItem> = CreateBuzzyBeez.REGISTRATE
         .item("deconstruction_planner") { props ->
             DeconstructionPlannerItem(props)
@@ -107,6 +128,15 @@ object AllItems {
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Programmed Schematic - stores a schematic program for automated deployment
+    val PROGRAMMED_SCHEMATIC: ItemEntry<ProgrammedSchematicItem> = CreateBuzzyBeez.REGISTRATE
+        .item("programmed_schematic") { props ->
+            ProgrammedSchematicItem(props)
+        }
+        .model { _, _ -> } // Hand-written model in resources
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
     // ===== Backpack Upgrades =====
@@ -220,6 +250,66 @@ object AllItems {
                 .define('B', AllItems.PROPELLER.get())
                 .pattern(" B ")
                 .pattern("VWV")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Honey Tank - increases honey capacity
+    val HONEY_TANK: ItemEntry<HoneyTankUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("honey_tank") { props ->
+            HoneyTankUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.HONEY_BLOCK)
+                .define('B', AllItems.COPPER_SHEET)
+                .pattern("BVB")
+                .pattern("VWV")
+                .pattern("BVB")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Drone View - enables top-down drone camera
+    val DRONE_VIEW: ItemEntry<DroneViewUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("drone_view") { props ->
+            DroneViewUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.SPYGLASS)
+                .define('B', Items.ENDER_PEARL)
+                .pattern(" V ")
+                .pattern("BWB")
+                .pattern(" B ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
+        .register()
+
+    // Drone Range - extends drone view radius
+    val DRONE_RANGE: ItemEntry<DroneRangeUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("drone_range") { props ->
+            DroneRangeUpgrade(props)
+        }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.ENDER_EYE)
+                .define('B', AllItems.COPPER_SHEET)
+                .pattern(" V ")
+                .pattern("BWB")
                 .pattern(" B ")
                 .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))

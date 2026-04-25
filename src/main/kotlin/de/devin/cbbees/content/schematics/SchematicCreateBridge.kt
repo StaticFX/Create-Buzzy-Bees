@@ -11,10 +11,14 @@ import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import com.simibubi.create.content.kinetics.belt.BeltPart
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.core.BlockPos
+import net.minecraft.server.MinecraftServer
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -105,7 +109,10 @@ class SchematicCreateBridge(
      * @param job The job to assign the tasks to
      * @return List of TaskBatches for building the schematic
      */
-    fun generateBuildTasks(job: BeeJob): List<TaskBatch> {
+    /**
+     * Generates build tasks synchronously (blocking). Used for small schematics.
+     */
+    fun generateBuildTasks(job: BeeJob, onProgress: ((processed: Int, total: Int) -> Unit)? = null): List<TaskBatch> {
         if (!isLoaded) {
             CreateBuzzyBeez.LOGGER.warn("No schematic loaded")
             return emptyList()
@@ -113,31 +120,92 @@ class SchematicCreateBridge(
 
         handledPositions.clear()
         val batches = mutableListOf<TaskBatch>()
+        var processed = 0
 
-        // Iterate through all blocks in the schematic using Create's three-pass printer
-        // (BLOCKS -> DEFERRED_BLOCKS -> ENTITIES)
         while (printer.isLoaded && !printer.isErrored && printer.advanceCurrentPos()) {
-            if (!printer.shouldPlaceCurrent(level)) continue
-
-            val requirement = printer.currentRequirement
-            val items = getItemsFromRequirement(requirement)
-
-            printer.handleCurrentTarget({ pos, state, blockEntity ->
-                if (state == null || state.isAir) return@handleCurrentTarget
-                if (handledPositions.contains(pos)) return@handleCurrentTarget
-                if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
-
-                if (AllBlocks.BELT.has(state)) {
-                    handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
-                } else {
-                    handleRegularBlock(pos, state, blockEntity, items, job, batches)
-                }
-            }, { _, _ ->
-                // TODO Add entity handling (armor stands, item frames, etc.)
-            })
+            processed++
+            processCurrentBlock(job, batches)
         }
 
         return batches
+    }
+
+    /**
+     * Generates build tasks spread across multiple server ticks.
+     *
+     * Processes [blocksPerTick] blocks per tick, advances [progress] between chunks,
+     * and invokes [onComplete] with the final batch list when done. This prevents
+     * the server from freezing on large schematics.
+     *
+     * @param job the parent job
+     * @param server the Minecraft server (for scheduling)
+     * @param blocksPerTick how many blocks to process per tick (default 500)
+     * @param progress optional tracker advanced once per chunk; the caller is
+     *                 responsible for calling [JobCalculationProgress.Tracker.start] before
+     *                 and [JobCalculationProgress.Tracker.complete]/[JobCalculationProgress.Tracker.fail]
+     *                 after based on [onComplete] result
+     * @param onComplete called when all blocks are processed
+     */
+    fun generateBuildTasksAsync(
+        job: BeeJob,
+        server: MinecraftServer,
+        blocksPerTick: Int = 500,
+        progress: JobCalculationProgress.Tracker? = null,
+        onComplete: (List<TaskBatch>) -> Unit,
+    ) {
+        if (!isLoaded) {
+            CreateBuzzyBeez.LOGGER.warn("No schematic loaded")
+            onComplete(emptyList())
+            return
+        }
+
+        handledPositions.clear()
+        val batches = mutableListOf<TaskBatch>()
+
+        fun processChunk() {
+            var blocksThisChunk = 0
+            var hasMore = true
+            while (blocksThisChunk < blocksPerTick) {
+                if (!printer.isLoaded || printer.isErrored || !printer.advanceCurrentPos()) {
+                    hasMore = false
+                    break
+                }
+                blocksThisChunk++
+                processCurrentBlock(job, batches)
+            }
+
+            progress?.advance(blocksThisChunk)
+
+            if (hasMore) {
+                ServerTickScheduler.nextTick { processChunk() }
+            } else {
+                onComplete(batches)
+            }
+        }
+
+        ServerTickScheduler.nextTick { processChunk() }
+    }
+
+    /** Processes the printer's current block position into a task batch. */
+    private fun processCurrentBlock(job: BeeJob, batches: MutableList<TaskBatch>) {
+        if (!printer.shouldPlaceCurrent(level)) return
+
+        val requirement = printer.currentRequirement
+        val items = getItemsFromRequirement(requirement)
+
+        printer.handleCurrentTarget({ pos, state, blockEntity ->
+            if (state == null || state.isAir) return@handleCurrentTarget
+            if (handledPositions.contains(pos)) return@handleCurrentTarget
+            if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
+
+            if (AllBlocks.BELT.has(state)) {
+                handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
+            } else {
+                handleRegularBlock(pos, state, blockEntity, items, job, batches)
+            }
+        }, { _, _ ->
+            // TODO Add entity handling (armor stands, item frames, etc.)
+        })
     }
 
     /**
@@ -155,41 +223,117 @@ class SchematicCreateBridge(
      * @param job The job to assign the tasks to
      * @return List of RobotTasks for removing blocks in the area
      */
-    fun generateRemovalTasks(corner1: BlockPos, corner2: BlockPos, job: BeeJob): List<TaskBatch> {
+    fun generateRemovalTasks(
+        corner1: BlockPos,
+        corner2: BlockPos,
+        job: BeeJob,
+        onProgress: ((processed: Int, total: Int) -> Unit)? = null,
+    ): List<TaskBatch> {
         val batches = mutableListOf<TaskBatch>()
+        val positions = buildRemovalPositions(corner1, corner2)
 
-        val minX = minOf(corner1.x, corner2.x)
-        val minY = minOf(corner1.y, corner2.y)
-        val minZ = minOf(corner1.z, corner2.z)
-        val maxX = maxOf(corner1.x, corner2.x)
-        val maxY = maxOf(corner1.y, corner2.y)
-        val maxZ = maxOf(corner1.z, corner2.z)
-
-        // Iterate from top to bottom for removal
-        for (y in maxY downTo minY) {
-            for (x in minX..maxX) {
-                for (z in minZ..maxZ) {
-                    val pos = BlockPos(x, y, z)
-                    val state = level.getBlockState(pos)
-
-                    // Skip air and unbreakable blocks
-                    if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-                        val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
-                        val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
-                        val tasks = if (CBBeesConfig.beePickupItems.get()) {
-                            val dropOffTask = BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job)
-                            listOf(removeTask, dropOffTask)
-                        } else {
-                            listOf(removeTask)
-                        }
-                        val phase = if (BlockPlacementClassifier.shouldDeferBlock(state)) 0 else 1
-                        batches.add(TaskBatch(tasks, job, pos, phase))
-                    }
-                }
-            }
+        positions.forEachIndexed { index, pos ->
+            onProgress?.let { if (index % 2_000 == 0) it(index, positions.size) }
+            processRemovalBlock(pos, corner1, corner2, job, batches)
         }
 
         return batches
+    }
+
+    /**
+     * Generates removal tasks spread across multiple server ticks.
+     *
+     * @param progress optional tracker advanced once per chunk; the caller starts
+     *                 and completes/fails it.
+     */
+    fun generateRemovalTasksAsync(
+        corner1: BlockPos,
+        corner2: BlockPos,
+        job: BeeJob,
+        server: MinecraftServer,
+        blocksPerTick: Int = 1000,
+        progress: JobCalculationProgress.Tracker? = null,
+        onComplete: (List<TaskBatch>) -> Unit,
+    ) {
+        val batches = mutableListOf<TaskBatch>()
+        val positions = buildRemovalPositions(corner1, corner2)
+        val total = positions.size
+        var index = 0
+
+        fun processChunk() {
+            val chunkStart = index
+            val end = (index + blocksPerTick).coerceAtMost(total)
+            while (index < end) {
+                processRemovalBlock(positions[index], corner1, corner2, job, batches)
+                index++
+            }
+            progress?.advance(index - chunkStart)
+
+            if (index < total) {
+                ServerTickScheduler.nextTick { processChunk() }
+            } else {
+                onComplete(batches)
+            }
+        }
+
+        ServerTickScheduler.nextTick { processChunk() }
+    }
+
+    // ── Pickup (item collection) ──
+
+    /**
+     * Scans the area between [corner1] and [corner2] for loose [ItemEntity] objects
+     * and creates pickup + drop-off task batches grouped by position.
+     */
+    data class PickupResult(val batches: List<TaskBatch>, val totalItems: Int)
+
+    fun generatePickupBatches(corner1: BlockPos, corner2: BlockPos, job: BeeJob): PickupResult {
+        val minPos = BlockPos(minOf(corner1.x, corner2.x), minOf(corner1.y, corner2.y), minOf(corner1.z, corner2.z))
+        val maxPos = BlockPos(maxOf(corner1.x, corner2.x), maxOf(corner1.y, corner2.y), maxOf(corner1.z, corner2.z))
+        val bounds = net.minecraft.world.phys.AABB(
+            minPos.x.toDouble(), minPos.y.toDouble(), minPos.z.toDouble(),
+            maxPos.x + 1.0, maxPos.y + 1.0, maxPos.z + 1.0,
+        )
+        val items = level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity::class.java, bounds) { it.isAlive }
+        if (items.isEmpty()) return PickupResult(emptyList(), 0)
+
+        val totalItems = items.sumOf { it.item.count }
+        val piles = items.groupBy { BlockPos.containing(it.position()) }
+        val batches = piles.map { (pos, _) ->
+            val pickupTask = BeeTask.pickup(pos = pos, job = job)
+            val dropOffTask = BeeTask.dropOff(fallbackPos = pos, job = job)
+            TaskBatch(listOf(pickupTask, dropOffTask), job, pos, beeType = BeeType.TRANSPORT)
+        }
+        return PickupResult(batches, totalItems)
+    }
+
+    private fun buildRemovalPositions(corner1: BlockPos, corner2: BlockPos): List<BlockPos> {
+        val minX = minOf(corner1.x, corner2.x); val maxX = maxOf(corner1.x, corner2.x)
+        val minY = minOf(corner1.y, corner2.y); val maxY = maxOf(corner1.y, corner2.y)
+        val minZ = minOf(corner1.z, corner2.z); val maxZ = maxOf(corner1.z, corner2.z)
+
+        return buildList {
+            for (y in maxY downTo minY)
+                for (x in minX..maxX)
+                    for (z in minZ..maxZ)
+                        add(BlockPos(x, y, z))
+        }
+    }
+
+    private fun processRemovalBlock(pos: BlockPos, corner1: BlockPos, corner2: BlockPos, job: BeeJob, batches: MutableList<TaskBatch>) {
+        val maxY = maxOf(corner1.y, corner2.y)
+        val state = level.getBlockState(pos)
+        if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
+            val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
+            val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
+            val tasks = if (CBBeesConfig.beePickupItems.get()) {
+                listOf(removeTask, BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job))
+            } else {
+                listOf(removeTask)
+            }
+            val phase = if (BlockPlacementClassifier.shouldDeferBlock(state)) 0 else 1
+            batches.add(TaskBatch(tasks, job, pos, phase))
+        }
     }
 
     /**

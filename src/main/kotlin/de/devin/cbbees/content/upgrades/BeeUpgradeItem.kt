@@ -10,29 +10,40 @@ import net.minecraft.world.item.ItemStack
 enum class UpgradeType(
     val maxStackInBackpack: Int,
     val descriptionKey: String,
+    val shape: UpgradeShape,
     val logic: IUpgrade
 ) {
-    RAPID_WINGS(4, "tooltip.cbbees.upgrade.rapid_wings", IUpgrade { ctx, count ->
+    RAPID_WINGS(4, "tooltip.cbbees.upgrade.rapid_wings", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
         ctx.speedMultiplier += count * CBBeesConfig.rapidWingsSpeedBonus.get()
     }),
-    SWARM_INTELLIGENCE(3, "tooltip.cbbees.upgrade.swarm_intelligence", IUpgrade { ctx, count ->
-        ctx.maxActiveRobots += count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
+    SWARM_INTELLIGENCE(3, "tooltip.cbbees.upgrade.swarm_intelligence", UpgradeShape.T_SHAPE, IUpgrade { ctx, count ->
+        ctx.maxActiveBees += count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
     }),
-    HONEY_EFFICIENCY(2, "tooltip.cbbees.upgrade.honey_efficiency", IUpgrade { ctx, count ->
+    HONEY_EFFICIENCY(2, "tooltip.cbbees.upgrade.honey_efficiency", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         ctx.breakSpeedMultiplier -= count * CBBeesConfig.honeyEfficiencyBreakSpeedReduction.get()
         ctx.carryCapacity += count * CBBeesConfig.honeyEfficiencyCarryBonus.get()
         ctx.fuelConsumptionMultiplier -= count * CBBeesConfig.honeyEfficiencyFuelReduction.get()
     }),
-    SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", IUpgrade { ctx, count ->
+    SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
     }),
-    DROP_ITEMS(1, "tooltip.cbbees.upgrade.drop_items", IUpgrade { ctx, count ->
+    DROP_ITEMS(1, "tooltip.cbbees.upgrade.drop_items", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
         if (count > 0) ctx.dropItemsEnabled = true
+    }),
+    HONEY_TANK(2, "tooltip.cbbees.upgrade.honey_tank", UpgradeShape.SQUARE_2X2, IUpgrade { ctx, count ->
+        ctx.honeyCapacityBonus += count * CBBeesConfig.honeyTankCapacityBonus.get()
+    }),
+    DRONE_VIEW(1, "tooltip.cbbees.upgrade.drone_view", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
+        if (count > 0) ctx.droneViewAvailable = true
+    }),
+    DRONE_RANGE(3, "tooltip.cbbees.upgrade.drone_range", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
+        ctx.droneRange += count * CBBeesConfig.droneRangeBonus.get()
     });
 
     companion object {
         /**
          * Creates a [BeeContext] based on the upgrades found in the given backpack stack.
+         * Reads from the UPGRADE_GRID data component.
          */
         fun fromBackpack(stack: ItemStack): BeeContext {
             val context = BeeContext()
@@ -74,3 +85,9 @@ class HoneyEfficiencyUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeTyp
 class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT_TOUCH, properties)
 
 class DropItemsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DROP_ITEMS, properties)
+
+class HoneyTankUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONEY_TANK, properties)
+
+class DroneViewUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DRONE_VIEW, properties)
+
+class DroneRangeUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DRONE_RANGE, properties)

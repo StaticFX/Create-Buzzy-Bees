@@ -2,6 +2,7 @@ package de.devin.cbbees.content.schematics
 
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler
+import de.devin.cbbees.items.AllItems
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
@@ -74,6 +75,22 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
     companion object {
         fun hasSchematic(stack: ItemStack): Boolean {
             return stack.has(AllDataComponents.SCHEMATIC_FILE)
+        }
+
+        /**
+         * Finds a Construction Planner in the player's inventory.
+         * Checks main hand first, then searches the full inventory.
+         * Returns [ItemStack.EMPTY] if not found.
+         */
+        fun findPlanner(player: Player): ItemStack {
+            val mainHand = player.mainHandItem
+            if (AllItems.CONSTRUCTION_PLANNER.isIn(mainHand)) return mainHand
+            val inv = player.inventory
+            for (i in 0 until inv.containerSize) {
+                val stack = inv.getItem(i)
+                if (AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return stack
+            }
+            return ItemStack.EMPTY
         }
 
         fun clearSchematic(stack: ItemStack) {

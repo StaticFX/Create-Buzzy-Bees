@@ -18,6 +18,11 @@ object ServerBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
     private var isScanning = false
 
+    // O(1) lookup indexes — rebuilt after each structural mutation
+    private val networkById = mutableMapOf<UUID, BeeNetwork>()
+    private val componentToNetwork = mutableMapOf<INetworkComponent, BeeNetwork>()
+    private val hiveById = mutableMapOf<UUID, BeeHive>()
+
     /** Topology used for creating new networks on the server. */
     private var topology: NetworkTopology = DefaultAnchorTopology
 
@@ -27,9 +32,31 @@ object ServerBeeNetworkManager {
 
     fun getNetworks(): List<BeeNetwork> = networks
 
+    /**
+     * Rebuilds all O(1) lookup indexes from the authoritative [networks] list.
+     * Called after structural mutations (register, unregister, merge, split, purge).
+     */
+    fun rebuildIndexes() {
+        networkById.clear()
+        componentToNetwork.clear()
+        hiveById.clear()
+        for (network in networks) {
+            networkById[network.id] = network
+            for (component in network.components) {
+                componentToNetwork[component] = network
+                if (component is BeeHive) {
+                    hiveById[component.id] = component
+                }
+            }
+        }
+    }
+
     fun clear() {
         val size = networks.size
         networks.clear()
+        networkById.clear()
+        componentToNetwork.clear()
+        hiveById.clear()
         CreateBuzzyBeez.LOGGER.info("Cleared $size networks")
     }
 
@@ -52,7 +79,7 @@ object ServerBeeNetworkManager {
         // always pass the spatial range check — they get picked up by
         // scanAndJoinNearbyComponents when a beehive registers.
         if (component.isAnchor()) {
-            val idNetwork = networks.find { it.id == component.networkId }
+            val idNetwork = networkById[component.networkId]
             if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
                 if (idNetwork.level == null || idNetwork.level == component.world) {
                     nearbyNetworks.add(idNetwork)
@@ -107,6 +134,8 @@ object ServerBeeNetworkManager {
                 isScanning = false
             }
         }
+
+        rebuildIndexes()
     }
 
     private fun scanAndJoinNearbyComponents(network: BeeNetwork, level: Level, pos: BlockPos, range: Double) {
@@ -150,6 +179,7 @@ object ServerBeeNetworkManager {
         // If network is now empty, remove it
         if (network.components.isEmpty()) {
             networks.remove(network)
+            rebuildIndexes()
             return
         }
 
@@ -172,6 +202,8 @@ object ServerBeeNetworkManager {
                 }
             }
         }
+
+        rebuildIndexes()
     }
 
     // Simplified delegating methods
@@ -188,6 +220,12 @@ object ServerBeeNetworkManager {
 
     fun registerPort(port: LogisticsPort) = registerComponent(port)
 
+    /** Adds a pre-built network directly. Used by gametests to bypass spatial scanning. */
+    fun addNetwork(network: BeeNetwork) {
+        networks.add(network)
+        rebuildIndexes()
+    }
+
     fun unregisterPort(port: LogisticsPort) = unregisterComponent(port)
 
     fun getNetworkAt(level: Level, pos: BlockPos): BeeNetwork? {
@@ -195,19 +233,23 @@ object ServerBeeNetworkManager {
     }
 
     fun getNetworkFor(component: INetworkComponent): BeeNetwork? {
-        return networks.find { it.components.contains(component) }
+        // Fast path: use index (up to date after rebuildIndexes)
+        // Fallback: linear search for correctness during mid-registration when indexes are stale
+        return componentToNetwork[component]
+            ?: networks.find { it.components.contains(component) }
     }
 
     fun getNetwork(id: UUID): BeeNetwork? {
-        return networks.find { it.id == id }
+        return networkById[id]
     }
 
     fun findHive(id: UUID): BeeHive? {
-        return networks.flatMap { it.hives }.find { it.id == id }
+        return hiveById[id]
     }
 
     fun getNetwork(id: UUID, level: Level): BeeNetwork? {
-        return networks.find { it.id == id && (it.level == null || it.level == level) }
+        val net = networkById[id] ?: return null
+        return if (net.level == null || net.level == level) net else null
     }
 
     fun findProviderFor(level: Level, stack: ItemStack, startPos: BlockPos): LogisticsPort? {
@@ -216,7 +258,7 @@ object ServerBeeNetworkManager {
     }
 
     fun findPortableHive(playerId: UUID): PortableBeeHive? {
-        return networks.flatMap { it.hives }.filterIsInstance<PortableBeeHive>().find { it.player.uuid == playerId }
+        return hiveById.values.filterIsInstance<PortableBeeHive>().find { it.player.uuid == playerId }
     }
 
     /**
@@ -250,6 +292,7 @@ object ServerBeeNetworkManager {
                     }
                 }
                 blockNetwork.addComponent(hive)
+                rebuildIndexes()
                 CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
             }
         } else {
@@ -262,11 +305,11 @@ object ServerBeeNetworkManager {
                 }
                 // Use a stable network ID derived from the player's UUID
                 hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive)
+                registerComponent(hive) // rebuildIndexes() called inside
                 CreateBuzzyBeez.LOGGER.debug("Detached portable hive for ${hive.player.name.string} into isolated network")
             } else if (currentNetwork == null) {
                 hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive)
+                registerComponent(hive) // rebuildIndexes() called inside
             }
             // Otherwise already in isolated network — no-op
         }

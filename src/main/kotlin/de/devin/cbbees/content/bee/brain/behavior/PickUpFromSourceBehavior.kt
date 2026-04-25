@@ -9,6 +9,7 @@ import net.minecraft.world.entity.ai.behavior.Behavior
 import net.minecraft.world.entity.ai.memory.MemoryModuleType
 import net.minecraft.world.entity.ai.memory.MemoryStatus
 import net.minecraft.world.entity.ai.memory.WalkTarget
+import net.neoforged.neoforge.items.ItemHandlerHelper
 
 /**
  * BumbleBee behavior: fly to the source (EXTRACT) port and pick up items.
@@ -42,7 +43,7 @@ class PickUpFromSourceBehavior : Behavior<MechanicalBumbleBeeEntity>(
                 return
             }
 
-            val port = network.transportPorts.find { it.pos == sourcePos && it.isValidProvider() }
+            val port = network.transportPortsByPos[sourcePos]?.takeIf { it.isValidProvider() }
             if (port == null) {
                 BeeDebug.logForEntity(entity, "Bumble", "Source port gone at $sourcePos — clearing task")
                 entity.brain.eraseMemory(BeeMemoryModules.TRANSPORT_TASK.get())
@@ -52,11 +53,31 @@ class PickUpFromSourceBehavior : Behavior<MechanicalBumbleBeeEntity>(
             // Release reservation now that we're at the port
             port.releaseReservation(entity.uuid)
 
+            // Pre-check: how much the target can accept (best-effort, handles most overflow)
+            val targetPort = network.transportPortsByPos[task.targetPos]?.takeIf { it.isValidRequester() }
+            val targetHandler = targetPort?.getItemHandler(targetPort.world)
+
             var pickedUp = false
             for (item in task.items) {
                 if (entity.isInventoryFull()) break
-                if (port.hasItemStack(item) && port.removeItemStack(item)) {
-                    val remainder = entity.addToInventory(item.copy())
+
+                // Determine how many items the target can accept
+                var toExtract = item
+                if (targetHandler != null) {
+                    val simulated = ItemHandlerHelper.insertItemStacked(targetHandler, item.copy(), true)
+                    val canAccept = item.count - simulated.count
+                    if (canAccept <= 0) {
+                        BeeDebug.logForEntity(entity, "Bumble", "Target full for ${item.item}, skipping")
+                        continue
+                    }
+                    if (canAccept < item.count) {
+                        toExtract = item.copyWithCount(canAccept)
+                        BeeDebug.logForEntity(entity, "Bumble", "Target can accept ${canAccept}/${item.count} ${item.item}")
+                    }
+                }
+
+                if (port.hasItemStack(toExtract) && port.removeItemStack(toExtract)) {
+                    val remainder = entity.addToInventory(toExtract.copy())
                     if (!remainder.isEmpty) {
                         port.addItemStack(remainder)
                     }
@@ -65,7 +86,7 @@ class PickUpFromSourceBehavior : Behavior<MechanicalBumbleBeeEntity>(
                     BeeDebug.logForEntity(
                         entity,
                         "Bumble",
-                        "Picked up ${item.count}x ${item.item} from source at $sourcePos"
+                        "Picked up ${toExtract.count}x ${toExtract.item} from source at $sourcePos"
                     )
                 }
             }

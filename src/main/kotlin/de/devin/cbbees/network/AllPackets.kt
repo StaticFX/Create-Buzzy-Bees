@@ -21,7 +21,7 @@ object AllPackets {
             StartDeconstructionPacket.Companion::handle
         )
 
-        // Stop packet - cancels all active robot tasks
+        // Stop packet - cancels all active bee tasks
         registrar.playToServer(
             StopTasksPacket.TYPE,
             StopTasksPacket.STREAM_CODEC,
@@ -69,6 +69,11 @@ object AllPackets {
             InstantConstructionPacket.Companion::handle
         )
         registrar.playToServer(
+            ProgramSchematicPacket.TYPE,
+            ProgramSchematicPacket.STREAM_CODEC,
+            ProgramSchematicPacket.Companion::handle
+        )
+        registrar.playToServer(
             PlannerUploadPacket.TYPE,
             PlannerUploadPacket.STREAM_CODEC,
             PlannerUploadPacket.Companion::handle
@@ -77,6 +82,73 @@ object AllPackets {
             RequestPlayerJobsPacket.TYPE,
             RequestPlayerJobsPacket.STREAM_CODEC,
             RequestPlayerJobsPacket.Companion::handle
+        )
+
+        // Pickup packet - scans area for items and dispatches bumble bees
+        registrar.playToServer(
+            StartPickupPacket.TYPE,
+            StartPickupPacket.STREAM_CODEC,
+            StartPickupPacket.Companion::handle
+        )
+
+        // Grid upgrade packets
+        registrar.playToServer(
+            GridPlaceUpgradePacket.TYPE,
+            GridPlaceUpgradePacket.STREAM_CODEC,
+            GridPlaceUpgradePacket.Companion::handle
+        )
+        registrar.playToServer(
+            GridRemoveUpgradePacket.TYPE,
+            GridRemoveUpgradePacket.STREAM_CODEC,
+            GridRemoveUpgradePacket.Companion::handle
+        )
+
+        // Deployer settings packet
+        registrar.playToServer(
+            DeployerSettingsPacket.TYPE,
+            DeployerSettingsPacket.STREAM_CODEC,
+            DeployerSettingsPacket.Companion::handle
+        )
+
+        // Job calculation progress (tick-counted, cached for late joiners)
+        registrar.playToClient(
+            JobProgressPacket.TYPE,
+            JobProgressPacket.STREAM_CODEC,
+            JobProgressPacket.Companion::handle
+        )
+
+        // Checkpoint-based bee flight plans
+        registrar.playToClient(
+            BeeFlightPlanPacket.TYPE,
+            BeeFlightPlanPacket.STREAM_CODEC,
+            BeeFlightPlanPacket.Companion::handle
+        )
+        registrar.playToClient(
+            BeeRemovePacket.TYPE,
+            BeeRemovePacket.STREAM_CODEC,
+            BeeRemovePacket.Companion::handle
+        )
+        registrar.playToClient(
+            BeeCheckpointConfirmPacket.TYPE,
+            BeeCheckpointConfirmPacket.STREAM_CODEC,
+            BeeCheckpointConfirmPacket.Companion::handle
+        )
+
+        // Drone view packets
+        registrar.playToServer(
+            ToggleDroneViewPacket.TYPE,
+            ToggleDroneViewPacket.STREAM_CODEC,
+            ToggleDroneViewPacket.Companion::handle
+        )
+        registrar.playToClient(
+            DroneViewSyncPacket.TYPE,
+            DroneViewSyncPacket.STREAM_CODEC,
+            DroneViewSyncPacket.Companion::handle
+        )
+        registrar.playToServer(
+            MoveDronePacket.TYPE,
+            MoveDronePacket.STREAM_CODEC,
+            MoveDronePacket.Companion::handle
         )
     }
 }

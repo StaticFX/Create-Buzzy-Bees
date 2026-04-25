@@ -3,17 +3,18 @@ package de.devin.cbbees.content.domain
 import de.devin.cbbees.content.bee.BeeSeparation
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
+import de.devin.cbbees.content.bee.server.ServerBeeData
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TransportTask
-import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.items.ItemHandlerHelper
 import java.util.*
 
 /**
@@ -57,16 +58,21 @@ object TransportDispatcher : SavedData() {
 
             if (hivesWithBumbles.isEmpty()) continue
 
+            // Pre-group requesters by frequency key for O(1) matching per provider
+            val requestersByFreq = requesterPorts.groupBy { it.linkBehaviour.networkKey }
+
             for (provider in providerPorts) {
                 val handler = provider.getItemHandler(provider.world) ?: continue
 
-                // Find a requester that matches this provider's frequency
-                val requester = requesterPorts
-                    .filter { it.frequenciesMatch(provider) }
-                    .sortedByDescending { it.priority() }
-                    .firstOrNull() ?: continue
+                // Find a requester that matches this provider's frequency and has space
+                val matchingRequesters = requestersByFreq[provider.linkBehaviour.networkKey] ?: continue
+                val requester = matchingRequesters
+                    .filter { it.hasInventorySpace() }
+                    .maxByOrNull { it.priority() } ?: continue
 
-                // Collect up to INVENTORY_SIZE distinct stacks for a single trip
+                // Collect up to INVENTORY_SIZE distinct stacks for a single trip,
+                // only items the requester can actually accept
+                val requesterHandler = requester.getItemHandler(requester.world)
                 val itemsToTransport = mutableListOf<ItemStack>()
                 for (slot in 0 until handler.slots) {
                     if (itemsToTransport.size >= MechanicalBumbleBeeEntity.INVENTORY_SIZE) break
@@ -74,6 +80,12 @@ object TransportDispatcher : SavedData() {
                     val stack = handler.getStackInSlot(slot)
                     if (stack.isEmpty) continue
                     if (!provider.hasAvailableItemStack(stack)) continue
+
+                    // Check if the requester can accept this item (simulate insert)
+                    if (requesterHandler != null) {
+                        val simulated = ItemHandlerHelper.insertItemStacked(requesterHandler, stack.copy(), true)
+                        if (simulated.count == stack.count) continue // no space at all
+                    }
 
                     itemsToTransport.add(stack.copy())
                 }
@@ -86,9 +98,10 @@ object TransportDispatcher : SavedData() {
                     items = itemsToTransport
                 )
 
+                // Use minByOrNull instead of sortedBy.firstOrNull to avoid full sort
                 val hive = hivesWithBumbles
-                    .sortedBy { it.pos.distSqr(provider.pos) }
-                    .firstOrNull { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
+                    .filter { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
+                    .minByOrNull { it.pos.distSqr(provider.pos) }
                     ?: break // no more bumble bees available in any hive
 
                 val beeItem = hive.consumeBeeOfType(MechanicalBumbleBeeItem::class.java)
@@ -96,7 +109,7 @@ object TransportDispatcher : SavedData() {
 
                 val bee = spawnMechanicalBumbleBee(hive, task)
                 if (bee != null) {
-                    provider.reserve(bee.uuid, task.items, hive.world.gameTime)
+                    provider.reserve(bee.id, task.items, hive.world.gameTime)
                 }
             }
         }
@@ -105,22 +118,15 @@ object TransportDispatcher : SavedData() {
     private fun spawnMechanicalBumbleBee(
         hive: MechanicalBeehiveBlockEntity,
         task: TransportTask
-    ): MechanicalBumbleBeeEntity? {
-        val level = hive.world
+    ): ServerBeeData? {
+        val spawnPos = Vec3.atCenterOf(hive.pos.above()).add(BeeSeparation.spawnOffset(hive.world.random))
 
-        val bee = MechanicalBumbleBeeEntity(AllEntityTypes.MECHANICAL_BUMBLE_BEE.get(), level).apply {
-            setPos(Vec3.atCenterOf(hive.pos.above()).add(BeeSeparation.spawnOffset(level.random)))
-            this.networkId = hive.network().id
-            this.springTension = 1.0f
-        }
-
-        bee.setHomeId(hive.id)
-        bee.getBrain().setMemory(BeeMemoryModules.HIVE_POS.get(), hive.pos)
-        bee.getBrain().setMemory(BeeMemoryModules.HIVE_INSTANCE.get(), Optional.of(hive))
-        bee.getBrain().setMemory(BeeMemoryModules.TRANSPORT_TASK.get(), task)
-
-        level.addFreshEntity(bee)
-        return bee
+        return ServerBeeManager.spawnTransportBee(
+            hive = hive,
+            task = task,
+            networkId = hive.network().id,
+            spawnPos = spawnPos,
+        )
     }
 
     override fun save(tag: CompoundTag, registries: HolderLookup.Provider): CompoundTag {

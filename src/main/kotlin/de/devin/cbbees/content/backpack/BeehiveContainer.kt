@@ -3,7 +3,6 @@ package de.devin.cbbees.content.backpack
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
-import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.NonNullList
 import net.minecraft.core.component.DataComponents
@@ -58,7 +57,7 @@ class BeehiveContainer : AbstractContainerMenu {
         this.fuelData = object : ContainerData {
             override fun get(index: Int): Int = when (index) {
                 0 -> backpackStack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-                1 -> CBBeesConfig.portableMaxHoney.get()
+                1 -> (backpackStack.item as? PortableBeehiveItem)?.getMaxHoney(backpackStack) ?: CBBeesConfig.portableMaxHoney.get()
                 else -> 0
             }
 
@@ -66,7 +65,10 @@ class BeehiveContainer : AbstractContainerMenu {
             override fun getCount(): Int = 2
         }
 
-        // Load contents from the backpack item
+        // Migrate old flat upgrades to grid if needed
+        PortableBeehiveItem.migrateUpgradesToGrid(backpackStack)
+
+        // Load contents from the backpack item (robot slots only)
         val contents = backpackStack.get(DataComponents.CONTAINER)
         if (contents != null) {
             val items = NonNullList.withSize(PortableBeehiveItem.TOTAL_SLOTS, ItemStack.EMPTY)
@@ -82,30 +84,20 @@ class BeehiveContainer : AbstractContainerMenu {
     private fun setupSlots() {
         addDataSlots(fuelData)
 
-        // Updated positions for Create-style GUI (FILTER + PLAYER_INVENTORY backgrounds)
-        // FILTER background is 214x99, PLAYER_INVENTORY is 176x108
-        // 4px gap between them
-
-        // Robot slots (2 slots, stacked vertically) - positions from custom texture
+        // Robot slots (2 slots, stacked vertically)
         val beeSlotPositions = listOf(8 to 24, 8 to 51)
         for (i in 0 until PortableBeehiveItem.ROBOT_SLOTS) {
             val (x, y) = beeSlotPositions[i]
             addSlot(RobotSlot(backpackInventory, i, x, y))
         }
 
-        // Upgrade slots (4 slots in a row) - positions from custom texture
-        val upgradeSlotPositions = listOf(99 to 38, 120 to 38, 141 to 38, 162 to 38)
-        for (i in 0 until PortableBeehiveItem.UPGRADE_SLOTS) {
-            val (x, y) = upgradeSlotPositions[i]
-            addSlot(UpgradeSlot(backpackInventory, PortableBeehiveItem.ROBOT_SLOTS + i, x, y))
-        }
+        // Upgrades are now managed via the grid system (no container slots)
 
         // Add player inventory slots
-        // Custom background height (102) + gap (4) = 106, then PLAYER_INVENTORY starts
-        // PLAYER_INVENTORY is centered: (200 - 176) / 2 = 12 offset
-        // Player inventory slots start at y=106+18=124 (18px from top of PLAYER_INVENTORY for label)
-        val invX = 12 + 8  // Center offset + standard inventory padding
-        val invY = 106 + 17
+        // Must match screen's renderPlayerInventory position: slots start at renderX+8, renderY+18
+        // Screen renders at x = (imageWidth - 176) / 2 = 11, y = BG_HEIGHT + 3 = 115
+        val invX = 11 + 8  // 19
+        val invY = 115 + 18  // 133
         for (row in 0 until 3) {
             for (col in 0 until 9) {
                 addSlot(Slot(playerInventory, col + row * 9 + 9, invX + col * 18, invY + row * 18))
@@ -134,14 +126,10 @@ class BeehiveContainer : AbstractContainerMenu {
                     return ItemStack.EMPTY
                 }
             } else {
-                // Moving from player inventory to backpack
-                // Try robot slots first, then upgrade slots
+                // Moving from player inventory to backpack — only robot slots
+                // Upgrades are placed via the grid system, not shift-click
                 if (slotStack.item is MechanicalBeeItem || slotStack.item is MechanicalBumbleBeeItem) {
                     if (!moveItemStackTo(slotStack, 0, PortableBeehiveItem.ROBOT_SLOTS, false)) {
-                        return ItemStack.EMPTY
-                    }
-                } else if (slotStack.item is BeeUpgradeItem) {
-                    if (!moveItemStackTo(slotStack, PortableBeehiveItem.ROBOT_SLOTS, backpackSlotCount, false)) {
                         return ItemStack.EMPTY
                     }
                 } else {
@@ -176,7 +164,7 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     private fun saveBackpackContents() {
-        // Save the container contents back to the backpack item
+        // Save robot slot contents back to the backpack item
         val items = mutableListOf<ItemStack>()
         for (i in 0 until backpackInventory.containerSize) {
             items.add(backpackInventory.getItem(i))
@@ -193,17 +181,6 @@ class BeehiveContainer : AbstractContainerMenu {
         }
 
         override fun getMaxStackSize(): Int = MechanicalBeeItem.MAX_STACK_SIZE
-    }
-
-    /**
-     * Slot that only accepts upgrade items
-     */
-    inner class UpgradeSlot(container: Container, index: Int, x: Int, y: Int) : Slot(container, index, x, y) {
-        override fun mayPlace(stack: ItemStack): Boolean {
-            return stack.item is BeeUpgradeItem
-        }
-
-        override fun getMaxStackSize(): Int = 1
     }
 
     override fun clickMenuButton(player: Player, id: Int): Boolean {

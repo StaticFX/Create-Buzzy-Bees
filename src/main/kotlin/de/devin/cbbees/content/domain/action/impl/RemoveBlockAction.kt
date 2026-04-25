@@ -3,7 +3,7 @@ package de.devin.cbbees.content.domain.action.impl
 import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
@@ -14,39 +14,31 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 
-/**
- * Models an action to break a block at a given position
- */
 class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
-    //TODO calculate how long it takes to break block
-    override fun getWorkTicks(context: BeeContext): Int = 5 // BASE_BREAK_TICKS
 
-    override fun onTick(robot: MechanicalBeeEntity, tick: Int) {
-        if (robot.level() is ServerLevel) {
-            (robot.level() as ServerLevel).sendParticles(
+    override fun getWorkTicks(context: BeeContext): Int = 5
+
+    override fun onTick(worker: BeeWorker, tick: Int) {
+        val level = worker.level()
+        if (level is ServerLevel) {
+            level.sendParticles(
                 ParticleTypes.ELECTRIC_SPARK,
-                robot.x, robot.y, robot.z,
+                worker.getWorkerX(), worker.getWorkerY(), worker.getWorkerZ(),
                 2, 0.2, 0.2, 0.2, 0.05
             )
         }
     }
 
-    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
         if (level !is ServerLevel) return false
-
-        // Never destroy a Mechanical Beehive — skip silently
         if (level.getBlockEntity(pos) is BeeHive) return true
 
-
-        // Drop Items upgrade: break block and let items drop naturally, skip pickup entirely
         if (context.dropItemsEnabled) {
             level.destroyBlock(pos, true)
             return true
         }
 
-        val shouldPickUp = CBBeesConfig.beePickupItems.get()
-
-        if (shouldPickUp) {
+        if (CBBeesConfig.beePickupItems.get()) {
             val state = level.getBlockState(pos)
             val blockEntity = level.getBlockEntity(pos)
             val drops = if (context.silkTouchEnabled) {
@@ -55,34 +47,32 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
                 Block.getDrops(state, level, pos, blockEntity)
             }
 
-            // Clear container contents before destroying so onRemove doesn't drop them.
-            // Collect the contents to add to bee inventory alongside block drops.
             val extraDrops = mutableListOf<ItemStack>()
             if (blockEntity is net.minecraft.world.Container) {
-                for (i in 0 until blockEntity.containerSize) {
-                    val stack = blockEntity.getItem(i)
-                    if (!stack.isEmpty) {
-                        extraDrops.add(stack.copy())
-                    }
-                }
+                (0 until blockEntity.containerSize)
+                    .map { blockEntity.getItem(it) }
+                    .filter { !it.isEmpty }
+                    .forEach { extraDrops.add(it.copy()) }
                 blockEntity.clearContent()
             }
-
-            // Extract copycat material before destroying so onRemove doesn't pop it on the ground.
             if (blockEntity is CopycatBlockEntity) {
-                val consumedItem = blockEntity.consumedItem
-                if (!consumedItem.isEmpty) {
-                    extraDrops.add(consumedItem.copy())
-                }
+                blockEntity.consumedItem.takeIf { !it.isEmpty }?.let { extraDrops.add(it.copy()) }
                 blockEntity.clearContent()
             }
 
             level.destroyBlock(pos, false)
-            for (drop in drops + extraDrops) {
-                val remainder = bee.addToInventory(drop)
-                if (!remainder.isEmpty) {
-                    val itemEntity = ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder)
-                    level.addFreshEntity(itemEntity)
+            val hasPort = worker.network()?.findDropOff(ItemStack.EMPTY, worker.hiveId) != null
+            (drops + extraDrops).forEach { drop ->
+                if (hasPort) {
+                    // Port available — pick up into inventory for later deposit
+                    val remainder = worker.addToInventory(drop)
+                    if (!remainder.isEmpty) {
+                        // Inventory full — drop overflow on ground
+                        level.addFreshEntity(ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, remainder))
+                    }
+                } else {
+                    // No port — drop everything on ground immediately
+                    level.addFreshEntity(ItemEntity(level, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5, drop))
                 }
             }
         } else {
@@ -94,7 +84,5 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     override fun shouldReturnAfter(context: BeeContext): Boolean =
         !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
 
-    override fun getDescription(): String {
-        return "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
-    }
+    override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
 }

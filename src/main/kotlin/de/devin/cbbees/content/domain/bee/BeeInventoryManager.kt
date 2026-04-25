@@ -10,35 +10,35 @@ import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 
 /**
- * Handles inventory operations for constructor robots, including item collection
+ * Handles inventory operations for construction bees, including item collection
  * from player inventory and wireless storages.
  */
-class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
+class BeeInventoryManager(private val bee: MechanicalBeeEntity) {
 
     /**
      * Picks up items for the current task into the bee's inventory.
      */
     fun pickUpItems(required: List<ItemStack>, context: BeeContext): Boolean {
-        val ownerPlayer = robot.getOwnerPlayer() ?: return false
+        val ownerPlayer = bee.getOwnerPlayer() ?: return false
         if (ownerPlayer.isCreative) return true
 
         val source = getMaterialSource(ownerPlayer, context)
-        robot.inventory.clearContent()
+        bee.inventory.clearContent()
 
         for (req in required) {
             if (req.isEmpty) continue
-            if (robot.isInventoryFull()) break
+            if (bee.isInventoryFull()) break
 
             val extracted = source.extractItems(req, req.count)
             if (!extracted.isEmpty) {
-                robot.addToInventory(extracted)
+                bee.addToInventory(extracted)
             }
         }
 
         val totalRequired = required.sumOf { it.count }
         var totalCarried = 0
-        for (i in 0 until robot.inventory.containerSize) {
-            totalCarried += robot.inventory.getItem(i).count
+        for (i in 0 until bee.inventory.containerSize) {
+            totalCarried += bee.inventory.getItem(i).count
         }
         return totalCarried >= totalRequired
     }
@@ -47,19 +47,19 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
      * Deposits carried items back into player or wireless inventory.
      */
     fun depositItems(context: BeeContext) {
-        val ownerPlayer = robot.getOwnerPlayer() ?: return
+        val ownerPlayer = bee.getOwnerPlayer() ?: return
         if (ownerPlayer.isCreative) {
-            robot.inventory.clearContent()
+            bee.inventory.clearContent()
             return
         }
 
         val source = getMaterialSource(ownerPlayer, context)
 
-        for (i in 0 until robot.inventory.containerSize) {
-            val stack = robot.inventory.getItem(i)
+        for (i in 0 until bee.inventory.containerSize) {
+            val stack = bee.inventory.getItem(i)
             if (stack.isEmpty) continue
             val remaining = source.insertItems(stack)
-            robot.inventory.setItem(i, remaining)
+            bee.inventory.setItem(i, remaining)
         }
     }
 
@@ -73,8 +73,8 @@ class BeeInventoryManager(private val robot: MechanicalBeeEntity) {
         sources.add(PlayerMaterialSource(ownerPlayer))
 
         // 2. Network inventory
-        robot.network()?.let {
-            sources.add(NetworkMaterialSource(it, robot.level()))
+        bee.network()?.let {
+            sources.add(NetworkMaterialSource(it, bee.level()))
         }
 
         return CompositeMaterialSource(sources)

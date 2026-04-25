@@ -228,7 +228,7 @@ class HiveJobsSyncPacket(
             val hiveList = net.hives
             val statsActive = hiveList.sumOf { it.getActiveBeeCount() }
             val statsStored = hiveList.sumOf { it.getAvailableBeeCount() }
-            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveRobots }
+            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveBees }
 
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { job ->
@@ -243,17 +243,29 @@ class HiveJobsSyncPacket(
 
                     val reason = StuckReasonResolver.firstReasonOrNull(net, job)
 
-                    // Only send ghost blocks if no schematic placement is available
-                    // (client can derive ghosts from the placement data itself)
+                    // For jobs with schematic placement, skip per-batch detail entirely —
+                    // the client renders ghosts from the schematic file. Only send a single
+                    // summary batch to keep the packet small.
                     val hasPlacement = job.schematicPlacement != null
-                    val batches = job.batches.map { b ->
-                        ClientBatchInfo(
-                            status = b.status.name,
-                            target = b.targetPosition,
+                    val batches = if (hasPlacement) {
+                        // Single summary entry — no per-batch overhead for large schematics
+                        listOf(ClientBatchInfo(
+                            status = "SUMMARY",
+                            target = job.centerPos,
                             required = emptyList(),
                             assignedBeeIds = emptyList(),
-                            ghostBlocks = if (hasPlacement) emptyMap() else collectGhostBlocks(b)
-                        )
+                            ghostBlocks = emptyMap()
+                        ))
+                    } else {
+                        job.batches.map { b ->
+                            ClientBatchInfo(
+                                status = b.status.name,
+                                target = b.targetPosition,
+                                required = emptyList(),
+                                assignedBeeIds = emptyList(),
+                                ghostBlocks = collectGhostBlocks(b)
+                            )
+                        }
                     }
                     ClientJobInfo(
                         jobId = job.jobId,
@@ -278,10 +290,21 @@ class HiveJobsSyncPacket(
             val clientJobs = jobs.map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
                     val batches = job.batches.map { b ->
+                        val required = b.tasks.map { it.action }
+                            .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
+                            .flatMap { it.requiredItems }
                         ClientBatchInfo(
-                            b.status.name, b.targetPosition, emptyList(), emptyList(),
+                            b.status.name, b.targetPosition, required, emptyList(),
                             ghostBlocks = emptyMap()
                         )
+                    }
+                    // Live stall check: find the network for this job and resolve reason
+                    val networkId = job.batches.firstOrNull()?.assignedNetworkId
+                    val network = if (networkId != null) ServerBeeNetworkManager.getNetwork(networkId) else null
+                    val reason = if (network != null) {
+                        StuckReasonResolver.firstReasonOrNull(network, job)
+                    } else {
+                        null
                     }
                     ClientJobInfo(
                         job.jobId,
@@ -289,7 +312,7 @@ class HiveJobsSyncPacket(
                         job.status.name,
                         completed,
                         job.tasks.size,
-                        null,
+                        reason,
                         batches,
                         schematicPlacement = job.schematicPlacement
                     )

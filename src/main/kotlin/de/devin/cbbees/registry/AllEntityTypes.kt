@@ -13,14 +13,14 @@ object AllEntityTypes {
 
     val MECHANICAL_BEE: EntityEntry<MechanicalBeeEntity> = CreateBuzzyBeez.REGISTRATE
         .entity("mechanical_bee", ::MechanicalBeeEntity, MobCategory.MISC)
-        .properties { b -> b.sized(0.5f, 0.5f).fireImmune() }
+        .properties { b -> b.sized(0.5f, 0.5f).fireImmune().clientTrackingRange(8).updateInterval(5) }
         .attributes { MechanicalBeeEntity.createAttributes() }
         .renderer { NonNullFunction { MechanicalBeeRenderer(it) } }
         .register()
 
     val MECHANICAL_BUMBLE_BEE: EntityEntry<MechanicalBumbleBeeEntity> = CreateBuzzyBeez.REGISTRATE
         .entity("mechanical_bumble_bee", ::MechanicalBumbleBeeEntity, MobCategory.MISC)
-        .properties { b -> b.sized(0.5f, 0.5f).fireImmune() }
+        .properties { b -> b.sized(0.5f, 0.5f).fireImmune().clientTrackingRange(8).updateInterval(5) }
         .attributes { MechanicalBumbleBeeEntity.createAttributes() }
         .renderer { NonNullFunction { MechanicalBumbleBeeRenderer(it) } }
         .register()

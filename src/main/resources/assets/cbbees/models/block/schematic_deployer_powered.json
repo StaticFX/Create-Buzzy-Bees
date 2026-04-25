@@ -1,0 +1,7 @@
+{
+  "parent": "cbbees:block/schematic_deployer",
+  "textures": {
+    "0": "cbbees:block/schematic_deployer_powered",
+    "particle": "cbbees:block/schematic_deployer_powered"
+  }
+}

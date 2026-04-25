@@ -6,6 +6,7 @@ import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.config.CBBeesClientConfig
 import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.foundation.utility.RaycastHelper
+import de.devin.cbbees.content.drone.client.DroneViewClientState
 import dev.engine_room.flywheel.lib.transform.TransformStack
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
 import net.createmod.catnip.levelWrappers.SchematicLevel
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate
+import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
@@ -170,7 +172,19 @@ object SchematicHoverPreview {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: run { anchorPos = null; return }
 
-        val hitResult = RaycastHelper.rayTraceRange(player.level(), player, 75.0)
+        val hitResult = if (DroneViewClientState.active) {
+            // During drone view, raycast straight down from the drone
+            val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId)
+            if (drone != null) {
+                val origin = drone.position()
+                val target = origin.add(0.0, -75.0, 0.0)
+                val ctx = ClipContext(origin, target, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player)
+                player.level().clip(ctx)
+            } else null
+        } else {
+            RaycastHelper.rayTraceRange(player.level(), player, 75.0)
+        }
+
         if (hitResult == null || hitResult.type != HitResult.Type.BLOCK) {
             anchorPos = null
             return
@@ -301,10 +315,15 @@ object SchematicHoverPreview {
                 blockEntity.setLevel(schematicLevel)
             }
 
+            // Build geometry on the render thread to avoid native memory corruption
+            // in ByteBufferBuilder/jemalloc from concurrent vertex buffer access
             val renderer = GhostSchematicRenderer(schematicLevel)
-            renderer.prebuildGeometry()
-
             Minecraft.getInstance().execute {
+                try {
+                    renderer.prebuildGeometry()
+                } catch (e: Exception) {
+                    de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("Schematic preview build failed: ${e.message}")
+                }
                 if (gen == buildGeneration) {
                     renderers[index] = renderer
                 }

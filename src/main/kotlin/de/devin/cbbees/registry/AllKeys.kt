@@ -23,7 +23,7 @@ object AllKeys {
     )
 
     /**
-     * Keybinding to stop all robot tasks.
+     * Keybinding to stop all bee tasks.
      * Default key: BACKSPACE
      */
     val STOP_ACTION: KeyMapping = KeyMapping(
@@ -67,6 +67,51 @@ object AllKeys {
     )
 
     /**
+     * Keybinding to program a schematic into a Programmed Schematic item.
+     * Default key: P
+     */
+    val PROGRAM_ACTION: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.program_action",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_P,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
+     * Modifier key for schematic browsing — hold to scroll schematics in the HUD,
+     * toggle deconstruction mode, etc. Rebindable in Controls settings.
+     * Default key: LEFT ALT
+     */
+    val SCHEMATIC_MODIFIER: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.schematic_modifier",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_LEFT_ALT,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
+     * Modifier key for free-aim selection and AABB resizing in area planners.
+     * Default key: LEFT CTRL
+     */
+    val FREE_AIM: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.free_aim",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_LEFT_CONTROL,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
+     * Keybinding to toggle drone view.
+     * Default key: V
+     */
+    val DRONE_VIEW: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.drone_view",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_V,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
      * Registers all keybindings with the game.
      * Called from RegisterKeyMappingsEvent.
      */
@@ -76,6 +121,10 @@ object AllKeys {
         event.register(OPEN_SCHEMATIC_BROWSER)
         event.register(ROTATE_PREVIEW)
         event.register(MIRROR_PREVIEW)
+        event.register(DRONE_VIEW)
+        event.register(PROGRAM_ACTION)
+        event.register(SCHEMATIC_MODIFIER)
+        event.register(FREE_AIM)
     }
 
 }

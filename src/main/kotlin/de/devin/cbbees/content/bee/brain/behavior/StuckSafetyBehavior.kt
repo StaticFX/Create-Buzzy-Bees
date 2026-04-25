@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.bee.brain.behavior
 
+import de.devin.cbbees.content.bee.BeePathNavigation
 import de.devin.cbbees.content.bee.MechanicalBeelike
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import net.minecraft.core.BlockPos
@@ -58,6 +59,10 @@ class StuckSafetyBehavior : Behavior<PathfinderMob>(
 
         if (progress < MIN_PROGRESS) {
             failedChecks++
+            // Try rerouting before escalating to teleport
+            if (failedChecks < MAX_FAILS) {
+                owner.navigation.recomputePath()
+            }
         } else {
             failedChecks = 0
         }

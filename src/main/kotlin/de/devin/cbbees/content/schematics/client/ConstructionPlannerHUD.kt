@@ -122,7 +122,7 @@ object ConstructionPlannerHUD {
         val secondHintWidth = mc.font.width(secondHint)
 
         // Compact hint (shown above panel when Alt not held)
-        val compactHint = Component.translatable("gui.cbbees.construction_planner.hint_alt")
+        val compactHint = Component.translatable("gui.cbbees.construction_planner.hint_alt", AllKeys.SCHEMATIC_MODIFIER.translatedKeyMessage)
         val compactHintWidth = mc.font.width(compactHint)
 
         // Breadcrumb
@@ -274,12 +274,7 @@ object ConstructionPlannerHUD {
         RenderSystem.disableBlend()
     }
 
-    private fun isAltDown(): Boolean {
-        return Minecraft.getInstance().window.let { window ->
-            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
-                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
-        }
-    }
+    private fun isAltDown(): Boolean = de.devin.cbbees.registry.AllKeys.SCHEMATIC_MODIFIER.isDown
 
     private fun entryDisplayComp(entry: ConstructionPlannerHandler.HudEntry): Component {
         val name = when (entry) {

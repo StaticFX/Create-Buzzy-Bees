@@ -3,6 +3,7 @@ package de.devin.cbbees.content.schematics.client
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.CreateClient
 import com.simibubi.create.content.schematics.SchematicItem
+import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.items.AllItems
@@ -85,8 +86,8 @@ object ConstructionPlannerHandler {
      */
     fun isActive(): Boolean {
         val player = Minecraft.getInstance().player ?: return false
-        val stack = player.mainHandItem
-        if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
+        val stack = DroneViewClientState.findActivePlanner(player)
+        if (stack.isEmpty) return false
         // State 3: deployed → Create owns it, our HUD is inactive
         if (stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)) return false
         return true
@@ -94,13 +95,13 @@ object ConstructionPlannerHandler {
 
     fun tick() {
         val player = Minecraft.getInstance().player
-        val stack = player?.mainHandItem
 
         // Pump upload chunks
         SchematicUploader.tick()
 
         // Not holding a planner — pause preview rendering but keep internal state
-        if (stack == null || !AllItems.CONSTRUCTION_PLANNER.isIn(stack)) {
+        val stack = if (player != null) DroneViewClientState.findActivePlanner(player) else null
+        if (stack == null || stack.isEmpty) {
             createWasActive = false
             if (isBrowsingPreview) {
                 isBrowsingPreview = false
@@ -315,8 +316,8 @@ object ConstructionPlannerHandler {
     private fun deploySchematic(filename: String): Boolean {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return false
-        val stack = player.mainHandItem
-        if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return false
+        val stack = DroneViewClientState.findActivePlanner(player)
+        if (stack.isEmpty) return false
 
         if (SchematicUploader.isUploading()) return false
 
@@ -342,8 +343,8 @@ object ConstructionPlannerHandler {
 
         // Closure that finishes deployment — called immediately or after upload completes
         val finishDeploy = {
-            val currentStack = player.mainHandItem
-            if (AllItems.CONSTRUCTION_PLANNER.isIn(currentStack)) {
+            val currentStack = DroneViewClientState.findActivePlanner(player)
+            if (!currentStack.isEmpty) {
                 // Set all data components on the client item — Create will pick this up
                 currentStack.set(AllDataComponents.SCHEMATIC_FILE, filename)
                 currentStack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
@@ -414,11 +415,7 @@ object ConstructionPlannerHandler {
                 InstantConstructionPacket(filename, anchor, rotation, mirror)
             )
 
-            player.displayClientMessage(
-                Component.translatable("cbbees.construction.started_instant", filename.removeSuffix(".nbt"))
-                    .withStyle { it.withColor(0x00FF00) },
-                true
-            )
+            // Feedback handled server-side via TaskProgressReporter
         }
 
         val owner = player.gameProfile.name
@@ -440,11 +437,6 @@ object ConstructionPlannerHandler {
     /** Returns the currently selected entry, if any. */
     fun getSelectedEntry(): HudEntry? = currentItems.getOrNull(selectedIndex)
 
-    private fun isAltDown(): Boolean {
-        return Minecraft.getInstance().window.let { window ->
-            GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS ||
-                    GLFW.glfwGetKey(window.window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
-        }
-    }
+    private fun isAltDown(): Boolean = de.devin.cbbees.registry.AllKeys.SCHEMATIC_MODIFIER.isDown
 
 }

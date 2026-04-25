@@ -1,8 +1,8 @@
 package de.devin.cbbees.content.domain.task
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
+import de.devin.cbbees.content.domain.action.impl.PickupItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
@@ -27,27 +27,17 @@ data class BeeTask(
     val priority: Int = 0,
 ) {
     var status: TaskStatus = TaskStatus.PENDING
-    var mechanicalBee: MechanicalBeeEntity? = null
+    var assignedBeeId: UUID? = null
     var assignedNetworkId: UUID? = null
 
     var requirement: (task: BeeTask) -> Boolean = { true }
 
-    /**
-     * The world position where the task should be performed.
-     */
     val targetPos: BlockPos get() = action.pos
-
-    /**
-     * The unique identifier for the job this task belongs to.
-     */
     val jobId: UUID get() = job.jobId
 
-    /**
-     * Mark this task as in progress by a specific robot
-     */
-    fun assignToRobot(mechanicalBeeEntity: MechanicalBeeEntity) {
+    fun assignToBee(beeId: UUID) {
         status = TaskStatus.IN_PROGRESS
-        mechanicalBee = mechanicalBeeEntity
+        assignedBeeId = beeId
     }
 
     /**
@@ -63,7 +53,7 @@ data class BeeTask(
      */
     fun fail() {
         status = TaskStatus.FAILED
-        mechanicalBee = null
+        assignedBeeId = null
     }
 
     /**
@@ -71,7 +61,7 @@ data class BeeTask(
      */
     fun release() {
         status = TaskStatus.PENDING
-        mechanicalBee = null
+        assignedBeeId = null
     }
 
     /**
@@ -79,7 +69,7 @@ data class BeeTask(
      */
     fun cancel() {
         status = TaskStatus.CANCELLED
-        mechanicalBee = null
+        assignedBeeId = null
         job.checkCompletion()
     }
 
@@ -126,6 +116,10 @@ data class BeeTask(
 
         fun dropOff(fallbackPos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
             return BeeTask(DropOffItemsAction(fallbackPos), job, priority)
+        }
+
+        fun pickup(pos: BlockPos, priority: Int = 0, job: BeeJob): BeeTask {
+            return BeeTask(PickupItemsAction(pos), job, priority)
         }
     }
 }

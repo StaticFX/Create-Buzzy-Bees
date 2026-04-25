@@ -28,12 +28,7 @@ object BeeSeparation {
         val offsetX = Math.cos(angle) * 0.006
         val offsetZ = Math.sin(angle) * 0.006
 
-        val current = bee.deltaMovement
-        bee.deltaMovement = Vec3(
-            current.x + offsetX,
-            current.y,
-            current.z + offsetZ
-        )
+        bee.deltaMovement = bee.deltaMovement.add(offsetX, 0.0, offsetZ)
     }
 
     /**

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.beehive.client
 
+import com.simibubi.create.AllItems
 import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.config.CBBeesClientConfig
@@ -36,6 +37,13 @@ object BeehiveRangeHandler {
         val player = mc.player ?: return
         val level = mc.level ?: return
         if (mc.screen != null) {
+            clearAllSlots()
+            return
+        }
+
+        // Only show range indicators while holding a wrench
+        val holdingWrench = AllItems.WRENCH.isIn(player.mainHandItem) || AllItems.WRENCH.isIn(player.offhandItem)
+        if (!holdingWrench) {
             clearAllSlots()
             return
         }

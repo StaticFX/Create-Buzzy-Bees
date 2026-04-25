@@ -25,42 +25,38 @@ object DeconstructionClientEvents {
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
         DeconstructionHandler.tick()
+        PickupHandler.tick()
         DeconstructionRenderer.update()
     }
 
-    /**
-     * Called when a mouse button is clicked.
-     * Handles right-click for setting selection corners and opening the prompt.
-     */
     @SubscribeEvent
     @JvmStatic
     fun onMouseInput(event: InputEvent.MouseButton.Pre) {
         if (DeconstructionHandler.onMouseInput(event.button, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)) {
             event.isCanceled = true
+            return
+        }
+        if (PickupHandler.onMouseInput(event.button, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)) {
+            event.isCanceled = true
         }
     }
 
-    /**
-     * Called when the mouse scroll wheel is used.
-     * Handles scroll for resizing the selection area.
-     */
     @SubscribeEvent
     @JvmStatic
     fun onMouseScroll(event: InputEvent.MouseScrollingEvent) {
         if (DeconstructionHandler.mouseScrolled(event.scrollDeltaY)) {
             event.isCanceled = true
+            return
+        }
+        if (PickupHandler.onScroll(event.scrollDeltaY)) {
+            event.isCanceled = true
         }
     }
 
-    /**
-     * Called when a key is pressed.
-     * Handles R key for starting deconstruction.
-     */
     @SubscribeEvent
     @JvmStatic
     fun onKeyInput(event: InputEvent.Key) {
-        if (DeconstructionHandler.onKeyInput(event.key, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)) {
-            // No cancel needed for key input usually
-        }
+        DeconstructionHandler.onKeyInput(event.key, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)
+        PickupHandler.onKeyInput(event.key, event.action == org.lwjgl.glfw.GLFW.GLFW_PRESS)
     }
 }

@@ -4,7 +4,7 @@ import com.simibubi.create.AllBlocks
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.beehive.BeeHive
@@ -34,11 +34,11 @@ class PlaceBeltAction(
     override val requiredItems: List<ItemStack> = emptyList()
 ) : BeeAction, ItemConsumingAction {
 
-    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
         // Never replace a Mechanical Beehive — abort belt if any position overlaps
         if (chain.any { level.getBlockEntity(it) is BeeHive }) return true
 
-        consumeItems(bee)
+        consumeItems(worker)
 
         BeltConnectorItem.createBelts(level, pos, end)
 
@@ -67,7 +67,7 @@ class PlaceBeltAction(
             level.sendParticles(
                 ParticleTypes.HAPPY_VILLAGER,
                 pos.x + 0.5, pos.y + 0.5, pos.z + 0.5,
-                5, 0.3, 0.3, 0.3, 0.0
+                1, 0.2, 0.2, 0.2, 0.0
             )
         }
 

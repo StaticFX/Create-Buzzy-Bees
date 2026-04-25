@@ -9,9 +9,12 @@ import net.minecraft.world.item.ItemStack
  * @property sourcePos The EXTRACT port position to pick up items from.
  * @property targetPos The INSERT port position to deliver items to.
  * @property items The items to transport.
+ * @property returningOverflow When true, the bee is returning overflow items to the
+ *   original provider after the requester couldn't accept them all.
  */
 data class TransportTask(
     val sourcePos: BlockPos,
     val targetPos: BlockPos,
-    val items: List<ItemStack>
+    val items: List<ItemStack>,
+    val returningOverflow: Boolean = false
 )

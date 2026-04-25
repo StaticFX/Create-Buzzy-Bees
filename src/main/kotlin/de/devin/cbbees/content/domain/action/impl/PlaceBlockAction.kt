@@ -6,7 +6,7 @@ import com.simibubi.create.content.kinetics.belt.BeltHelper
 import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
@@ -37,7 +37,7 @@ class PlaceBlockAction(
     override val requiredItems: List<ItemStack> = emptyList()
 ) : BeeAction, ItemConsumingAction {
 
-    override fun execute(level: Level, bee: MechanicalBeeEntity, context: BeeContext): Boolean {
+    override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
         // Never replace a Mechanical Beehive — skip silently
         if (level.getBlockEntity(pos) is BeeHive) return true
 
@@ -56,7 +56,11 @@ class PlaceBlockAction(
             }
         }
 
-        consumeItems(bee)
+        if (!consumeItems(worker)) {
+            // Bee doesn't have the required materials — can't place.
+            // Signal failure so ExecuteBeeAction can handle it.
+            return false
+        }
 
         // Use Create's BlockHelper for proper schematic block placement.
         // This handles all edge cases: rails, state filtering, block entity data,
@@ -68,7 +72,7 @@ class PlaceBlockAction(
             level.sendParticles(
                 ParticleTypes.HAPPY_VILLAGER,
                 pos.x + 0.5, pos.y + 0.5, pos.z + 0.5,
-                5, 0.3, 0.3, 0.3, 0.0
+                1, 0.2, 0.2, 0.2, 0.0
             )
         }
 

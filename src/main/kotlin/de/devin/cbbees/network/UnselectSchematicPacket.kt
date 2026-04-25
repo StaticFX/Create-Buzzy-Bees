@@ -2,7 +2,6 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
-import de.devin.cbbees.items.AllItems
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
@@ -28,8 +27,8 @@ class UnselectSchematicPacket private constructor() : CustomPacketPayload {
         fun handle(payload: UnselectSchematicPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
                 val player = ctx.player() as? ServerPlayer ?: return@enqueueWork
-                val stack = player.mainHandItem
-                if (!AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return@enqueueWork
+                val stack = ConstructionPlannerItem.findPlanner(player)
+                if (stack.isEmpty) return@enqueueWork
                 ConstructionPlannerItem.clearSchematic(stack)
             }
         }
