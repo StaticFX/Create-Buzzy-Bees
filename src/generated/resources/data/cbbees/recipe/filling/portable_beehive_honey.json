@@ -1,0 +1,21 @@
+{
+  "type": "create:filling",
+  "ingredients": [
+    {
+      "item": "cbbees:portable_beehive"
+    },
+    {
+      "type": "neoforge:tag",
+      "amount": 250,
+      "tag": "c:honey"
+    }
+  ],
+  "results": [
+    {
+      "components": {
+        "cbbees:honey_fuel": 100
+      },
+      "id": "cbbees:portable_beehive"
+    }
+  ]
+}

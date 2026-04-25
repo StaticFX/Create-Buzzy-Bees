@@ -13,6 +13,7 @@ import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
+import net.minecraft.tags.BlockTags
 import net.minecraft.world.level.block.Blocks
 
 object AllBlocks {
@@ -23,13 +24,14 @@ object AllBlocks {
     ) { MechanicalBeehiveBlock(it) }
         .initialProperties { Blocks.IRON_BLOCK }
         .properties { p -> p.noOcclusion() }
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate { c, p ->
             p.simpleBlock(
                 c.getEntry(),
                 p.models().getExistingFile(p.modLoc("block/mechanical_beehive/block"))
             )
         }
-        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 256.0 } }
+        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 128.0 } }
         .item()
         .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/mechanical_beehive/item")) }
         .build()
@@ -38,6 +40,7 @@ object AllBlocks {
     val LOGISTICS_PORT = CreateBuzzyBeez.REGISTRATE.block("logistics_port", ::LogisticPortBlock)
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() } // Important: so it doesn't "cull" the chest behind it
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
         .item()
         .recipe { c, p ->
@@ -80,6 +83,7 @@ object AllBlocks {
     val CARGO_PORT = CreateBuzzyBeez.REGISTRATE.block("cargo_port", ::TransportPortBlock)
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() }
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
         .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
         .item()
         .recipe { c, p ->

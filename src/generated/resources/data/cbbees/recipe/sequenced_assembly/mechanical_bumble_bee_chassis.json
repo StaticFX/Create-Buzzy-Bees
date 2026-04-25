@@ -48,6 +48,22 @@
           "item": "cbbees:incomplete_mechanical_bumble_bee"
         },
         {
+          "item": "create:precision_mechanism"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_bumble_bee"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_bumble_bee"
+        },
+        {
           "item": "create:item_vault"
         }
       ],

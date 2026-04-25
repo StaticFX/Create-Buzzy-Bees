@@ -32,6 +32,22 @@
           "item": "cbbees:incomplete_mechanical_bee"
         },
         {
+          "item": "create:precision_mechanism"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_bee"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_bee"
+        },
+        {
           "item": "create:brass_sheet"
         }
       ],

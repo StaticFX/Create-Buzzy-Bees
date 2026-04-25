@@ -53,5 +53,12 @@ class CBBPonderPlugin : PonderPlugin {
             .item(AllBlocks.MECHANICAL_BEEHIVE.get().asItem())
             .addToIndex()
             .register()
+
+        helper.addToTag(CreateBuzzyBeez.asResource("buzzy_bees"))
+            .add(AllBlocks.MECHANICAL_BEEHIVE.id)
+            .add(AllBlocks.LOGISTICS_PORT.id)
+            .add(AllBlocks.CARGO_PORT.id)
+            .add(AllItems.MECHANICAL_BEE.id)
+            .add(AllItems.MECHANICAL_BUMBLE_BEE.id)
     }
 }
