@@ -88,15 +88,7 @@ object ConstructionRenderer {
             // actually takes effect. This covers both chunk layers (solid, cutout)
             // and entity layers (entitySolid, entityCutout — used by block entity
             // renderers like chests, signs, beds, etc.).
-            val redirected = if (type in chunkLayers) {
-                RenderType.translucent()
-            } else if (!type.name.contains("translucent")) {
-                RenderType.entityTranslucentCull(
-                    net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS
-                )
-            } else {
-                type
-            }
+            val redirected = if (type in chunkLayers) RenderType.translucent() else type
             return wrap(delegate.getBuffer(redirected))
         }
 

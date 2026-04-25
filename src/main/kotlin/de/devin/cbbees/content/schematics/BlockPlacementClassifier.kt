@@ -141,13 +141,23 @@ object BlockPlacementClassifier {
     }
 
     /**
-     * Calculates removal priority incorporating a two-pass system (inverse of placement).
-     * Higher values are processed first.
-     *
-     * Dependent/brittle blocks (torches, buttons, rails, etc.) are removed first
-     * so they don't break and drop items when their support block is destroyed.
-     * Within each pass, higher Y is removed first (top-down).
+     * Determines the removal phase for deconstruction ordering.
+     * Phase 0 (first): brittle/dependent blocks (tunnels, torches, rails, etc.)
+     * Phase 1: support blocks (belts, gantry carriages, mechanical arms)
+     * Phase 2 (last): normal blocks
      */
+    fun removalPhase(state: BlockState): Int {
+        if (BlockMovementChecks.isBrittle(state)
+            || AllBlocks.ANDESITE_TUNNEL.has(state)
+            || AllBlocks.BRASS_TUNNEL.has(state)
+        ) return 0
+        if (AllBlocks.BELT.has(state)
+            || AllBlocks.GANTRY_CARRIAGE.has(state)
+            || AllBlocks.MECHANICAL_ARM.has(state)
+        ) return 1
+        return 2
+    }
+
     fun calculateRemovalPriority(pos: BlockPos, state: BlockState, maxY: Int): Int {
         val yPriority = pos.y - maxY + 256
         val passOffset = if (shouldDeferBlock(state)) REMOVAL_DEPENDENT_OFFSET else REMOVAL_NORMAL_OFFSET

@@ -4,7 +4,4 @@ import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRende
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider
 
 class LogisticsPortRenderer(context: BlockEntityRendererProvider.Context) :
-    SmartBlockEntityRenderer<LogisticPortBlockEntity>(
-        context
-    ) {
-}
+    SmartBlockEntityRenderer<LogisticPortBlockEntity>(context)

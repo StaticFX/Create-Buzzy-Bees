@@ -40,12 +40,15 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override fun getActiveBeeCount(): Int = activeBees.size
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
-        if (getAvailableBeeCount() <= 0) {
-            return false
-        }
+        if (getAvailableBeeCount() <= 0) return false
         if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
 
-        val beeItem = consumeBee()
+        val requiredType = if (batch.beeType == de.devin.cbbees.content.bee.server.BeeType.TRANSPORT)
+            de.devin.cbbees.content.bee.MechanicalBumbleBeeItem::class.java
+        else
+            de.devin.cbbees.content.bee.MechanicalBeeItem::class.java
+
+        val beeItem = consumeBeeOfType(requiredType)
         if (beeItem.isEmpty) return false
         val spawned = spawnBee(beeItem, batch)
         if (!spawned) {
@@ -157,6 +160,12 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return ItemStack.EMPTY
         return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
+    }
+
+    fun consumeBeeOfType(itemClass: Class<*>): ItemStack {
+        val backpack = getBackpackStack()
+        if (backpack.isEmpty) return ItemStack.EMPTY
+        return (backpack.item as PortableBeehiveItem).consumeBeeOfType(backpack, itemClass)
     }
 
     override fun getAvailableBeeCount(): Int {

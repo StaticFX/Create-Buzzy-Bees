@@ -331,7 +331,7 @@ class SchematicCreateBridge(
             } else {
                 listOf(removeTask)
             }
-            val phase = if (BlockPlacementClassifier.shouldDeferBlock(state)) 0 else 1
+            val phase = BlockPlacementClassifier.removalPhase(state)
             batches.add(TaskBatch(tasks, job, pos, phase))
         }
     }

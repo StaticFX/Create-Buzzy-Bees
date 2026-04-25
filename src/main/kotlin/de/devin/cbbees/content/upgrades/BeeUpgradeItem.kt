@@ -8,38 +8,37 @@ import net.minecraft.world.item.ItemStack
  * Enum defining all upgrade types for the Constructor Backpack.
  */
 enum class UpgradeType(
-    val maxStackInBackpack: Int,
     val descriptionKey: String,
     val shape: UpgradeShape,
     val logic: IUpgrade
 ) {
-    RAPID_WINGS(4, "tooltip.cbbees.upgrade.rapid_wings", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
+    RAPID_WINGS("tooltip.cbbees.upgrade.rapid_wings", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
         ctx.speedMultiplier += count * CBBeesConfig.rapidWingsSpeedBonus.get()
     }),
-    SWARM_INTELLIGENCE(3, "tooltip.cbbees.upgrade.swarm_intelligence", UpgradeShape.T_SHAPE, IUpgrade { ctx, count ->
+    SWARM_INTELLIGENCE("tooltip.cbbees.upgrade.swarm_intelligence", UpgradeShape.T_SHAPE, IUpgrade { ctx, count ->
         ctx.maxActiveBees += count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
     }),
-    HONEY_EFFICIENCY(2, "tooltip.cbbees.upgrade.honey_efficiency", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
+    HONEY_EFFICIENCY("tooltip.cbbees.upgrade.honey_efficiency", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         ctx.breakSpeedMultiplier -= count * CBBeesConfig.honeyEfficiencyBreakSpeedReduction.get()
         ctx.carryCapacity += count * CBBeesConfig.honeyEfficiencyCarryBonus.get()
         ctx.fuelConsumptionMultiplier -= count * CBBeesConfig.honeyEfficiencyFuelReduction.get()
     }),
-    SOFT_TOUCH(1, "tooltip.cbbees.upgrade.soft_touch", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
+    SOFT_TOUCH("tooltip.cbbees.upgrade.soft_touch", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
         if (count > 0) ctx.silkTouchEnabled = true
     }),
-    DROP_ITEMS(1, "tooltip.cbbees.upgrade.drop_items", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
+    DROP_ITEMS("tooltip.cbbees.upgrade.drop_items", UpgradeShape.SINGLE, IUpgrade { ctx, count ->
         if (count > 0) ctx.dropItemsEnabled = true
     }),
-    HONEY_TANK(2, "tooltip.cbbees.upgrade.honey_tank", UpgradeShape.SQUARE_2X2, IUpgrade { ctx, count ->
+    HONEY_TANK("tooltip.cbbees.upgrade.honey_tank", UpgradeShape.SQUARE_2X2, IUpgrade { ctx, count ->
         ctx.honeyCapacityBonus += count * CBBeesConfig.honeyTankCapacityBonus.get()
     }),
-    DRONE_VIEW(1, "tooltip.cbbees.upgrade.drone_view", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
+    DRONE_VIEW("tooltip.cbbees.upgrade.drone_view", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         if (count > 0) ctx.droneViewAvailable = true
     }),
-    DRONE_RANGE(3, "tooltip.cbbees.upgrade.drone_range", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
+    DRONE_RANGE("tooltip.cbbees.upgrade.drone_range", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
         ctx.droneRange += count * CBBeesConfig.droneRangeBonus.get()
     }),
-    INVENTORY_ACCESS(1, "tooltip.cbbees.upgrade.inventory_access", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
+    INVENTORY_ACCESS("tooltip.cbbees.upgrade.inventory_access", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         if (count > 0) ctx.inventoryAccessEnabled = true
     });
 

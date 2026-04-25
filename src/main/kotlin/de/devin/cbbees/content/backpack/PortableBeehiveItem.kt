@@ -346,6 +346,24 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         return ItemStack.EMPTY
     }
 
+    fun consumeBeeOfType(stack: ItemStack, itemClass: Class<*>): ItemStack {
+        val contents = stack.get(DataComponents.CONTAINER) ?: return ItemStack.EMPTY
+        val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
+        contents.copyInto(items)
+
+        for (i in 0 until ROBOT_SLOTS) {
+            val s = items[i]
+            if (!s.isEmpty && itemClass.isInstance(s.item)) {
+                val consumed = s.copyWithCount(1)
+                s.shrink(1)
+                if (s.isEmpty) items[i] = ItemStack.EMPTY
+                stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))
+                return consumed
+            }
+        }
+        return ItemStack.EMPTY
+    }
+
     /**
      * Adds a single bee to the backpack inventory.
      * @return true if successful, false if backpack is full

@@ -65,9 +65,6 @@ class UpgradeGrid {
             if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return false
             if (occupied[cy][cx] != null) return false
         }
-        // Check max count for this upgrade type
-        val currentCount = placements.count { it.type == type }
-        if (currentCount >= type.maxStackInBackpack) return false
         return true
     }
 

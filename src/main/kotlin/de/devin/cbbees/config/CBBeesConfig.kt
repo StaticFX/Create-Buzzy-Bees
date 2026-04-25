@@ -47,6 +47,7 @@ object CBBeesConfig {
     val maxBlockOperationsPerTick: ModConfigSpec.IntValue
     val taskGenerationBlocksPerTick: ModConfigSpec.IntValue
     val maxCheckpointsPerTick: ModConfigSpec.IntValue
+    val redispatchInterval: ModConfigSpec.IntValue
 
     // Honey fuel settings
     val portableHoneyPerRewind: ModConfigSpec.IntValue
@@ -227,6 +228,10 @@ object CBBeesConfig {
         maxCheckpointsPerTick = builder
             .comment("Maximum bee checkpoint actions (block place/break arrivals) processed per server tick. Higher values let more bees work simultaneously but increase per-tick server load.")
             .defineInRange("maxCheckpointsPerTick", 30, 1, 500)
+
+        redispatchInterval = builder
+            .comment("How many GlobalJobPool tick cycles between redispatch attempts for pending batches. GlobalJobPool ticks every 10 server ticks, so interval of 4 = every 40 ticks (2 seconds). Lower = faster bee deployment but more server work.")
+            .defineInRange("redispatchInterval", 4, 1, 20)
 
         builder.pop()
 

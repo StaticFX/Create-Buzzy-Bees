@@ -192,13 +192,11 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         for (i in 0 until handler.slots) {
             val inSlot = handler.getStackInSlot(i)
 
-            // Match item and components (NBT)
             if (!inSlot.isEmpty && ItemStack.isSameItemSameComponents(inSlot, stack)) {
-                // We try to extract 1 or the stack size.
-                // set 'simulate' to false to actually perform the removal.
                 val extracted = handler.extractItem(i, stack.count, false)
 
                 if (!extracted.isEmpty) {
+                    pulseBusy()
                     return true
                 }
             }
@@ -210,11 +208,24 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         val level = level ?: return stack
         val handler = getItemHandler(level) ?: return stack
 
-        // ItemHandlerHelper.insertItemStacked handles:
-        // 1. Finding existing stacks to merge with.
-        // 2. Finding empty slots.
-        // 3. Returning the "remainder" that didn't fit.
-        return net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(handler, stack, false)
+        val result = net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(handler, stack, false)
+        if (result.count < stack.count) {
+            pulseBusy()
+        }
+        return result
+    }
+
+    private var busyUntilTick: Long = 0L
+
+    private fun pulseBusy() {
+        val level = level ?: return
+        if (level.isClientSide) return
+        val currentState = blockState.getValue(PORT_STATE)
+        if (currentState == PortState.INVALID) return
+        busyUntilTick = level.gameTime + 20 // stay busy for 1 second
+        if (currentState != PortState.BUSY) {
+            level.setBlock(blockPos, blockState.setValue(PORT_STATE, PortState.BUSY), 3)
+        }
     }
 
     override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
@@ -248,6 +259,20 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     override fun clearReservations() {
         if (reservationManager.clear()) updateBusyState()
+    }
+
+    override fun lazyTick() {
+        super.lazyTick()
+        if (busyUntilTick > 0) {
+            val level = level ?: return
+            if (level.isClientSide) return
+            if (level.gameTime >= busyUntilTick && !reservationManager.hasReservations) {
+                busyUntilTick = 0L
+                if (blockState.getValue(PORT_STATE) == PortState.BUSY) {
+                    level.setBlock(blockPos, blockState.setValue(PORT_STATE, PortState.VALID), 3)
+                }
+            }
+        }
     }
 
     private fun updateBusyState() {

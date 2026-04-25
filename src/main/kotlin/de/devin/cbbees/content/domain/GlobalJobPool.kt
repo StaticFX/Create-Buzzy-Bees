@@ -24,7 +24,7 @@ object GlobalJobPool : SavedData(), JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
-    private const val REDISPATCH_INTERVAL = 4
+    private val REDISPATCH_INTERVAL: Int get() = CBBeesConfig.redispatchInterval.get()
     private const val WATCHDOG_INTERVAL = 20
     private const val STALE_BATCH_TICKS = 600L
 

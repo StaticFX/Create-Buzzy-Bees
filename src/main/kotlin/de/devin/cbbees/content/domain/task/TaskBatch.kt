@@ -75,7 +75,7 @@ class TaskBatch(
 
     /** Whether the cooldown period has elapsed since last release. */
     fun isCooldownElapsed(currentTick: Long): Boolean =
-        currentTick - lastReleasedTick >= RETRY_COOLDOWN_TICKS
+        retryCount == 0 || currentTick - lastReleasedTick >= RETRY_COOLDOWN_TICKS
 
     fun release(resetNetwork: Boolean = true, gameTick: Long = 0L) {
         currentIndex = 0
