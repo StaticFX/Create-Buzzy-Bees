@@ -249,6 +249,7 @@ class UpgradeGridWidget(
         UpgradeType.HONEY_TANK -> ItemStack(AllItems.HONEY_TANK.get())
         UpgradeType.DRONE_VIEW -> ItemStack(AllItems.DRONE_VIEW.get())
         UpgradeType.DRONE_RANGE -> ItemStack(AllItems.DRONE_RANGE.get())
+        UpgradeType.INVENTORY_ACCESS -> ItemStack(AllItems.INVENTORY_ACCESS.get())
     }
 
     private fun getUpgradeColor(type: UpgradeType): Int = when (type) {
@@ -260,5 +261,6 @@ class UpgradeGridWidget(
         UpgradeType.HONEY_TANK -> 0xFFD97F00.toInt()
         UpgradeType.DRONE_VIEW -> 0xFF9933FF.toInt()
         UpgradeType.DRONE_RANGE -> 0xFF00CCCC.toInt()
+        UpgradeType.INVENTORY_ACCESS -> 0xFFCC8844.toInt()
     }
 }

@@ -18,12 +18,10 @@ object ServerBeeNetworkManager {
     private val networks = mutableListOf<BeeNetwork>()
     private var isScanning = false
 
-    // O(1) lookup indexes — rebuilt after each structural mutation
     private val networkById = mutableMapOf<UUID, BeeNetwork>()
     private val componentToNetwork = mutableMapOf<INetworkComponent, BeeNetwork>()
     private val hiveById = mutableMapOf<UUID, BeeHive>()
 
-    /** Topology used for creating new networks on the server. */
     private var topology: NetworkTopology = DefaultAnchorTopology
 
     fun setTopology(topology: NetworkTopology) {
@@ -63,7 +61,6 @@ object ServerBeeNetworkManager {
     fun registerComponent(component: INetworkComponent) {
         if (component.world.isClientSide) return
 
-        // Prevent recursive registration if we're already in a network
         if (getNetworkFor(component) != null) return
 
         CreateBuzzyBeez.LOGGER.info("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
@@ -176,17 +173,14 @@ object ServerBeeNetworkManager {
         val network = getNetworkFor(component) ?: return
         network.removeComponent(component)
 
-        // If network is now empty, remove it
         if (network.components.isEmpty()) {
             networks.remove(network)
             rebuildIndexes()
             return
         }
 
-        // Handle potential split
         val splitResults = network.split()
         if (splitResults.isEmpty()) {
-            // No anchors left, disband the network
             val remaining = network.components.toList()
             remaining.forEach {
                 it.networkId = UUID.randomUUID()
@@ -194,8 +188,6 @@ object ServerBeeNetworkManager {
             }
             networks.remove(network)
         } else if (splitResults.size > 1) {
-            // Original network might have been modified or replaced by new ones
-            // For now, let's just make sure all splitResults are in the list
             splitResults.forEach { result ->
                 if (!networks.contains(result)) {
                     networks.add(result)
@@ -206,13 +198,11 @@ object ServerBeeNetworkManager {
         rebuildIndexes()
     }
 
-    // Simplified delegating methods
     fun registerWorker(worker: BeeHive) = registerComponent(worker)
 
     fun unregisterWorker(worker: BeeHive) = unregisterComponent(worker)
 
     fun unregisterWorker(id: UUID) {
-        // Create a copy to avoid ConcurrentModificationException if networks are removed
         networks.toList().forEach { net ->
             net.components.find { it.id == id }?.let { unregisterComponent(it) }
         }
@@ -233,8 +223,6 @@ object ServerBeeNetworkManager {
     }
 
     fun getNetworkFor(component: INetworkComponent): BeeNetwork? {
-        // Fast path: use index (up to date after rebuildIndexes)
-        // Fallback: linear search for correctness during mid-registration when indexes are stale
         return componentToNetwork[component]
             ?: networks.find { it.components.contains(component) }
     }
@@ -275,7 +263,6 @@ object ServerBeeNetworkManager {
 
         val currentNetwork = getNetworkFor(hive)
 
-        // Find a block-based network covering the player's position
         val blockNetwork = networks.find { net ->
             net.level == playerLevel &&
                 net.isInRange(playerPos) &&
@@ -283,7 +270,6 @@ object ServerBeeNetworkManager {
         }
 
         if (blockNetwork != null) {
-            // Join the block network if not already in it
             if (currentNetwork != blockNetwork) {
                 if (currentNetwork != null) {
                     currentNetwork.removeComponent(hive)
@@ -296,22 +282,18 @@ object ServerBeeNetworkManager {
                 CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
             }
         } else {
-            // No block network nearby — ensure the hive has its own isolated network
             if (currentNetwork != null && currentNetwork.components.any { it.isAnchor() && it !is PortableBeeHive }) {
-                // Currently in a block network — detach into isolated network
                 currentNetwork.removeComponent(hive)
                 if (currentNetwork.components.isEmpty()) {
                     networks.remove(currentNetwork)
                 }
-                // Use a stable network ID derived from the player's UUID
                 hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive) // rebuildIndexes() called inside
+                registerComponent(hive)
                 CreateBuzzyBeez.LOGGER.debug("Detached portable hive for ${hive.player.name.string} into isolated network")
             } else if (currentNetwork == null) {
                 hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive) // rebuildIndexes() called inside
+                registerComponent(hive)
             }
-            // Otherwise already in isolated network — no-op
         }
     }
 
@@ -366,7 +348,6 @@ object ClientBeeNetworkManager {
         serverSnapshot.clear()
         serverSnapshot.putAll(snapshot)
 
-        // Build a lookup: position → authoritative network UUID
         val posToNetwork = mutableMapOf<BlockPos, UUID>()
         for ((netId, positions) in snapshot) {
             for (pos in positions) {
@@ -374,18 +355,15 @@ object ClientBeeNetworkManager {
             }
         }
 
-        // Collect all current client components
         val allComponents = networks.flatMap { it.components }.toList()
         val trackedPositions = allComponents.map { it.pos }.toMutableSet()
 
         for (component in allComponents) {
             val correctNetworkId = posToNetwork[component.pos]
             if (correctNetworkId == null) {
-                // Component no longer exists on the server — remove it
                 val net = networks.find { it.components.contains(component) }
                 net?.removeComponent(component)
             } else if (correctNetworkId != component.networkId) {
-                // Component is in the wrong network — move it
                 val oldNet = networks.find { it.components.contains(component) }
                 oldNet?.removeComponent(component)
                 component.networkId = correctNetworkId
@@ -408,7 +386,6 @@ object ClientBeeNetworkManager {
             }
         }
 
-        // Remove empty networks
         networks.removeAll { it.components.isEmpty() }
     }
 

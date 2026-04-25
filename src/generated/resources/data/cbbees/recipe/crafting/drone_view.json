@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "minecraft:ender_pearl"
+    },
+    "V": {
+      "item": "minecraft:spyglass"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    " V ",
+    "BWB",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:drone_view"
+  }
+}

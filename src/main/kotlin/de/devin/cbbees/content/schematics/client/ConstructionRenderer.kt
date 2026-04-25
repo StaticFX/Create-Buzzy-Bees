@@ -46,7 +46,6 @@ import java.util.UUID
 @ClientSide
 object ConstructionRenderer {
 
-    /** Alpha for ghost block rendering (0.0 = invisible, 1.0 = opaque). */
     private const val GHOST_ALPHA = 0.5f
 
     private const val NORMAL_COLOR = 0x6886c5
@@ -54,17 +53,14 @@ object ConstructionRenderer {
 
     private val outlineCache = mutableMapOf<UUID, AABBOutline>()
 
-    /** Cached max bounds per job — only grows, never shrinks. */
     private val outlineBoundsCache = mutableMapOf<UUID, AABB>()
 
-    /** Per-job schematic renderer cache. Built once per job, updated when blocks change. */
     private val rendererCache = mutableMapOf<UUID, JobRenderer>()
 
     private var lastDataVersion = -1L
 
-    /** Throttle removePlacedBlocks to avoid per-update world lookups. */
     private var lastBlockCheckTick = 0L
-    private const val BLOCK_CHECK_INTERVAL = 20L // Check every second
+    private const val BLOCK_CHECK_INTERVAL = 20L
 
     private class JobRenderer(
         val renderer: SchematicRenderer,
@@ -142,7 +138,6 @@ object ConstructionRenderer {
             profiler.pop()
         }
 
-        // Update outline colors every frame (stall reason may change between cache rebuilds)
         for (job in jobs) {
             val outline = outlineCache[job.jobId] ?: continue
             val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
@@ -155,7 +150,6 @@ object ConstructionRenderer {
         val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
         val transparentBuffer = TransparentBuffer(superBuffer, opacity)
 
-        // Render each job's schematic via Create's SchematicRenderer with transparency
         profiler.push("renderGhosts")
         for ((_, jobRenderer) in rendererCache) {
             poseStack.pushPose()
@@ -165,7 +159,6 @@ object ConstructionRenderer {
         }
         profiler.pop()
 
-        // Render blue outlines (at full opacity, through the real buffer)
         profiler.push("renderOutlines")
         val pt = AnimationTickHolder.getPartialTicks()
         for ((_, outline) in outlineCache) {
@@ -175,7 +168,7 @@ object ConstructionRenderer {
 
         superBuffer.draw()
         RenderSystem.enableCull()
-        profiler.pop() // cbbees_constructionGhosts
+        profiler.pop()
     }
 
     private fun rebuildCache(jobs: List<ClientJobInfo>, clientLevel: Level, checkBlocks: Boolean) {
@@ -185,10 +178,8 @@ object ConstructionRenderer {
         rendererCache.keys.removeAll { it !in activeJobIds }
 
         for (job in jobs) {
-            // Build schematic renderer (once per job), then update when blocks change
             val existing = rendererCache[job.jobId]
             if (existing != null) {
-                // Only check placed blocks periodically (not on every data version bump)
                 if (checkBlocks && removePlacedBlocks(existing.schematicLevel, clientLevel)) {
                     existing.renderer.update()
                 }
@@ -198,12 +189,10 @@ object ConstructionRenderer {
                     rendererCache[job.jobId] = renderer
                 }
 
-                // Build outline for this job — from schematic positions or batch targets
                 if (job.jobId !in outlineBoundsCache) {
                     val positions: Set<BlockPos> = if (renderer != null) {
                         renderer.schematicLevel.blockMap.keys
                     } else {
-                        // Non-schematic jobs (deconstruction, pickup): use batch target positions
                         job.batches.map { it.target }.toSet()
                     }
                     if (positions.isNotEmpty()) {
@@ -282,7 +271,6 @@ object ConstructionRenderer {
                 return buildFallbackRenderer(job, clientLevel)
             }
 
-            // Create SchematicLevel and place blocks — same as SchematicHandler.setupRenderer()
             val schematicLevel = SchematicLevel(clientLevel)
             val settings = StructurePlaceSettings()
             settings.rotation = rotation
@@ -295,7 +283,6 @@ object ConstructionRenderer {
             }
             fixControllerBlockEntities(schematicLevel)
 
-            // Remove blocks already placed in the real world before first render
             removePlacedBlocks(schematicLevel, clientLevel)
 
             return JobRenderer(GhostSchematicRenderer(schematicLevel), schematicLevel, anchor)

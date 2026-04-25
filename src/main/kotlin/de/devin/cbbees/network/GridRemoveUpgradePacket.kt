@@ -58,6 +58,7 @@ class GridRemoveUpgradePacket(
                     de.devin.cbbees.content.upgrades.UpgradeType.HONEY_TANK -> ItemStack(AllItems.HONEY_TANK.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.DRONE_VIEW -> ItemStack(AllItems.DRONE_VIEW.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.DRONE_RANGE -> ItemStack(AllItems.DRONE_RANGE.get())
+                    de.devin.cbbees.content.upgrades.UpgradeType.INVENTORY_ACCESS -> ItemStack(AllItems.INVENTORY_ACCESS.get())
                 }
 
                 menu.setCarried(returnStack)

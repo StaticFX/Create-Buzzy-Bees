@@ -94,7 +94,6 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     override fun setHomeId(uuid: UUID) { entityData.set(BEEHIVE_ID, Optional.of(uuid)) }
     override fun beeItemStack(): ItemStack = ItemStack(AllItems.MECHANICAL_BUMBLE_BEE.get())
 
-    // ── State machine fields ──
     var beeState = TransportBeeState.FLYING_TO_SOURCE
     var transportTask: TransportTask? = null
     override var walkTargetPos: BlockPos? = null
@@ -241,7 +240,6 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
 
     override fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
-    // Fly through water — no swimming, no water drag
     override fun isNoGravity(): Boolean = true
     override fun isInWater(): Boolean = false
 

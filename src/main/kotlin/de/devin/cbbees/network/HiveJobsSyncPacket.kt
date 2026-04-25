@@ -201,7 +201,6 @@ class HiveJobsSyncPacket(
                     is PlaceBlockAction -> ghosts[action.pos] = action.blockState
                     is PlaceBeltAction -> {
                         action.chain.forEachIndexed { index, pos ->
-                            // Don't overwrite shaft states already set by PlaceBlockAction
                             if (!ghosts.containsKey(pos)) {
                                 val state = action.chainStates.getOrNull(index)
                                     ?: AllBlocks.BELT.defaultState
@@ -243,12 +242,8 @@ class HiveJobsSyncPacket(
 
                     val reason = StuckReasonResolver.firstReasonOrNull(net, job)
 
-                    // For jobs with schematic placement, skip per-batch detail entirely —
-                    // the client renders ghosts from the schematic file. Only send a single
-                    // summary batch to keep the packet small.
                     val hasPlacement = job.schematicPlacement != null
                     val batches = if (hasPlacement) {
-                        // Single summary entry — no per-batch overhead for large schematics
                         listOf(ClientBatchInfo(
                             status = "SUMMARY",
                             target = job.centerPos,
@@ -298,7 +293,6 @@ class HiveJobsSyncPacket(
                             ghostBlocks = emptyMap()
                         )
                     }
-                    // Live stall check: find the network for this job and resolve reason
                     val networkId = job.batches.firstOrNull()?.assignedNetworkId
                     val network = if (networkId != null) ServerBeeNetworkManager.getNetwork(networkId) else null
                     val reason = if (network != null) {

@@ -101,6 +101,13 @@ object DroneViewClientEvents {
 
             if (dx != 0f || dz != 0f) {
                 PacketDistributor.sendToServer(MoveDronePacket(dx, dz))
+                val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId)
+                if (drone != null) {
+                    drone.xo = drone.x
+                    drone.yo = drone.y
+                    drone.zo = drone.z
+                    drone.setPos(drone.x + dx, drone.y, drone.z + dz)
+                }
             }
             return
         }
@@ -127,10 +134,12 @@ object DroneViewClientEvents {
 
         PacketDistributor.sendToServer(MoveDronePacket(dx, dz))
 
-        // Client-side prediction: move the drone immediately for zero-latency feel.
-        // The server will send the authoritative position next tick.
         val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId)
         if (drone != null) {
+            // Preserve old position for smooth interpolation between ticks
+            drone.xo = drone.x
+            drone.yo = drone.y
+            drone.zo = drone.z
             drone.setPos(drone.x + dx, drone.y, drone.z + dz)
         }
     }

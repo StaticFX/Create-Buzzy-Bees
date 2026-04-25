@@ -61,16 +61,12 @@ object FlightPlanComputer {
         level: ServerLevel,
         onComplete: (FlightPlan?) -> Unit,
     ) {
-        // Snapshot: build raw checkpoints on the server thread (reads network/task data)
         val rawCheckpoints = buildRawConstructionCheckpoints(bee, batch, network)
         if (rawCheckpoints == null) {
-            // Can't build a valid plan (e.g., missing materials with no provider).
-            // Return null so the caller can release the batch.
             level.server.execute { onComplete(null) }
             return
         }
 
-        // Snapshot: collect all block positions that need collision checks
         val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, level)
 
         executor.submit {
@@ -124,7 +120,6 @@ object FlightPlanComputer {
                 }
             }
 
-            // Also snapshot blocks above potential obstructions for routing
             snapshot.filter { it.value }.keys.toList().forEach { blocked ->
                 for (dy2 in 1..MAX_FLY_OVER_HEIGHT) {
                     val above = blocked.above(dy2)
@@ -167,11 +162,7 @@ object FlightPlanComputer {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         val missing = computeMissingItems(bee, batch)
         if (missing.isNotEmpty()) {
-            val provider = findBestProvider(network, missing, bee.id)
-            if (provider == null) {
-                // No provider has the required materials — abort flight plan
-                return null
-            }
+            val provider = findBestProvider(network, missing, bee.id) ?: return null
             add(Checkpoint(provider.pos.above(), GatherFromPort(missing), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val remainingTasks = batch.getRemainingTasks()
@@ -203,10 +194,7 @@ object FlightPlanComputer {
                 }
             }
         }
-        // Check for next batch at the last checkpoint position (which is the port
-        // for pickup/dropoff, or the block for construction/deconstruction).
         add(Checkpoint(lastCheckpointPos, CheckForNextWork()))
-        // Only reached if no more work — fly home and enter
         val hiveApproach = (bee.hivePos ?: bee.blockPosition()).above()
         add(Checkpoint(hiveApproach, EnterHive()))
     }
@@ -235,8 +223,6 @@ object FlightPlanComputer {
             BeeType.TRANSPORT -> bee.transportTask?.let { forTransport(bee, it, level) }
         }
     }
-
-    // ── Obstacle Avoidance (snapshot-based, thread-safe) ──
 
     /**
      * Inserts waypoints using a pre-snapshotted collision map. Safe to call from any thread.
@@ -286,9 +272,6 @@ object FlightPlanComputer {
         return BlockPos((from.x + to.x) / 2, highestObstruction.y + MAX_FLY_OVER_HEIGHT, (from.z + to.z) / 2)
     }
 
-    // ── Obstacle Avoidance (synchronous, uses Level directly) ──
-
-    /** Max height to fly above obstructions. */
     private const val MAX_FLY_OVER_HEIGHT = 10
 
     /**
@@ -333,7 +316,6 @@ object FlightPlanComputer {
 
             if (!level.isLoaded(checkPos)) continue
             if (!level.getBlockState(checkPos).getCollisionShape(level, checkPos).isEmpty) {
-                // Found an obstruction — track the highest one
                 if (highestObstruction == null || checkPos.y > highestObstruction.y) {
                     highestObstruction = checkPos
                 }
@@ -342,22 +324,17 @@ object FlightPlanComputer {
 
         if (highestObstruction == null) return null
 
-        // Route above the obstruction
         for (dy2 in 1..MAX_FLY_OVER_HEIGHT) {
             val above = highestObstruction.above(dy2)
             if (level.isLoaded(above) && level.getBlockState(above).getCollisionShape(level, above).isEmpty) {
-                // Waypoint at the midpoint X/Z but above the obstruction
                 val midX = (from.x + to.x) / 2
                 val midZ = (from.z + to.z) / 2
                 return BlockPos(midX, above.y, midZ)
             }
         }
 
-        // Can't find clear space — fly very high
         return BlockPos((from.x + to.x) / 2, highestObstruction.y + MAX_FLY_OVER_HEIGHT, (from.z + to.z) / 2)
     }
-
-    // ── Helpers ──
 
     private fun computeMissingItems(bee: ServerBeeData, batch: TaskBatch): List<ItemStack> {
         val totalRequired = mutableMapOf<ItemStackKey, Int>()

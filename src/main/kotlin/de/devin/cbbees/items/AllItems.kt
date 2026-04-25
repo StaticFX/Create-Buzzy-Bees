@@ -317,6 +317,24 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
+    // Inventory Access - allows bees to take items from the player's inventory and shulker boxes
+    val INVENTORY_ACCESS: ItemEntry<InventoryAccessUpgrade> = CreateBuzzyBeez.REGISTRATE
+        .item("inventory_access") { props -> InventoryAccessUpgrade(props) }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', UPGRADE_TEMPLATE.get())
+                .define('V', Items.CHEST)
+                .define('B', AllItems.COPPER_SHEET)
+                .pattern(" V ")
+                .pattern("BWB")
+                .pattern("   ")
+                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
     val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee_chassis") { props -> Item(props) }

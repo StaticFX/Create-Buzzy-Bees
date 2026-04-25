@@ -107,7 +107,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
 
-        // Pickup batches use bumble bees; everything else uses construction bees
         val beeItemClass = if (batch.beeType == BeeType.TRANSPORT)
             MechanicalBumbleBeeItem::class.java
         else
@@ -131,7 +130,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         onBeeRemovedById(bee.uuid)
     }
 
-    /** UUID-based removal for non-entity bees. */
     fun onBeeRemovedById(beeId: UUID) {
         var found = false
         val iter = activeBeesByJob.iterator()
@@ -159,7 +157,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             val beeIter = bees.iterator()
             while (beeIter.hasNext()) {
                 val beeId = beeIter.next()
-                // Check both entity system AND non-entity ServerBeeManager
                 val existsAsEntity = (level as? ServerLevel)?.getEntity(beeId)?.isAlive == true
                 val existsAsData = ServerBeeManager.getBee(beeId) != null
                 if (!existsAsEntity && !existsAsData) {
@@ -195,13 +192,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         if (level == null || level!!.isClientSide) return
 
         if (getSpeed() == 0f) {
-            // No RPM — remove from network
             ServerBeeNetworkManager.unregisterWorker(this.id)
         } else if (previousSpeed == 0f) {
-            // Just started receiving RPM — join network
             ServerBeeNetworkManager.registerWorker(this)
         } else {
-            // RPM changed — re-register so the network picks up the new range
             ServerBeeNetworkManager.unregisterWorker(this.id)
             ServerBeeNetworkManager.registerWorker(this)
         }
@@ -289,7 +283,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             context.workRange = 0.0
         }
 
-        // Cap at config limit
         context.maxActiveBees = minOf(context.maxActiveBees, CBBeesConfig.maxBeesPerHive.get())
 
         return context
@@ -343,7 +336,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return addBee(item)
     }
 
-    // BeeSource implementation
     override fun getAvailableBeeCount(): Int {
         var count = 0
         for (i in 0 until beeInventory.slots) {
@@ -370,13 +362,11 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        // Show kinetic stats (speed, stress) from KineticBlockEntity
         super<KineticBlockEntity>.addToGoggleTooltip(tooltip, isPlayerSneaking)
 
         Lang.builder("cbbees").translate("gui.goggles.beehive_stats")
             .forGoggles(tooltip)
 
-        // Network Info
         val net = network()
         net.let { n ->
             Lang.builder("cbbees").translate("gui.goggles.beehive.network")
@@ -385,7 +375,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
                 .forGoggles(tooltip, 1)
         }
 
-        // Flying Bees
         Lang.builder("cbbees").translate("gui.goggles.beehive.flying")
             .style(ChatFormatting.GRAY)
             .add(
@@ -393,7 +382,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             )
             .forGoggles(tooltip, 1)
 
-        // Stored Bees
         val storedBees = getAvailableBeeCount()
 
         Lang.builder("cbbees").translate("gui.goggles.beehive.stored")
@@ -401,7 +389,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             .add(Lang.builder("cbbees").text(ChatFormatting.GOLD, LangNumberFormat.format(storedBees.toDouble())))
             .forGoggles(tooltip, 1)
 
-        // Capacity
         val context = getBeeContext()
         Lang.builder("cbbees").translate("gui.goggles.beehive.capacity")
             .style(ChatFormatting.GRAY)
@@ -411,7 +398,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             )
             .forGoggles(tooltip, 1)
 
-        // Spring Efficiency
         Lang.builder("cbbees").translate("gui.goggles.beehive.spring_efficiency")
             .style(ChatFormatting.GRAY)
             .add(

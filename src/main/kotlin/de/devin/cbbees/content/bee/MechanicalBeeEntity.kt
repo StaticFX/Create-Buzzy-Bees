@@ -102,7 +102,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     /** BeeWorker identity — delegates to Entity.getUUID(). */
     override val uuid: UUID get() = getUUID()
 
-    // BeeWorker positional accessors — delegate to Entity getters
     override fun getWorkerX(): Double = getX()
     override fun getWorkerY(): Double = getY()
     override fun getWorkerZ(): Double = getZ()
@@ -138,7 +137,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     override fun beeItemStack(): ItemStack = ItemStack(CBeesItems.MECHANICAL_BEE.get())
     override fun getBeeContextForRecharge(): BeeContext = getBeeContext()
 
-    // ── State machine fields (replaces Brain memories) ──
     var beeState = ConstructionBeeState.GATHERING
     var currentTask: TaskBatch? = null
     override var walkTargetPos: BlockPos? = null
@@ -186,7 +184,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         val heldItem = player.getItemInHand(hand)
         if (!AllItems.WRENCH.isIn(heldItem)) return super.mobInteract(player, hand)
 
-        // Give bee item to player or drop it
         val beeItem = ItemStack(CBeesItems.MECHANICAL_BEE.get(), 1)
         if (!player.inventory.add(beeItem)) {
             val itemEntity = ItemEntity(level(), x, y, z, beeItem)
@@ -220,7 +217,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     }
 
     override fun brainProvider(): Brain.Provider<*> {
-        // Empty brain — all AI logic handled by ConstructionBeeStateMachine
         @Suppress("UNCHECKED_CAST")
         return Brain.provider(
             listOf<net.minecraft.world.entity.ai.memory.MemoryModuleType<*>>(),
@@ -230,7 +226,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
     @Suppress("UNCHECKED_CAST")
     override fun makeBrain(dynamic: Dynamic<*>): Brain<MechanicalBeeEntity> {
-        // Empty brain — state machine handles all AI
         return this.brainProvider().makeBrain(dynamic) as Brain<MechanicalBeeEntity>
     }
 
@@ -252,7 +247,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     override fun remove(reason: RemovalReason) {
         if (!level().isClientSide && !isDrone) {
             network()?.releaseReservations(this.uuid)
-            // Release current batch so it can be retried by another bee
             val batch = currentTask
             if (batch != null && batch.status != TaskStatus.COMPLETED) {
                 val tick = (level() as? ServerLevel)?.gameTime ?: 0L
@@ -293,7 +287,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
             val beeItem = beeItemStack()
             val hive = beehive()
             if (hive != null && hive.returnBee(beeItem)) {
-                // Returned to hive — drop carried items at hive position
                 val hivePos = hive.pos
                 for (i in 0 until inventory.containerSize) {
                     val stack = inventory.getItem(i)
@@ -302,7 +295,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
                     }
                 }
             } else {
-                // Hive unavailable — drop bee item + inventory at current position
                 level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
                 dropInventory()
             }
@@ -322,15 +314,11 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         }
     }
 
-    /**
-     * Skip client-side position interpolation for drones — snap instantly
-     * so WASD controls feel crisp rather than spongy.
-     */
     override fun lerpTo(x: Double, y: Double, z: Double, yRot: Float, xRot: Float, steps: Int) {
         if (isDrone) {
-            setPos(x, y, z)
-            setYRot(yRot)
-            setXRot(xRot)
+            // Ignore server position updates — client prediction is authoritative
+            // This prevents the server echo from overriding client prediction
+            return
         } else {
             super.lerpTo(x, y, z, yRot, xRot, steps)
         }
@@ -345,7 +333,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         val targetX = owner.x + droneOffsetX
         val targetZ = owner.z + droneOffsetZ
 
-        // Follow terrain height below the drone rather than fixed offset from player
         val groundY = level().getHeight(
             net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING,
             net.minecraft.core.BlockPos.containing(targetX, 0.0, targetZ).x,
@@ -353,8 +340,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         ).toDouble()
         val targetY = (groundY + DRONE_ALTITUDE).coerceAtMost(level().maxBuildHeight.toDouble() - 1.0)
 
-        // Snap directly to target position for stiff, responsive movement
-        setPos(targetX, targetY, targetZ)
+        moveTo(targetX, targetY, targetZ)
         setDeltaMovement(0.0, 0.0, 0.0)
         xRot = 90f
         setNoGravity(true)
@@ -369,7 +355,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         droneOffsetX += dx
         droneOffsetZ += dz
 
-        // Clamp to max range circle
         val dist = kotlin.math.sqrt(droneOffsetX * droneOffsetX + droneOffsetZ * droneOffsetZ)
         if (dist > droneMaxRange) {
             droneOffsetX = droneOffsetX / dist * droneMaxRange
@@ -390,7 +375,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
     override fun getTargetPos(): BlockPos? = entityData.get(TARGET_POS).orElse(null)
 
-    // Mechanical bees fly — no gravity, no swimming, no water drag
     override fun isNoGravity(): Boolean = true
     override fun isInWater(): Boolean = false
 
@@ -487,7 +471,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
      */
     override fun addToInventory(stack: ItemStack): ItemStack {
         var remaining = stack.copy()
-        // First pass: merge into existing matching slots
         for (i in 0 until inventory.containerSize) {
             if (remaining.isEmpty) return ItemStack.EMPTY
             val slotStack = inventory.getItem(i)
@@ -499,7 +482,6 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
                 }
             }
         }
-        // Second pass: fill empty slots
         for (i in 0 until inventory.containerSize) {
             if (remaining.isEmpty) return ItemStack.EMPTY
             if (inventory.getItem(i).isEmpty) {

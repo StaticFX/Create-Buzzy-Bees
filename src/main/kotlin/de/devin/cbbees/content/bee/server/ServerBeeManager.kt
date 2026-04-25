@@ -99,17 +99,10 @@ object ServerBeeManager {
         bee.currentTask?.release()
     }
 
-    // ════════════════════════════════════════════════════════════════════
-    //  Tick
-    // ════════════════════════════════════════════════════════════════════
-
-    /** Pending removals — collected during tick, applied after iteration. */
     private val pendingRemovals = mutableSetOf<UUID>()
-    /** Bees that need to be returned to their hive on removal (abnormal exit). */
     private val pendingReturns = mutableSetOf<UUID>()
     private var isTicking = false
 
-    /** Max checkpoint actions per tick — prevents mass-arrival lag spikes. Read from config. */
     private val maxCheckpointsPerTick: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
 
     fun tickAll(serverLevel: ServerLevel, gameTime: Long) {
@@ -130,10 +123,7 @@ object ServerBeeManager {
             val plan = bee.flightPlan
             if (plan == null || bee.currentCheckpointIndex >= plan.checkpoints.size) continue
 
-            // Still flying → skip
             if (gameTime < bee.nextCheckpointArrivalTick) continue
-
-            // Throttle: spread checkpoint processing across ticks
             if (checkpointsThisTick >= maxCheckpointsPerTick) continue
 
             profiler.push("arrival")
@@ -148,16 +138,15 @@ object ServerBeeManager {
                 }
                 advanceCheckpoint(bee, gameTime)
             }
-            profiler.pop() // arrival
+            profiler.pop()
 
             if (bee.springTension < -999f) {
                 pendingRemovals.add(bee.id)
                 pendingReturns.add(bee.id)
             }
         }
-        profiler.pop() // checkpoints
+        profiler.pop()
 
-        // Send all action confirmations in one batched packet
         if (confirmBatch.isNotEmpty()) {
             profiler.push("broadcastConfirm")
             broadcastCheckpointConfirmBatch(confirmBatch)
@@ -186,7 +175,6 @@ object ServerBeeManager {
         val from = plan.checkpoints[prevIndex]
         val to = plan.checkpoints[bee.currentCheckpointIndex]
 
-        // Shared calculation — identical to client's ClientBeeFlightData timing
         val travel = FlightPlan.travelTicks(from.pos, to.pos, plan.speed)
         bee.nextCheckpointArrivalTick = gameTime + travel + from.clientPauseTicks
     }
@@ -198,10 +186,6 @@ object ServerBeeManager {
     private fun tickTransportBee(bee: ServerBeeData, level: ServerLevel, gameTime: Long) {
         TransportBeeStateMachine.tickData(bee, level, gameTime)
     }
-
-    // ════════════════════════════════════════════════════════════════════
-    //  Spawn / Despawn
-    // ════════════════════════════════════════════════════════════════════
 
     /**
      * Spawns a construction bee from a hive with the given task batch.
@@ -235,7 +219,6 @@ object ServerBeeManager {
         bees[bee.id] = bee
         hive.onBeeSpawned(bee.id)
 
-        // Compute flight plan asynchronously (raycasting done off-thread)
         val network = ServerBeeNetworkManager.getNetwork(networkId, level!!)
         if (network != null) {
             FlightPlanComputer.computeAsync(bee, batch, network, level!!) { plan ->
@@ -288,7 +271,6 @@ object ServerBeeManager {
             transportState = TransportBeeState.FLYING_TO_SOURCE
         }
 
-        // Compute flight plan asynchronously
         if (level != null) {
             FlightPlanComputer.computeTransportAsync(bee, task, level!!) { plan ->
                 bee.flightPlan = plan
@@ -301,7 +283,6 @@ object ServerBeeManager {
                     bee.currentCheckpointIndex = 1
                     bee.nextCheckpointArrivalTick = level!!.gameTime + travel
                 }
-                // Client starts at 0 (hive) so it renders the full departure flight
                 broadcastFlightPlan(bee, plan, clientStartIndex = 0)
             }
         }
@@ -339,7 +320,6 @@ object ServerBeeManager {
         }
     }
 
-    /** Send all action checkpoint confirmations for this tick in one packet. */
     private fun broadcastCheckpointConfirmBatch(entries: List<BeeCheckpointConfirmPacket.Entry>) {
         val server = level?.server ?: return
         val packet = BeeCheckpointConfirmPacket(entries)
@@ -348,7 +328,6 @@ object ServerBeeManager {
         }
     }
 
-    /** Broadcast a bee removal to all clients. */
     fun broadcastRemoval(beeId: UUID) {
         val server = level?.server ?: return
         server.playerList.players.forEach { player ->
@@ -375,9 +354,5 @@ object ServerBeeManager {
     // dropped and tasks released. Hives respawn bees when they find pending work.
 }
 
-// Extension on BeeHive to accept the UUID-based onBeeSpawned
 private fun BeeHive.onBeeSpawned(beeId: UUID) {
-    // The existing onBeeSpawned(Entity) won't work for non-entities.
-    // Hive tracking is done via activeBeesByJob in MechanicalBeehiveBlockEntity.
-    // For the non-entity system, the hive tracks bees by UUID directly.
 }

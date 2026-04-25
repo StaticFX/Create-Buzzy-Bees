@@ -49,7 +49,6 @@ class PlayerTickEvent {
 
         val profiler = player.level().profiler
 
-        // Mechanical Wings — runs every tick (not throttled)
         profiler.push("cbbees_flight")
         handleFlightUpgrade(player)
         profiler.pop()
@@ -68,7 +67,6 @@ class PlayerTickEvent {
                 hive.networkId = pool.stableNetworkId(player.uuid)
                 pool.registerWorker(hive)
             } else {
-                // Reconnect: handles joining/leaving block-based networks based on position
                 pool.reconnectPortableHive(existingHive)
             }
         } else {
@@ -78,8 +76,6 @@ class PlayerTickEvent {
         }
         profiler.pop()
     }
-
-    // ── Backwards compatibility: disable flight from removed Mechanical Wings upgrade ──
 
     private fun handleFlightUpgrade(player: net.minecraft.world.entity.player.Player) {
         if (player.isCreative || player.isSpectator) return
@@ -93,10 +89,8 @@ class PlayerTickEvent {
     }
 
     private fun hasPortableHive(player: net.minecraft.world.entity.player.Player): Boolean {
-        // Check Curios back slot
         val curios = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
         if (curios.isPresent) return true
-        // Check chestplate armor slot
         return player.inventory.armor[2].item is PortableBeehiveItem
     }
 }

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:brass_ingot"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "pattern": [
+    " E ",
+    "BPB",
+    " H "
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:pickup_planner"
+  }
+}

@@ -19,11 +19,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 
-// ════════════════════════════════════════════════════════════════════════════════
-//  Composable CheckpointAction implementations
-//  Each is a standalone class — add new ones freely without modifying any enum.
-// ════════════════════════════════════════════════════════════════════════════════
-
 /**
  * Fly-through waypoint — always advances immediately.
  * Used for spawn points or intermediate routing waypoints.
@@ -159,23 +154,19 @@ object ActionThrottle {
 class CheckForNextWork : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val hive = bee.hiveInstance ?: return true // no hive → proceed to EnterHive
+        val hive = bee.hiveInstance ?: return true
 
-        // Ask the job pool for more work
         val nextBatch = GlobalJobPool.workBacklog(hive)
         if (nextBatch != null) {
-            // Assign new batch and recompute flight plan
             nextBatch.assignToBee(bee.id, gameTime)
             bee.currentTask = nextBatch
 
             val network = bee.network()
             if (network != null) {
-                // Compute a new plan starting from the hive
                 FlightPlanComputer.computeAsync(
                     bee, nextBatch, network, level
                 ) { plan ->
                     if (plan == null) {
-                        // Can't build plan (missing materials) — release without retry
                         nextBatch.releaseWithoutRetry()
                         bee.currentTask = null
                         return@computeAsync
@@ -192,11 +183,11 @@ class CheckForNextWork : CheckpointAction {
                     }
                     ServerBeeManager.broadcastFlightPlan(bee, plan, clientStartIndex = 0)
                 }
-                return true // advance past this checkpoint (plan will be replaced async)
+                return true
             }
         }
 
-        return true // no work found → proceed to EnterHive (next checkpoint)
+        return true
     }
 }
 
@@ -231,7 +222,6 @@ class EnterHive : CheckpointAction {
             return true
         }
 
-        // Hive full — drop as item
         bee.dropInventory()
         level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
         (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)

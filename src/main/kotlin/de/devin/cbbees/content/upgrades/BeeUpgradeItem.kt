@@ -38,6 +38,9 @@ enum class UpgradeType(
     }),
     DRONE_RANGE(3, "tooltip.cbbees.upgrade.drone_range", UpgradeShape.L_SHAPE, IUpgrade { ctx, count ->
         ctx.droneRange += count * CBBeesConfig.droneRangeBonus.get()
+    }),
+    INVENTORY_ACCESS(1, "tooltip.cbbees.upgrade.inventory_access", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
+        if (count > 0) ctx.inventoryAccessEnabled = true
     });
 
     companion object {
@@ -91,3 +94,5 @@ class HoneyTankUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONE
 class DroneViewUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DRONE_VIEW, properties)
 
 class DroneRangeUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DRONE_RANGE, properties)
+
+class InventoryAccessUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.INVENTORY_ACCESS, properties)

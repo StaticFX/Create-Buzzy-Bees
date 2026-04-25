@@ -274,7 +274,6 @@
   "advancement.cbbees.bzzzzzzz.description": "Craft your first Mechanical Bee",
   "advancement.cbbees.cargo_port_it_bee": "Cargo Port it Bee!",
   "advancement.cbbees.cargo_port_it_bee.description": "Craft your first Cargo Port",
-
   "item.cbbees.construction_planner.tooltip": "Schematic Construction Tool",
   "item.cbbees.construction_planner.tooltip.summary": "A reusable tool for selecting and deploying _Schematics_ for bee construction. Hold the modifier key to browse available schematics.",
   "item.cbbees.construction_planner.tooltip.condition1": "When Held",
@@ -283,7 +282,6 @@
   "item.cbbees.construction_planner.tooltip.behaviour2": "Shows a _ghost preview_ of the structure. Use the _Construct_ tool to deploy the swarm.",
   "item.cbbees.construction_planner.tooltip.condition3": "Shift + R-Click",
   "item.cbbees.construction_planner.tooltip.behaviour3": "_Instantly_ deploys the schematic at the crosshair position.",
-
   "item.cbbees.deconstruction_planner.tooltip": "Area Deconstruction Tool",
   "item.cbbees.deconstruction_planner.tooltip.summary": "Selects an area to be _dismantled_ by the bee swarm. Blocks are broken and dropped as items.",
   "item.cbbees.deconstruction_planner.tooltip.condition1": "When Held",
@@ -292,7 +290,6 @@
   "item.cbbees.deconstruction_planner.tooltip.behaviour2": "Press the _Deploy_ key to send the deconstruction swarm.",
   "item.cbbees.deconstruction_planner.tooltip.condition3": "Shift + R-Click",
   "item.cbbees.deconstruction_planner.tooltip.behaviour3": "_Cancels_ the current selection.",
-
   "item.cbbees.pickup_planner.tooltip": "Area Item Pickup Tool",
   "item.cbbees.pickup_planner.tooltip.summary": "Selects an area to scan for _loose items_. Bumble bees will collect them and deliver to a _Logistics Port_.",
   "item.cbbees.pickup_planner.tooltip.condition1": "When Held",
@@ -301,59 +298,47 @@
   "item.cbbees.pickup_planner.tooltip.behaviour2": "Press the _Deploy_ key to send bumble bees. Requires a _Logistics Port_ on the network.",
   "item.cbbees.pickup_planner.tooltip.condition3": "Shift + R-Click",
   "item.cbbees.pickup_planner.tooltip.behaviour3": "_Cancels_ the current selection.",
-
   "item.cbbees.upgrade_template.tooltip": "Upgrade Crafting Base",
   "item.cbbees.upgrade_template.tooltip.summary": "A base component used to craft _Bee Upgrades_. Combine with specialized materials on a crafting table to create upgrades for your _Portable Beehive_.",
-
   "item.cbbees.rapid_wings.tooltip": "Speed Upgrade",
   "item.cbbees.rapid_wings.tooltip.summary": "Increases _movement_ and _work speed_ of all deployed bees by _25%_ per upgrade. Install in the _Portable Beehive_.",
   "item.cbbees.rapid_wings.tooltip.condition1": "Max Stack",
   "item.cbbees.rapid_wings.tooltip.behaviour1": "Up to _4_ can be installed in a single beehive.",
-
   "item.cbbees.swarm_intelligence.tooltip": "Workforce Upgrade",
   "item.cbbees.swarm_intelligence.tooltip.summary": "Allows _8 additional_ bees to work simultaneously per upgrade. Install in the _Portable Beehive_.",
   "item.cbbees.swarm_intelligence.tooltip.condition1": "Max Stack",
   "item.cbbees.swarm_intelligence.tooltip.behaviour1": "Up to _3_ can be installed in a single beehive.",
-
   "item.cbbees.honey_efficiency.tooltip": "Efficiency Upgrade",
   "item.cbbees.honey_efficiency.tooltip.summary": "Increases _carry capacity_, _break speed_, and reduces _honey consumption_ per upgrade. Install in the _Portable Beehive_.",
   "item.cbbees.honey_efficiency.tooltip.condition1": "Max Stack",
   "item.cbbees.honey_efficiency.tooltip.behaviour1": "Up to _2_ can be installed in a single beehive.",
-
   "item.cbbees.soft_touch.tooltip": "Silk Touch Upgrade",
   "item.cbbees.soft_touch.tooltip.summary": "Deconstruction preserves blocks _intact_ instead of destroying them. Deconstructed blocks are returned as their original item. Install in the _Portable Beehive_.",
   "item.cbbees.soft_touch.tooltip.condition1": "Unique",
   "item.cbbees.soft_touch.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
-
   "item.cbbees.drop_items.tooltip": "Quick Deconstruction Upgrade",
   "item.cbbees.drop_items.tooltip.summary": "Bees _drop items_ on the ground after breaking blocks instead of picking them up. Skips the return trip, making deconstruction _much faster_. Install in the _Portable Beehive_.",
   "item.cbbees.drop_items.tooltip.condition1": "Unique",
   "item.cbbees.drop_items.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
-
   "gui.cbbees.portable_beehive.jobs": "Construction Tasks",
   "gui.cbbees.portable_beehive.refresh": "Refresh",
   "gui.cbbees.portable_beehive.cancel_job": "Cancel Job",
   "gui.cbbees.portable_beehive.no_jobs": "No active construction tasks",
   "gui.cbbees.portable_beehive.job_count": "%d active task(s)",
-
   "gui.cbbees.job_detail.title": "Job Details",
   "gui.cbbees.job_detail.cancel": "Cancel",
   "gui.cbbees.job_detail.highlight": "Highlight",
   "gui.cbbees.job_detail.not_found": "Job not found",
-
   "item.cbbees.honey_tank.tooltip": "Capacity Upgrade",
   "item.cbbees.honey_tank.tooltip.summary": "Increases the _honey storage capacity_ of the Portable Beehive by _200_ per upgrade. Install in the _Portable Beehive_.",
   "item.cbbees.honey_tank.tooltip.condition1": "Max Stack",
   "item.cbbees.honey_tank.tooltip.behaviour1": "Up to _2_ can be installed in a single beehive.",
-
   "item.cbbees.reinforced_plating.tooltip": "Durability Upgrade",
   "item.cbbees.reinforced_plating.tooltip.summary": "Increases _spring efficiency_ by _25%_ per upgrade, allowing bees to work longer before needing to recharge. Install in the _Portable Beehive_.",
   "item.cbbees.reinforced_plating.tooltip.condition1": "Max Stack",
   "item.cbbees.reinforced_plating.tooltip.behaviour1": "Up to _2_ can be installed in a single beehive.",
-
   "gui.cbbees.grid.rotate_hint": "Right-click / scroll to rotate",
   "gui.cbbees.grid.shape_preview": "Shape:",
-
   "item.cbbees.drone_view": "Drone View",
   "tooltip.cbbees.upgrade.drone_view": "Enables top-down drone camera (press V)",
   "key.cbbees.drone_view": "Toggle Drone View",
@@ -363,22 +348,24 @@
   "cbbees.drone_view.deactivated": "Drone View deactivated",
   "cbbees.drone_view.hud": "Drone View [V to exit]",
   "cbbees.drone_view.no_backpack": "No backpack equipped!",
-
   "item.cbbees.drone_view.tooltip": "Drone Camera Upgrade",
   "item.cbbees.drone_view.tooltip.summary": "Enables a top-down _drone camera_ by consuming a bee from the backpack. Press _V_ to toggle the elevated view for planning schematics. Use _WASD_ to fly the drone within range.",
   "item.cbbees.drone_view.tooltip.condition1": "Unique",
   "item.cbbees.drone_view.tooltip.behaviour1": "Only _1_ can be installed per beehive.",
-
   "item.cbbees.drone_range": "Drone Range",
   "tooltip.cbbees.upgrade.drone_range": "+16 blocks drone camera range",
   "cbbees.drone_view.hud.range": "Range: %s / %s blocks",
   "cbbees.drone_view.hud.controls": "WASD to fly | Shift+WASD to nudge | V to exit",
-
   "item.cbbees.drone_range.tooltip": "Drone Range Upgrade",
   "item.cbbees.drone_range.tooltip.summary": "Extends the maximum range of the _Drone View_ camera by _16 blocks_ per upgrade. Allows scouting further from the player.",
   "item.cbbees.drone_range.tooltip.condition1": "Max Stack",
   "item.cbbees.drone_range.tooltip.behaviour1": "Up to _3_ can be installed in a single beehive.",
-
+  "item.cbbees.inventory_access": "Inventory Access",
+  "tooltip.cbbees.upgrade.inventory_access": "Allows bees to take items from the player's inventory, including shulker boxes.",
+  "item.cbbees.inventory_access.tooltip": "Inventory Access Upgrade",
+  "item.cbbees.inventory_access.tooltip.summary": "Allows bees to search the player's _inventory_ for materials, including items stored inside _Shulker Boxes_. Loose items are prioritized over shulker contents.",
+  "item.cbbees.inventory_access.tooltip.condition1": "When Installed",
+  "item.cbbees.inventory_access.tooltip.behaviour1": "Bees check the player's inventory for _required materials_ before stalling. Items inside _Shulker Boxes_ are accessed as a fallback.",
   "item.cbbees.programmed_schematic": "Programmed Schematic",
   "block.cbbees.schematic_deployer": "Schematic Deployer",
   "cbbees.program.construction": "Construction: %s",
@@ -397,7 +384,6 @@
   "key.cbbees.program_action": "Program Schematic",
   "key.cbbees.schematic_modifier": "Schematic Modifier",
   "key.cbbees.free_aim": "Free-Aim Selection",
-
   "gui.cbbees.deployer.mode.absolute": "Absolute Mode",
   "gui.cbbees.deployer.mode.relative": "Relative Mode",
   "gui.cbbees.deployer.confirm": "Confirm",
@@ -406,7 +392,6 @@
   "gui.cbbees.deployer.offset.z": "Z Offset",
   "gui.cbbees.deployer.rotate": "Rotate",
   "gui.cbbees.deployer.mirror": "Mirror",
-
   "cbbees.ponder.schematic_deployer.header": "The Schematic Deployer",
   "cbbees.ponder.schematic_deployer.text_1": "The Schematic Deployer executes programmed jobs automatically using a redstone signal.",
   "cbbees.ponder.schematic_deployer.text_2": "It requires a Programmed Schematic to operate. These can be created using any Planner tool.",
@@ -415,18 +400,18 @@
   "cbbees.ponder.schematic_deployer.text_5": "Apply a redstone signal to deploy the job. The Deployer activates on a rising edge.",
   "cbbees.ponder.schematic_deployer.text_6": "Nearby Mechanical Beehives will pick up the job and dispatch bees to complete it.",
   "cbbees.ponder.schematic_deployer.text_7": "A comparator can read the Deployer's state: empty (0), loaded (1), active (8), or just deployed (15).",
-  "cbbees.ponder.schematic_deployer.text_8": "Shift+right-click to extract the schematic. Hoppers and pipes can also insert and extract for full automation.",
+  "cbbees.ponder.schematic_deployer.text_8": "Shift+right-click to extract the schematic.",
   "cbbees.ponder.schematic_deployer_automation.header": "Deploy Modes",
   "cbbees.ponder.schematic_deployer_automation.text_1": "The Schematic Deployer has two deploy modes. Open the GUI by right-clicking without an item.",
   "cbbees.ponder.schematic_deployer_automation.text_2": "In Absolute mode, the schematic is always built at the exact coordinates stored when it was programmed.",
   "cbbees.ponder.schematic_deployer_automation.text_3": "No matter where the Deployer is placed, the build happens at the same world position.",
   "cbbees.ponder.schematic_deployer_automation.text_4": "In Relative mode, the build target is calculated as an offset from the Deployer's position.",
-  "cbbees.ponder.schematic_deployer_automation.text_5": "Move the Deployer and the build follows. Great for repeatable, portable setups.",
+  "cbbees.ponder.schematic_deployer_automation.text_5": "Move the Deployer and the build follows.",
   "cbbees.ponder.schematic_deployer_automation.text_6": "Relative mode also lets you override rotation and mirror from the GUI, without reprogramming.",
   "cbbees.ponder.schematic_deployer_self_replicating.header": "Self-Replicating Schematics",
   "cbbees.ponder.schematic_deployer_self_replicating.text_1": "When a schematic contains a Schematic Deployer block, something special happens.",
   "cbbees.ponder.schematic_deployer_self_replicating.text_2": "The parent Deployer's held item and settings are automatically injected into the newly built child Deployer.",
-  "cbbees.ponder.schematic_deployer_self_replicating.text_3": "The child Deployer will already contain the same Programmed Schematic and deploy mode — ready to trigger.",
-  "cbbees.ponder.schematic_deployer_self_replicating.text_4": "This creates a chain reaction: each Deployer builds the next, carrying the same program forward. Perfect for expanding bases automatically.",
+  "cbbees.ponder.schematic_deployer_self_replicating.text_3": "The child Deployer will already contain the same Programmed Schematic and deploy mode.",
+  "cbbees.ponder.schematic_deployer_self_replicating.text_4": "This creates a chain reaction: each Deployer builds the next, carrying the same program forward.",
   "cbbees.ponder.schematic_deployer_self_replicating.text_5": "Use Relative mode so each child builds at its own position rather than the original coordinates."
 }

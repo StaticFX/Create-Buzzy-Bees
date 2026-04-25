@@ -37,13 +37,10 @@ object CCRServerEvents {
 
         profiler.push("cbbees")
 
-        // Drain deferred callbacks (e.g. async task generation chunks) — exactly one
-        // batch per tick. Anything scheduled inside a callback runs next tick.
         profiler.push("tickScheduler")
         ServerTickScheduler.runScheduled()
         profiler.pop()
 
-        // ── Tick non-entity bees EVERY tick ──
         profiler.push("beeManager")
         ServerBeeManager.init(overworld)
         ServerBeeManager.tickAll(overworld, gameTime)
@@ -53,9 +50,6 @@ object CCRServerEvents {
         JobCalculationProgress.tickEvictions(server.tickCount)
         profiler.pop()
 
-        // No per-tick sync needed — bees use checkpoint-based flight plans
-
-        // ── Core logic every 10 ticks (0.5 seconds) ──
         tickCounter++
         if (tickCounter >= 10) {
             tickCounter = 0
@@ -81,7 +75,6 @@ object CCRServerEvents {
             DroneViewManager.validateDrones()
             profiler.pop()
 
-            // Sync packets every 40 ticks (2 seconds)
             syncCounter++
             if (syncCounter >= 4) {
                 syncCounter = 0
@@ -94,7 +87,7 @@ object CCRServerEvents {
             }
         }
 
-        profiler.pop() // cbbees
+        profiler.pop()
     }
 
     /**
@@ -123,7 +116,6 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
-        // Return bees to hives FIRST, before clearing networks/jobs
         ServerBeeManager.clear()
         ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()

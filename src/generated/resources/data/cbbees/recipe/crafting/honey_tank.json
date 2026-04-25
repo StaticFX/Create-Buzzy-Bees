@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:copper_sheet"
+    },
+    "V": {
+      "item": "minecraft:honey_block"
+    },
+    "W": {
+      "item": "cbbees:upgrade_template"
+    }
+  },
+  "pattern": [
+    "BVB",
+    "VWV",
+    "BVB"
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:honey_tank"
+  }
+}

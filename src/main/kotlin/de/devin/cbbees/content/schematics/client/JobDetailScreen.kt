@@ -76,14 +76,12 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         val w = windowWidth
         val h = windowHeight
 
-        // Panel background + border (matches deployer style)
         graphics.fill(x, y, x + w, y + h, BG_PANEL)
         graphics.fill(x, y, x + w, y + 1, BORDER)
         graphics.fill(x, y + h - 1, x + w, y + h, BORDER)
         graphics.fill(x, y, x + 1, y + h, BORDER)
         graphics.fill(x + w - 1, y, x + w, y + h, BORDER)
 
-        // Title bar
         graphics.fill(x + 1, y + 1, x + w - 1, y + 18, BG_TITLE)
 
         val j = job
@@ -93,14 +91,12 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             return
         }
 
-        // Title
         val jobType = if (j.schematicPlacement != null) "Construction" else "Deconstruction"
         graphics.drawCenteredString(font, "$jobType #${j.name}", x + w / 2, y + 5, GOLD)
 
         val innerW = w - MARGIN * 2
         var ty = y + 22
 
-        // Progress bar
         val pct = if (j.total == 0) 1f else j.completed.toFloat() / j.total
         val isStuck = j.reason != null
         graphics.fill(x + MARGIN, ty, x + MARGIN + innerW, ty + BAR_H, BAR_BG)
@@ -108,17 +104,14 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         graphics.fill(x + MARGIN, ty, x + MARGIN + filled, ty + BAR_H, if (isStuck) RED_BAR else GREEN_BAR)
         ty += BAR_H + 3
 
-        // Stats
         graphics.drawString(font, "${j.completed}/${j.total} tasks  ${(pct * 100).toInt()}%",
             x + MARGIN, ty, WHITE, false)
         ty += LINE_H
 
-        // Bees
         val activeBees = j.batches.flatMap { it.assignedBeeIds }.distinct().size
         graphics.drawString(font, "Bees: $activeBees active", x + MARGIN, ty, GRAY, false)
         ty += LINE_H + 3
 
-        // Stall reason
         if (isStuck) {
             val reason = j.reason!!
             val reasonText = if (reason.startsWith("cbbees.")) {
@@ -139,7 +132,6 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             ty += 2
         }
 
-        // Materials
         val allRequired = j.batches
             .filter { it.status != "COMPLETED" }
             .flatMap { it.required }

@@ -22,7 +22,6 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     override fun onActivate(worker: BeeWorker) {
         cachedWorker = worker
         val port = worker.network()?.findDropOff(ItemStack.EMPTY, worker.hiveId)
-        // Just set the target — actual item handling happens in execute()
         _pos = port?.pos ?: worker.blockPosition()
     }
 
@@ -30,18 +29,15 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
         val contents = worker.getInventoryContents()
         if (contents.isEmpty()) return true
 
-        // Try each item individually — different items might go to different ports
         contents.forEach { item ->
             val port = worker.network()?.findDropOff(item, worker.hiveId)
             if (port != null) {
                 val remainder = port.addItemStack(item.copy())
                 worker.removeFromInventory(item, item.count)
                 if (!remainder.isEmpty) {
-                    // Port full — drop only the remainder that didn't fit
                     level.addFreshEntity(ItemEntity(level, port.pos.x + 0.5, port.pos.y + 0.5, port.pos.z + 0.5, remainder))
                 }
             } else {
-                // No port accepts this item — drop on ground as last resort
                 worker.removeFromInventory(item, item.count)
                 level.addFreshEntity(ItemEntity(level, worker.getWorkerX(), worker.getWorkerY(), worker.getWorkerZ(), item.copy()))
             }

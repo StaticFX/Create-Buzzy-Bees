@@ -24,11 +24,8 @@ object GlobalJobPool : SavedData(), JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
-    /** Redispatch every 4 calls of tick() = every 4 seconds (tick() is called every 10 server ticks). */
     private const val REDISPATCH_INTERVAL = 4
-    /** Watchdog runs every 20 calls = every 10 seconds. */
     private const val WATCHDOG_INTERVAL = 20
-    /** Batches stuck in IN_PROGRESS/PICKED for longer than this are released (30 seconds). */
     private const val STALE_BATCH_TICKS = 600L
 
     fun clear() {
@@ -69,12 +66,11 @@ object GlobalJobPool : SavedData(), JobPool {
 
             for (batch in job.batches) {
                 if (batch.status != TaskStatus.IN_PROGRESS && batch.status != TaskStatus.PICKED) continue
-                if (batch.startedAtTick == 0L) continue // legacy batch without timestamp
+                if (batch.startedAtTick == 0L) continue
 
                 val elapsed = gameTime - batch.startedAtTick
                 if (elapsed < STALE_BATCH_TICKS) continue
 
-                // Check if the assigned bee still exists
                 val beeId = batch.assignedBeeId
                 val serverLevel = job.level as? net.minecraft.server.level.ServerLevel
                 val beeAlive = if (beeId != null && serverLevel != null) {
@@ -88,7 +84,6 @@ object GlobalJobPool : SavedData(), JobPool {
             }
         }
 
-        // Also clean up orphaned active bee tracking in hives
         cleanupOrphanedBees(gameTime)
 
         if (healedCount > 0) {
@@ -118,7 +113,6 @@ object GlobalJobPool : SavedData(), JobPool {
      * - Retrying failed/released batches
      * - Assigning work to newly available bees in hives
      */
-    /** Max batches dispatched per call — prevents spawning hundreds of bees in one tick. */
     private val maxDispatchesPerCycle: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
 
     private fun redispatchPendingBatches(gameTime: Long) {
@@ -159,11 +153,8 @@ object GlobalJobPool : SavedData(), JobPool {
                     network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
                 } ?: continue
 
-                // Always assign the network so StuckReasonResolver can find it
                 batch.assignedNetworkId = targetNetwork.id
 
-                // Check if required materials are available before dispatching.
-                // This prevents the wasteful spawn-fail-return cycle when materials are missing.
                 val missingMaterials = batch.tasks.map { it.action }
                     .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
                     .flatMap { it.requiredItems }
@@ -189,7 +180,6 @@ object GlobalJobPool : SavedData(), JobPool {
             batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
                     && batch.job.isPhaseReady(batch.phase)
 
-        // 1. Find closest dispatchable batch already assigned to this network (no intermediate allocations)
         var bestAssigned: TaskBatch? = null
         var bestAssignedDist = Double.MAX_VALUE
         for (job in jobBacklog) {
@@ -210,7 +200,6 @@ object GlobalJobPool : SavedData(), JobPool {
             return bestAssigned
         }
 
-        // 2. Fallback: find closest unassigned batch this network can handle
         var bestJob: BeeJob? = null
         var bestJobDist = Double.MAX_VALUE
         for (job in jobBacklog) {
@@ -229,7 +218,6 @@ object GlobalJobPool : SavedData(), JobPool {
         val batch = job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
             ?: return null
 
-        // Verification
         if (!network.isInRange(batch.targetPosition)) return null
 
         batch.assignedNetworkId = networkId
@@ -244,7 +232,6 @@ object GlobalJobPool : SavedData(), JobPool {
      * spike when placing large schematics.
      */
     override fun dispatchNewJob(job: BeeJob) {
-        // Prevent duplicate active jobs with same uniqueness key
         if (job.uniquenessKey != null && jobBacklog.any {
             it.uniquenessKey == job.uniquenessKey &&
             it.status != JobStatus.COMPLETED &&

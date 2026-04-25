@@ -38,7 +38,6 @@ class PlaceBlockAction(
 ) : BeeAction, ItemConsumingAction {
 
     override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
-        // Never replace a Mechanical Beehive — skip silently
         if (level.getBlockEntity(pos) is BeeHive) return true
 
         // Belt tunnels require the belt below to have CASING=true before placement,
@@ -56,15 +55,8 @@ class PlaceBlockAction(
             }
         }
 
-        if (!consumeItems(worker)) {
-            // Bee doesn't have the required materials — can't place.
-            // Signal failure so ExecuteBeeAction can handle it.
-            return false
-        }
+        if (!consumeItems(worker)) return false
 
-        // Use Create's BlockHelper for proper schematic block placement.
-        // This handles all edge cases: rails, state filtering, block entity data,
-        // setPlacedBy for double blocks (doors/beds), and proper update flags.
         val representativeItem = requiredItems.firstOrNull() ?: ItemStack.EMPTY
         BlockHelper.placeSchematicBlock(level, blockState, pos, representativeItem, blockEntityTag)
 

@@ -57,7 +57,6 @@ class BeeNetwork(
             if (be.isRemoved) return@removeAll true
             val worldBe = be.level?.getBlockEntity(be.blockPos)
             if (worldBe !== be) return@removeAll true
-            // Non-anchor components (ports) must remain in range of at least one anchor
             if (!topology.isAnchor(comp)) {
                 val inRange = _components.any { other ->
                     topology.isAnchor(other) && topology.isLogisticsRange(other, comp.pos)
@@ -150,7 +149,6 @@ class BeeNetwork(
             return components.any { other -> topology.isAnchor(other) && topology.canConnectAnchors(component, other) }
         }
 
-        // Non-anchors (e.g. logistics ports) must be within logistics range of any anchor
         val inRange = isInLogisticsRange(component.pos)
         val anchors = components.filter { topology.isAnchor(it) }
         for (anchor in anchors) {
@@ -220,9 +218,7 @@ class BeeNetwork(
                 }
             }
 
-            // If this group is the whole network (and it's the first group), no split happened
             if (newNetworks.isEmpty() && group.size == components.count { topology.isAnchor(it) }) {
-                // We still need to re-assign non-anchors to this group
                 val nonAnchors = components.filter { !topology.isAnchor(it) }
                 for (c in nonAnchors) {
                     if (!group.any { topology.isOperationalRange(it, c.pos) }) {
@@ -231,7 +227,6 @@ class BeeNetwork(
                         c.sync()
                     }
                 }
-                // For simplicity, we'll let the Manager handle full recalculation if any split is detected
                 return listOf(this)
             }
 
@@ -239,7 +234,6 @@ class BeeNetwork(
             newNetwork.components.clear()
             group.forEach { newNetwork.addComponent(it) }
 
-            // Re-assign non-anchors that are in range of this new group
             val remaining = components.filter { !topology.isAnchor(it) && !newNetwork.components.contains(it) }
             for (c in remaining) {
                 if (group.any { topology.isOperationalRange(it, c.pos) }) {

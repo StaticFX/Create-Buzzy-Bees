@@ -99,9 +99,7 @@ object BeeWorldRenderer {
         val buffer = bufferSource.getBuffer(renderType)
         val packedLight = FULL_BRIGHT_LIGHT
 
-        // Wing flap oscillation
         val wingAngle = sin(time * WING_FLAP_SPEED) * WING_FLAP_AMPLITUDE
-        // Gear spin — full rotation over ~4 seconds on X axis
         val gearAngle = (time % GEAR_ROTATION_PERIOD) / GEAR_ROTATION_PERIOD * Math.PI.toFloat() * 2f
 
         bakedModel.topLevelBones.forEach { bone ->
@@ -127,14 +125,12 @@ object BeeWorldRenderer {
 
         poseStack.translate(px.toDouble(), py.toDouble(), pz.toDouble())
 
-        // Apply stored rotation from the model
         if (bone.rotX != 0f || bone.rotY != 0f || bone.rotZ != 0f) {
             poseStack.mulPose(Axis.ZP.rotation(bone.rotZ))
             poseStack.mulPose(Axis.YP.rotation(bone.rotY))
             poseStack.mulPose(Axis.XP.rotation(bone.rotX))
         }
 
-        // Animated bones
         when (bone.name) {
             in WING_BONES -> {
                 val sign = if (bone.name.startsWith("left")) 1f else -1f
@@ -147,7 +143,6 @@ object BeeWorldRenderer {
 
         poseStack.translate(-px.toDouble(), -py.toDouble(), -pz.toDouble())
 
-        // Render cubes
         val matrix = poseStack.last()
         bone.cubes.forEach { cube ->
             cube.quads().forEach { quad ->
@@ -163,7 +158,6 @@ object BeeWorldRenderer {
             }
         }
 
-        // Recurse children
         bone.childBones.forEach { child ->
             renderBone(poseStack, buffer, child, packedLight, wingAngle, gearAngle)
         }

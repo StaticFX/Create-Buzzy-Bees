@@ -25,4 +25,6 @@ data class BeeContext(
     var droneViewAvailable: Boolean = false,
     /** Maximum range the drone can fly from the player */
     var droneRange: Double = CBBeesConfig.droneBaseRange.get(),
+    /** Whether bees can access the player's inventory (including shulker boxes) for materials */
+    var inventoryAccessEnabled: Boolean = false,
 )

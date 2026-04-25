@@ -49,7 +49,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (beeItem.isEmpty) return false
         val spawned = spawnBee(beeItem, batch)
         if (!spawned) {
-            // Return the bee to the backpack if deployment failed
             addBee(beeItem)
         }
         return spawned
@@ -113,8 +112,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (backpack.isEmpty) return BeeContext()
         return (backpack.item as PortableBeehiveItem).getBeeContext(backpack)
     }
-
-    // ── BeeHive overrides ──────────────────────────────────────────────
 
     override fun getNetworkingRange(): Double = NETWORKING_RANGE
 
@@ -186,21 +183,19 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
 
     override fun sync() {}
 
-    // ── LogisticsPort implementation ───────────────────────────────────
-
     override fun getPortType(): PortType = PortType.INSERT // Both, but INSERT as default
 
-    override fun getFilter(): ItemStack = ItemStack.EMPTY // No filter — accepts everything
+    override fun getFilter(): ItemStack = ItemStack.EMPTY
 
     override fun isValidForPickup(): Boolean = true
 
     override fun isValidForDropOff(): Boolean = true
 
-    override fun testFilter(stack: ItemStack): Boolean = true // Accept all items
+    override fun testFilter(stack: ItemStack): Boolean = true
 
     override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean = true
 
-    override fun getItemHandler(level: Level): IItemHandler? = null // Not backed by IItemHandler
+    override fun getItemHandler(level: Level): IItemHandler? = null
 
     /** Lowest priority — bees prefer network logistics ports; player inventory is the fallback. */
     override fun priority(): Int = Int.MIN_VALUE
@@ -212,6 +207,9 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack) && slot.count >= stack.count) {
                 return true
             }
+        }
+        if (getBeeContext().inventoryAccessEnabled) {
+            if (hasItemInContainers(stack)) return true
         }
         return false
     }
@@ -233,7 +231,54 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
                 if (remaining <= 0) return true
             }
         }
+        if (remaining > 0 && getBeeContext().inventoryAccessEnabled) {
+            remaining = removeItemFromContainers(stack, remaining)
+        }
         return remaining <= 0
+    }
+
+    private fun hasItemInContainers(stack: ItemStack): Boolean {
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (slot.isEmpty) continue
+            val contents = slot.getOrDefault(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY)
+            if (contents == net.minecraft.world.item.component.ItemContainerContents.EMPTY) continue
+            for (contained in contents.nonEmptyItems()) {
+                if (ItemStack.isSameItemSameComponents(contained, stack) && contained.count >= stack.count) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun removeItemFromContainers(stack: ItemStack, count: Int): Int {
+        var remaining = count
+        for (i in 0 until player.inventory.containerSize) {
+            if (remaining <= 0) break
+            val slot = player.inventory.getItem(i)
+            if (slot.isEmpty) continue
+            val contents = slot.getOrDefault(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY)
+            if (contents == net.minecraft.world.item.component.ItemContainerContents.EMPTY) continue
+
+            val items = contents.nonEmptyItems().toMutableList()
+            var modified = false
+            for (j in items.indices) {
+                val contained = items[j]
+                if (ItemStack.isSameItemSameComponents(contained, stack)) {
+                    val take = minOf(remaining, contained.count)
+                    contained.shrink(take)
+                    remaining -= take
+                    modified = true
+                    if (remaining <= 0) break
+                }
+            }
+            if (modified) {
+                slot.set(net.minecraft.core.component.DataComponents.CONTAINER,
+                    net.minecraft.world.item.component.ItemContainerContents.fromItems(items))
+            }
+        }
+        return remaining
     }
 
     override fun addItemStack(stack: ItemStack): ItemStack {
@@ -241,7 +286,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (player.inventory.add(copy)) {
             return ItemStack.EMPTY
         }
-        return copy // Return what didn't fit
+        return copy
     }
 
     /**
@@ -250,15 +295,11 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
      */
     fun isValid(): Boolean = !getBackpackStack().isEmpty
 
-    // ── Internal ───────────────────────────────────────────────────────
-
     private fun getBackpackStack(): ItemStack {
-        // Check Curios back slot
         val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
         if (curiosResult.isPresent) {
             return curiosResult.get().stack()
         }
-        // Check chestplate armor slot
         val chestplate = player.inventory.armor[2]
         if (chestplate.item is PortableBeehiveItem) {
             return chestplate

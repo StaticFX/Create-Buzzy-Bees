@@ -51,7 +51,6 @@ class GroupPickerScreen(
         val innerLeft = x + MARGIN
         val innerWidth = PANEL_W - MARGIN * 2
 
-        // Scrollable group list
         val listTop = y + 38
         val listHeight = 94
         groupList = GroupSelectionList(minecraft!!, innerWidth, listHeight, listTop, 16, innerLeft)
@@ -66,7 +65,6 @@ class GroupPickerScreen(
         }
         groupList!!.children().find { it.path == currentGroup }?.let { groupList!!.selected = it }
 
-        // "Create new" text field (below the "Or create new:" label)
         val fieldY = y + PANEL_H - 46
         newGroupField = EditBox(font, innerLeft, fieldY, innerWidth, 16,
             Component.translatable("gui.cbbees.group_picker.new_group"))
@@ -75,7 +73,6 @@ class GroupPickerScreen(
         newGroupField!!.setHint(Component.translatable("gui.cbbees.group_picker.new_group_hint"))
         addRenderableWidget(newGroupField!!)
 
-        // Confirm / Cancel icon buttons
         confirmButton = IconButton(x + PANEL_W - 25, y + PANEL_H - 25, AllIcons.I_CONFIRM).also {
             it.setToolTip(Component.translatable("gui.cbbees.group_picker.confirm"))
             addRenderableWidget(it)
@@ -132,36 +129,28 @@ class GroupPickerScreen(
         val w = windowWidth
         val h = windowHeight
 
-        // Panel background + border
         graphics.fill(x, y, x + w, y + h, BG_PANEL)
         graphics.fill(x, y, x + w, y + 1, BORDER)
         graphics.fill(x, y + h - 1, x + w, y + h, BORDER)
         graphics.fill(x, y, x + 1, y + h, BORDER)
         graphics.fill(x + w - 1, y, x + w, y + h, BORDER)
 
-        // Title bar
         graphics.fill(x + 1, y + 1, x + w - 1, y + 18, BG_TITLE)
         graphics.drawCenteredString(font, title, x + w / 2, y + 5, GOLD)
 
-        // "Existing groups:" label
         graphics.drawString(font, Component.translatable("gui.cbbees.group_picker.existing"),
             x + MARGIN, y + 22, LABEL, false)
 
-        // Group list
         groupList?.render(graphics, mouseX, mouseY, partialTicks)
 
-        // Separator
         val sepY = y + PANEL_H - 62
         graphics.fill(x + MARGIN, sepY, x + w - MARGIN, sepY + 1, BORDER)
 
-        // "Or create new:" label
         graphics.drawString(font, Component.translatable("gui.cbbees.group_picker.or_create"),
             x + MARGIN, sepY + 3, LABEL, false)
     }
 
     override fun isPauseScreen(): Boolean = false
-
-    // ── Inner classes ──
 
     inner class GroupEntry(val path: String, private val display: Component) :
         ObjectSelectionList.Entry<GroupEntry>() {

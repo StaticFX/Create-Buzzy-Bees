@@ -91,6 +91,7 @@ class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipCompo
         UpgradeType.HONEY_TANK -> 0xFFD97F00.toInt()          // Amber
         UpgradeType.DRONE_VIEW -> 0xFF9933FF.toInt()             // Purple
         UpgradeType.DRONE_RANGE -> 0xFF00CCCC.toInt()            // Cyan
+        UpgradeType.INVENTORY_ACCESS -> 0xFFCC8844.toInt()      // Brown
     }
 
     private fun renderSlot(guiGraphics: GuiGraphics, x: Int, y: Int, stack: ItemStack, font: Font) {

@@ -123,6 +123,16 @@ object DroneViewManager {
     }
 
     fun clear() {
+        for ((playerId, droneUUID) in activeDrones.toMap()) {
+            val server = net.neoforged.neoforge.server.ServerLifecycleHooks.getCurrentServer() ?: break
+            val player = server.playerList.getPlayer(playerId)
+            if (player != null) {
+                despawnDrone(player)
+            } else {
+                val entity = server.overworld().getEntity(droneUUID)
+                (entity as? MechanicalBeeEntity)?.discard()
+            }
+        }
         activeDrones.clear()
     }
 

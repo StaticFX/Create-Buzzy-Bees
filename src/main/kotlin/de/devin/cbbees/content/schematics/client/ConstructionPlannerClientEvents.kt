@@ -31,7 +31,6 @@ object ConstructionPlannerClientEvents {
         ConstructionPlannerHUD.update()
         checkStuckJobTooltip()
 
-        // Clear custom tool state if player is no longer holding the planner
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
             val player = Minecraft.getInstance().player
             if (player == null || DroneViewClientState.findActivePlanner(player).isEmpty) {
@@ -39,8 +38,6 @@ object ConstructionPlannerClientEvents {
             }
         }
 
-        // Always drain the browser keybind to prevent queued presses from firing
-        // when the player switches to holding the planner
         val player = Minecraft.getInstance().player
         if (AllKeys.OPEN_SCHEMATIC_BROWSER.consumeClick()) {
             if (player != null && !DroneViewClientState.findActivePlanner(player).isEmpty) {
@@ -48,7 +45,6 @@ object ConstructionPlannerClientEvents {
             }
         }
 
-        // Rotate/mirror ghost preview keybinds
         if (ConstructionPlannerHandler.isBrowsingPreview) {
             if (AllKeys.ROTATE_PREVIEW.consumeClick()) {
                 SchematicHoverPreview.rotatePreview()
@@ -72,7 +68,6 @@ object ConstructionPlannerClientEvents {
     fun onKeyInput(event: InputEvent.Key) {
         if (!ConstructionPlannerHandler.isActive()) return
 
-        // Backspace navigates up in group hierarchy
         if (event.key == GLFW.GLFW_KEY_BACKSPACE && event.action == GLFW.GLFW_PRESS) {
             if (ConstructionPlannerHandler.onNavigateOut()) {
                 // Consumed
@@ -96,7 +91,6 @@ object ConstructionPlannerClientEvents {
 
         val player = mc.player ?: return
 
-        // Only intercept when no real block is targeted — avoids stealing block interactions
         val hit = mc.hitResult
         if (hit != null && hit.type == net.minecraft.world.phys.HitResult.Type.BLOCK) return
 
