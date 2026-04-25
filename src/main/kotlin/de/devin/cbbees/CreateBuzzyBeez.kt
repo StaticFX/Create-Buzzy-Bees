@@ -105,6 +105,11 @@ object CreateBuzzyBeez {
             AllPackets.register(it)
         }
 
+        MOD_BUS.addListener<net.neoforged.neoforge.event.RegisterGameTestsEvent> { event ->
+            LOGGER.info("[cbbees] Registering game tests...")
+            de.devin.cbbees.gametest.CBBeesGameTests.onRegisterGameTests(event)
+        }
+
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)

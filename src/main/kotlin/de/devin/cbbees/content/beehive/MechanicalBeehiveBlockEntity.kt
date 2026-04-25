@@ -105,16 +105,17 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
-        if (getAvailableBeeCount() <= 0) return false
-        if (getActiveBeeCountForJob(batch.job.jobId) >= getBeeContext().maxActiveBees) return false
-
-        this.setChanged()
+        if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
 
         // Pickup batches use bumble bees; everything else uses construction bees
         val beeItemClass = if (batch.beeType == BeeType.TRANSPORT)
             MechanicalBumbleBeeItem::class.java
         else
             MechanicalBeeItem::class.java
+
+        if (getAvailableBeeCountOfType(beeItemClass) <= 0) return false
+
+        this.setChanged()
         val beeItem = consumeBeeOfType(beeItemClass)
         if (beeItem.isEmpty) return false
         return spawnBee(beeItem, batch)

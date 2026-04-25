@@ -35,9 +35,13 @@ object CCRServerEvents {
 
         val profiler = overworld.profiler
 
+        profiler.push("cbbees")
+
         // Drain deferred callbacks (e.g. async task generation chunks) — exactly one
         // batch per tick. Anything scheduled inside a callback runs next tick.
+        profiler.push("tickScheduler")
         ServerTickScheduler.runScheduled()
+        profiler.pop()
 
         // ── Tick non-entity bees EVERY tick ──
         profiler.push("beeManager")
@@ -45,32 +49,52 @@ object CCRServerEvents {
         ServerBeeManager.tickAll(overworld, gameTime)
         profiler.pop()
 
+        profiler.push("jobEvictions")
         JobCalculationProgress.tickEvictions(server.tickCount)
+        profiler.pop()
 
         // No per-tick sync needed — bees use checkpoint-based flight plans
 
         // ── Core logic every 10 ticks (0.5 seconds) ──
         tickCounter++
-        if (tickCounter < 10) return
-        tickCounter = 0
+        if (tickCounter >= 10) {
+            tickCounter = 0
 
-        ServerBeeNetworkManager.getNetworks().forEach { it.purgeStaleComponents(gameTime) }
-        ServerBeeNetworkManager.rebuildIndexes()
+            profiler.push("networkPurge")
+            ServerBeeNetworkManager.getNetworks().forEach { it.purgeStaleComponents(gameTime) }
+            ServerBeeNetworkManager.rebuildIndexes()
+            profiler.pop()
 
-        GlobalJobPool.tick(gameTime)
-        TransportDispatcher.tick(gameTime)
-        ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
-        DroneViewManager.validateDrones()
+            profiler.push("jobPool")
+            GlobalJobPool.tick(gameTime)
+            profiler.pop()
 
-        // Sync packets every 40 ticks (2 seconds)
-        syncCounter++
-        if (syncCounter >= 4) {
-            syncCounter = 0
-            server.playerList.players.forEach { player ->
-                HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
-                NetworkSyncPacket.sendTo(player)
+            profiler.push("transportDispatcher")
+            TransportDispatcher.tick(gameTime)
+            profiler.pop()
+
+            profiler.push("reservationCleanup")
+            ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
+            profiler.pop()
+
+            profiler.push("droneValidation")
+            DroneViewManager.validateDrones()
+            profiler.pop()
+
+            // Sync packets every 40 ticks (2 seconds)
+            syncCounter++
+            if (syncCounter >= 4) {
+                syncCounter = 0
+                profiler.push("sync")
+                server.playerList.players.forEach { player ->
+                    HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
+                    NetworkSyncPacket.sendTo(player)
+                }
+                profiler.pop()
             }
         }
+
+        profiler.pop() // cbbees
     }
 
     /**
@@ -99,11 +123,12 @@ object CCRServerEvents {
     @SubscribeEvent
     @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
+        // Return bees to hives FIRST, before clearing networks/jobs
+        ServerBeeManager.clear()
         ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()
         GlobalJobPool.clear()
         TransportDispatcher.clear()
-        ServerBeeManager.clear()
         BeeDebug.clear()
         PlannerUploadPacket.shutdown()
         DroneViewManager.clear()

@@ -107,6 +107,7 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
     override fun getWorkerY(): Double = getY()
     override fun getWorkerZ(): Double = getZ()
 
+    override val hiveId: UUID? get() = homeId
     override var networkId: UUID = UUID.randomUUID()
 
     /** Tick when spring recharge completes at hive. -1 = not recharging. */
@@ -286,12 +287,25 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
         super.tick()
         if (level().isClientSide) return
 
-        // Legacy entity bees from old saves — drop as item and discard.
+        // Legacy entity bees from old saves — return to hive or drop as item.
         // All new bees use ServerBeeManager (non-entity system).
         if (!isDrone) {
             val beeItem = beeItemStack()
-            level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
-            dropInventory()
+            val hive = beehive()
+            if (hive != null && hive.returnBee(beeItem)) {
+                // Returned to hive — drop carried items at hive position
+                val hivePos = hive.pos
+                for (i in 0 until inventory.containerSize) {
+                    val stack = inventory.getItem(i)
+                    if (!stack.isEmpty) {
+                        level().addFreshEntity(ItemEntity(level(), hivePos.x + 0.5, hivePos.y + 1.0, hivePos.z + 0.5, stack.copy()))
+                    }
+                }
+            } else {
+                // Hive unavailable — drop bee item + inventory at current position
+                level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
+                dropInventory()
+            }
             discard()
             return
         }
@@ -305,6 +319,20 @@ class MechanicalBeeEntity(entityType: EntityType<out PathfinderMob>, level: Leve
 
         if (beeContext == null || tickCount % 100 == 0) {
             beeContext = beehive()?.getBeeContext()
+        }
+    }
+
+    /**
+     * Skip client-side position interpolation for drones — snap instantly
+     * so WASD controls feel crisp rather than spongy.
+     */
+    override fun lerpTo(x: Double, y: Double, z: Double, yRot: Float, xRot: Float, steps: Int) {
+        if (isDrone) {
+            setPos(x, y, z)
+            setYRot(yRot)
+            setXRot(xRot)
+        } else {
+            super.lerpTo(x, y, z, yRot, xRot, steps)
         }
     }
 

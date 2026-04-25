@@ -247,7 +247,6 @@ class UpgradeGridWidget(
         UpgradeType.SOFT_TOUCH -> ItemStack(AllItems.SOFT_TOUCH.get())
         UpgradeType.DROP_ITEMS -> ItemStack(AllItems.DROP_ITEMS.get())
         UpgradeType.HONEY_TANK -> ItemStack(AllItems.HONEY_TANK.get())
-        UpgradeType.REINFORCED_PLATING -> ItemStack(AllItems.REINFORCED_PLATING.get())
         UpgradeType.DRONE_VIEW -> ItemStack(AllItems.DRONE_VIEW.get())
         UpgradeType.DRONE_RANGE -> ItemStack(AllItems.DRONE_RANGE.get())
     }
@@ -259,7 +258,6 @@ class UpgradeGridWidget(
         UpgradeType.SOFT_TOUCH -> 0xFF00FF88.toInt()
         UpgradeType.DROP_ITEMS -> 0xFFFF4444.toInt()
         UpgradeType.HONEY_TANK -> 0xFFD97F00.toInt()
-        UpgradeType.REINFORCED_PLATING -> 0xFF8888AA.toInt()
         UpgradeType.DRONE_VIEW -> 0xFF9933FF.toInt()
         UpgradeType.DRONE_RANGE -> 0xFF00CCCC.toInt()
     }

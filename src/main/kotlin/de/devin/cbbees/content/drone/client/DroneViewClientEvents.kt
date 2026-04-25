@@ -126,6 +126,13 @@ object DroneViewClientEvents {
         dz = dz / len * speed
 
         PacketDistributor.sendToServer(MoveDronePacket(dx, dz))
+
+        // Client-side prediction: move the drone immediately for zero-latency feel.
+        // The server will send the authoritative position next tick.
+        val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId)
+        if (drone != null) {
+            drone.setPos(drone.x + dx, drone.y, drone.z + dz)
+        }
     }
 
     /**

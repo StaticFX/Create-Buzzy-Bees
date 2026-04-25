@@ -16,6 +16,9 @@ import java.util.UUID
 interface BeeWorker {
     val uuid: UUID
     val networkId: UUID
+    /** The UUID of the hive that spawned this bee. Used to scope portable beehive drop-offs. */
+    val hiveId: UUID?
+        get() = null
     fun blockPosition(): BlockPos
     fun level(): Level
 

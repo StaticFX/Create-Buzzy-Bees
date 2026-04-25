@@ -10,7 +10,6 @@
     "SchematicEditScreenMixin",
     "SchematicHandlerFindMixin",
     "SchematicHandlerHudMixin",
-    "SchematicPromptScreenMixin",
     "SchematicToolBaseMixin",
     "ToolSelectionScreenMixin"
   ],

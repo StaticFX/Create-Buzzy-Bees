@@ -45,7 +45,7 @@ class DropOffItemsBehavior : Behavior<MechanicalBeeEntity>(
         if (excess.isEmpty()) return
 
         val network = entity.network()
-        val dropOffPort = network?.findDropOff(excess.first())
+        val dropOffPort = network?.findDropOff(excess.first(), entity.homeId)
 
         if (dropOffPort == null) {
             // Try giving items to the owner player (portable beehive bees)

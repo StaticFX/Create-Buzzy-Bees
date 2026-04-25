@@ -29,7 +29,6 @@ object CBBeesConfig {
     val honeyEfficiencyCarryBonus: ModConfigSpec.IntValue
     val honeyEfficiencyFuelReduction: ModConfigSpec.DoubleValue
     val honeyTankCapacityBonus: ModConfigSpec.IntValue
-    val reinforcedPlatingSpringBonus: ModConfigSpec.DoubleValue
 
     // Drone view settings
     val droneBaseRange: ModConfigSpec.DoubleValue
@@ -72,27 +71,27 @@ object CBBeesConfig {
             .push("beehive")
 
         maxBeesPerHive = builder
-            .comment("Maximum number of active bees per hive")
+            .comment("Hard cap on active bees per hive, after RPM and upgrade scaling. Even with max RPM and upgrades, a hive will never exceed this.")
             .defineInRange("maxBeesPerHive", 16, 1, 64)
 
         minActiveBeesAtRpm = builder
-            .comment("Minimum active bees when the hive has any RPM, so even slow shafts deploy at least this many bees")
+            .comment("Minimum active bees when the hive has any RPM. Ensures even slow shafts deploy at least this many bees.")
             .defineInRange("minActiveBeesAtRpm", 1, 0, 64)
 
         hiveBaseRange = builder
-            .comment("Base work range of a beehive before RPM scaling (at minimum RPM)")
+            .comment("Base work range (blocks) of a beehive at minimum RPM, before RPM scaling is applied.")
             .defineInRange("hiveBaseRange", 1, 0, 128)
 
         hiveRangePerRpm = builder
-            .comment("Work range added per RPM: range = baseRange + RPM * this (16 RPM -> 5, 256 RPM -> 65)")
+            .comment("Work range added per RPM. Formula: range = baseRange + RPM * this. Example: 64 RPM * 0.25 = 16 + 1 base = 17 blocks.")
             .defineInRange("hiveRangePerRpm", 0.25, 0.01, 10.0)
 
         hiveRpmSpeedDivisor = builder
-            .comment("RPM divisor for bee speed and spring efficiency: multiplier = 1 + RPM / this value")
+            .comment("RPM divisor for bee flight speed and spring efficiency. Formula: multiplier = 1 + RPM / this. Higher = slower scaling.")
             .defineInRange("hiveRpmSpeedDivisor", 256.0, 1.0, 1024.0)
 
         hiveRpmBeeDivisor = builder
-            .comment("RPM divisor for workforce scaling: extra bees = RPM / this value")
+            .comment("RPM divisor for max active bees. Formula: extra bees = RPM / this. Example: 64 RPM / 8 = 8 extra bees.")
             .defineInRange("hiveRpmBeeDivisor", 8.0, 1.0, 256.0)
 
         builder.pop()
@@ -105,11 +104,11 @@ object CBBeesConfig {
             .define("beePickupItems", true)
 
         defaultMaxActiveBees = builder
-            .comment("Default max active robots before RPM/upgrade scaling")
+            .comment("Default max active bees before RPM and upgrade scaling. This is the base value that RPM bonuses are added to.")
             .defineInRange("defaultMaxActiveBees", 4, 1, 64)
 
         defaultWorkRange = builder
-            .comment("Default work range for BeeContext before hive overrides")
+            .comment("Default work range (blocks) for portable beehives and other non-hive bee sources.")
             .defineInRange("defaultWorkRange", 32.0, 1.0, 256.0)
 
         builder.pop()
@@ -140,10 +139,6 @@ object CBBeesConfig {
         honeyTankCapacityBonus = builder
             .comment("Extra honey capacity per Honey Tank upgrade")
             .defineInRange("honeyTankCapacityBonus", 200, 50, 5000)
-
-        reinforcedPlatingSpringBonus = builder
-            .comment("Spring efficiency bonus per Reinforced Plating upgrade (0.25 = +25%)")
-            .defineInRange("reinforcedPlatingSpringBonus", 0.25, 0.01, 2.0)
 
         builder.pop()
 
@@ -180,11 +175,11 @@ object CBBeesConfig {
             .defineInRange("springDrainFlight", 0.0001, 0.0, 1.0)
 
         springDrainPickup = builder
-            .comment("Spring tension drained per item pickup (BumbleBee)")
+            .comment("Spring tension drained per item pickup from a logistics port (construction and transport bees).")
             .defineInRange("springDrainPickup", 0.01, 0.0, 1.0)
 
         springDrainDeposit = builder
-            .comment("Spring tension drained per item deposit (BumbleBee)")
+            .comment("Spring tension drained per item deposit to a logistics port (construction and transport bees).")
             .defineInRange("springDrainDeposit", 0.01, 0.0, 1.0)
 
         springRechargeTicks = builder

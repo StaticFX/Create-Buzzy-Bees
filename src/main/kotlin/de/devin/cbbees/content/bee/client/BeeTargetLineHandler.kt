@@ -30,20 +30,27 @@ object BeeTargetLineHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
+        val mc = Minecraft.getInstance()
+        val profiler = mc.level?.profiler
+
         // Update pause state for wall-clock freeze, tick rotation smoothing
-        val paused = Minecraft.getInstance().isPaused
+        val paused = mc.isPaused
         BeeClientTracker.setPaused(paused)
-        if (!paused) BeeClientTracker.tickClient()
+        if (!paused) {
+            profiler?.push("cbbees_beeClientTick")
+            BeeClientTracker.tickClient()
+            profiler?.pop()
+        }
 
         if (!CBBeesClientConfig.showBeeTargetLines.get()) return
 
-        val mc = Minecraft.getInstance()
         val player = mc.player ?: return
         mc.level ?: return
         if (mc.screen != null) return
 
         if (!GogglesItem.isWearingGoggles(player)) return
 
+        profiler?.push("cbbees_targetLines")
         val lookedAtEntity = mc.crosshairPickEntity
         val playerPos = player.position()
 
@@ -71,5 +78,6 @@ object BeeTargetLineHandler {
                 .colored(color)
                 .lineWidth(1 / 16f)
         }
+        profiler?.pop()
     }
 }

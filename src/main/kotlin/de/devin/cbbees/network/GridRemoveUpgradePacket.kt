@@ -56,7 +56,6 @@ class GridRemoveUpgradePacket(
                     de.devin.cbbees.content.upgrades.UpgradeType.SOFT_TOUCH -> ItemStack(AllItems.SOFT_TOUCH.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.DROP_ITEMS -> ItemStack(AllItems.DROP_ITEMS.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.HONEY_TANK -> ItemStack(AllItems.HONEY_TANK.get())
-                    de.devin.cbbees.content.upgrades.UpgradeType.REINFORCED_PLATING -> ItemStack(AllItems.REINFORCED_PLATING.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.DRONE_VIEW -> ItemStack(AllItems.DRONE_VIEW.get())
                     de.devin.cbbees.content.upgrades.UpgradeType.DRONE_RANGE -> ItemStack(AllItems.DRONE_RANGE.get())
                 }

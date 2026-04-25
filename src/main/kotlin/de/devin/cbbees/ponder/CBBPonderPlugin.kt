@@ -38,7 +38,8 @@ class CBBPonderPlugin : PonderPlugin {
 
         helper.forComponents(AllBlocks.SCHEMATIC_DEPLOYER.id)
             .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.schematicDeployerIntro(scene, util) })
-            .addStoryBoard("schematic_deployer/automation", { scene, util -> DeployerScenes.selfPopulatingBases(scene, util) })
+            .addStoryBoard("schematic_deployer/automation", { scene, util -> DeployerScenes.deployModes(scene, util) })
+            .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.selfReplicating(scene, util) })
 
         helper.forComponents(AllItems.PROGRAMMED_SCHEMATIC.id)
             .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.schematicDeployerIntro(scene, util) })

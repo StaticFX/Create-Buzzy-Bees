@@ -220,6 +220,12 @@ object ServerBeeNetworkManager {
 
     fun registerPort(port: LogisticsPort) = registerComponent(port)
 
+    /** Adds a pre-built network directly. Used by gametests to bypass spatial scanning. */
+    fun addNetwork(network: BeeNetwork) {
+        networks.add(network)
+        rebuildIndexes()
+    }
+
     fun unregisterPort(port: LogisticsPort) = unregisterComponent(port)
 
     fun getNetworkAt(level: Level, pos: BlockPos): BeeNetwork? {

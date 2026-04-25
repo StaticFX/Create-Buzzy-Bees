@@ -94,10 +94,22 @@ object AllItems {
     val PICKUP_PLANNER: ItemEntry<PickupPlannerItem> = CreateBuzzyBeez.REGISTRATE
         .item("pickup_planner") { props -> PickupPlannerItem(props) }
         .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', Items.PAPER)
+                .define('H', Items.HOPPER)
+                .pattern(" E ")
+                .pattern("BPB")
+                .pattern(" H ")
+                .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Stinger Planner - select areas for removal (alternative to schematic-based deconstruction)
+    // Deconstruction Planner - select areas for removal
     val DECONSTRUCTION_PLANNER: ItemEntry<DeconstructionPlannerItem> = CreateBuzzyBeez.REGISTRATE
         .item("deconstruction_planner") { props ->
             DeconstructionPlannerItem(props)
@@ -259,26 +271,6 @@ object AllItems {
                 .pattern("BVB")
                 .pattern("VWV")
                 .pattern("BVB")
-                .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
-                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
-        }
-        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
-        .register()
-
-    // Reinforced Plating - increases spring efficiency
-    val REINFORCED_PLATING: ItemEntry<ReinforcedPlatingUpgrade> = CreateBuzzyBeez.REGISTRATE
-        .item("reinforced_plating") { props ->
-            ReinforcedPlatingUpgrade(props)
-        }
-        .model { _, _ -> }
-        .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
-                .define('W', UPGRADE_TEMPLATE.get())
-                .define('V', AllItems.STURDY_SHEET)
-                .define('B', AllItems.BRASS_INGOT.get())
-                .pattern(" V ")
-                .pattern("BWB")
-                .pattern(" V ")
                 .unlockedBy("has_upgrade_base", RegistrateRecipeProvider.has(UPGRADE_TEMPLATE.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }

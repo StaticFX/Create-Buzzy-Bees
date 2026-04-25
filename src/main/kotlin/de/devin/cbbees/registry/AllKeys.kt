@@ -90,6 +90,17 @@ object AllKeys {
     )
 
     /**
+     * Modifier key for free-aim selection and AABB resizing in area planners.
+     * Default key: LEFT CTRL
+     */
+    val FREE_AIM: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.free_aim",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_LEFT_CONTROL,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    /**
      * Keybinding to toggle drone view.
      * Default key: V
      */
@@ -113,6 +124,7 @@ object AllKeys {
         event.register(DRONE_VIEW)
         event.register(PROGRAM_ACTION)
         event.register(SCHEMATIC_MODIFIER)
+        event.register(FREE_AIM)
     }
 
 }

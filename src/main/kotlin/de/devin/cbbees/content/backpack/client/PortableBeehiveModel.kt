@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation
 import software.bernie.geckolib.model.GeoModel
 
 class PortableBeehiveModel : GeoModel<PortableBeehiveItem>() {
+
     override fun getModelResource(animatable: PortableBeehiveItem): ResourceLocation {
         return CreateBuzzyBeez.asResource("geo/portable_beehive.geo.json")
     }

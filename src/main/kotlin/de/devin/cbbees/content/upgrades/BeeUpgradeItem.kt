@@ -33,9 +33,6 @@ enum class UpgradeType(
     HONEY_TANK(2, "tooltip.cbbees.upgrade.honey_tank", UpgradeShape.SQUARE_2X2, IUpgrade { ctx, count ->
         ctx.honeyCapacityBonus += count * CBBeesConfig.honeyTankCapacityBonus.get()
     }),
-    REINFORCED_PLATING(2, "tooltip.cbbees.upgrade.reinforced_plating", UpgradeShape.S_SHAPE, IUpgrade { ctx, count ->
-        ctx.springEfficiency += count * CBBeesConfig.reinforcedPlatingSpringBonus.get()
-    }),
     DRONE_VIEW(1, "tooltip.cbbees.upgrade.drone_view", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         if (count > 0) ctx.droneViewAvailable = true
     }),
@@ -90,8 +87,6 @@ class SoftTouchUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.SOFT
 class DropItemsUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DROP_ITEMS, properties)
 
 class HoneyTankUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.HONEY_TANK, properties)
-
-class ReinforcedPlatingUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.REINFORCED_PLATING, properties)
 
 class DroneViewUpgrade(properties: Properties) : BeeUpgradeItem(UpgradeType.DRONE_VIEW, properties)
 

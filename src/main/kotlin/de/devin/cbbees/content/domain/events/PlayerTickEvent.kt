@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.domain.events
 
-import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.job.JobCalculationProgress
@@ -46,8 +45,18 @@ class PlayerTickEvent {
     @SubscribeEvent
     fun onPlayerTick(event: PlayerTickEvent.Post) {
         val player = event.entity
-        if (player.level().isClientSide || player.tickCount % 40 != 0) return
+        if (player.level().isClientSide) return
 
+        val profiler = player.level().profiler
+
+        // Mechanical Wings — runs every tick (not throttled)
+        profiler.push("cbbees_flight")
+        handleFlightUpgrade(player)
+        profiler.pop()
+
+        if (player.tickCount % 40 != 0) return
+
+        profiler.push("cbbees_portableHive")
         val pool = ServerBeeNetworkManager
 
         val existingHive =
@@ -66,6 +75,20 @@ class PlayerTickEvent {
             if (existingHive != null) {
                 pool.unregisterWorker(player.uuid)
             }
+        }
+        profiler.pop()
+    }
+
+    // ── Backwards compatibility: disable flight from removed Mechanical Wings upgrade ──
+
+    private fun handleFlightUpgrade(player: net.minecraft.world.entity.player.Player) {
+        if (player.isCreative || player.isSpectator) return
+        // Mechanical Wings upgrade was removed in 1.3.0. Gracefully disable flight
+        // for players who had it active from a previous version.
+        if (player.abilities.mayfly && !player.isCreative && !player.isSpectator) {
+            player.abilities.mayfly = false
+            player.abilities.flying = false
+            player.onUpdateAbilities()
         }
     }
 

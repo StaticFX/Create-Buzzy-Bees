@@ -54,14 +54,20 @@ class BeeNetwork(
 
         val removed = _components.removeAll { comp ->
             val be = comp as? BlockEntity ?: return@removeAll false
-            // Check if the block entity is marked as removed
             if (be.isRemoved) return@removeAll true
-            // Check if the world still has this exact block entity at the position
             val worldBe = be.level?.getBlockEntity(be.blockPos)
-            worldBe !== be
+            if (worldBe !== be) return@removeAll true
+            // Non-anchor components (ports) must remain in range of at least one anchor
+            if (!topology.isAnchor(comp)) {
+                val inRange = _components.any { other ->
+                    topology.isAnchor(other) && topology.isLogisticsRange(other, comp.pos)
+                }
+                if (!inRange) return@removeAll true
+            }
+            false
         }
         if (removed) {
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("[NET] Purged stale component(s) from network $id")
+            de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("[NET] Purged stale/out-of-range component(s) from network $id")
             invalidateComponentCaches()
         }
     }
@@ -94,9 +100,12 @@ class BeeNetwork(
             .maxByOrNull { it.priority() }
     }
 
-    fun findDropOff(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForDropOff() && (stack.isEmpty || it.testFilter(stack)) }
-            .maxByOrNull { it.priority() }
+    fun findDropOff(stack: ItemStack, beeHiveId: UUID? = null): LogisticsPort? {
+        return ports.filter {
+            it.isValidForDropOff()
+                    && (stack.isEmpty || it.testFilter(stack))
+                    && (beeHiveId == null || it !is PortableBeeHive || it.id == beeHiveId)
+        }.maxByOrNull { it.priority() }
     }
 
     fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {

@@ -89,7 +89,6 @@ class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipCompo
         UpgradeType.SOFT_TOUCH -> 0xFF00FF88.toInt()           // Green
         UpgradeType.DROP_ITEMS -> 0xFFFF4444.toInt()           // Red
         UpgradeType.HONEY_TANK -> 0xFFD97F00.toInt()          // Amber
-        UpgradeType.REINFORCED_PLATING -> 0xFF8888AA.toInt()  // Steel
         UpgradeType.DRONE_VIEW -> 0xFF9933FF.toInt()             // Purple
         UpgradeType.DRONE_RANGE -> 0xFF00CCCC.toInt()            // Cyan
     }

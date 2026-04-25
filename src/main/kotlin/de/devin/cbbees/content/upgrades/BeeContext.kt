@@ -24,5 +24,5 @@ data class BeeContext(
     /** Whether the drone view ability is available */
     var droneViewAvailable: Boolean = false,
     /** Maximum range the drone can fly from the player */
-    var droneRange: Double = CBBeesConfig.droneBaseRange.get()
+    var droneRange: Double = CBBeesConfig.droneBaseRange.get(),
 )

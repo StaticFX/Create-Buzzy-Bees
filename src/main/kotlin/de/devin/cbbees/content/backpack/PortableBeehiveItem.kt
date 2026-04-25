@@ -76,6 +76,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
                 if (this.renderer == null) {
                     this.renderer = PortableBeehiveRenderer()
                 }
+                this.renderer!!.updateRenderState(itemStack, livingEntity)
                 this.renderer!!.prepForRender(livingEntity, itemStack, armorSlot, original)
                 return this.renderer!!
             }

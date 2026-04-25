@@ -7,8 +7,12 @@ import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
 import de.devin.cbbees.content.bee.state.*
+import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
+import de.devin.cbbees.items.AllItems
+import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.item.ItemStack
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -46,16 +50,53 @@ object ServerBeeManager {
     }
 
     fun clear() {
-        // Drop carried items so nothing is lost on shutdown
+        val currentLevel = level
         for (bee in bees.values) {
-            try { bee.dropInventory() } catch (_: UninitializedPropertyAccessException) {}
-        }
-        // Release task batches so they return to PENDING on next load
-        for (bee in bees.values) {
-            bee.currentTask?.release()
+            returnBeeToHive(bee, currentLevel)
         }
         bees.clear()
         level = null
+    }
+
+    /**
+     * Returns a bee to its hive on shutdown/disconnect. The bee item goes back
+     * into the hive inventory, carried items are dropped at the hive, and the
+     * task batch is released so it can be re-dispatched on next load.
+     */
+    private fun returnBeeToHive(bee: ServerBeeData, currentLevel: ServerLevel?) {
+        val beeItem = ItemStack(
+            if (bee.type == BeeType.CONSTRUCTION) AllItems.MECHANICAL_BEE.get()
+            else AllItems.MECHANICAL_BUMBLE_BEE.get()
+        )
+
+        // Try cached hive first, then look up fresh from world by hiveId
+        var hive = bee.hiveInstance
+        if (hive == null && currentLevel != null && bee.hiveId != null) {
+            hive = ServerBeeNetworkManager.findHive(bee.hiveId!!)
+        }
+        // Also try looking up the block entity directly from hivePos
+        if (hive == null && currentLevel != null && bee.hivePos != null) {
+            hive = currentLevel.getBlockEntity(bee.hivePos!!) as? BeeHive
+        }
+
+        if (hive != null && hive.returnBee(beeItem)) {
+            if (currentLevel != null) {
+                bee.getInventoryContents().forEach { item ->
+                    bee.removeFromInventory(item, item.count)
+                    currentLevel.addFreshEntity(
+                        ItemEntity(currentLevel, hive.pos.x + 0.5, hive.pos.y + 1.0, hive.pos.z + 0.5, item.copy())
+                    )
+                }
+            }
+            (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+        } else if (currentLevel != null) {
+            currentLevel.addFreshEntity(
+                ItemEntity(currentLevel, bee.pos.x, bee.pos.y, bee.pos.z, beeItem)
+            )
+            try { bee.dropInventory() } catch (_: UninitializedPropertyAccessException) {}
+        }
+
+        bee.currentTask?.release()
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -64,6 +105,8 @@ object ServerBeeManager {
 
     /** Pending removals — collected during tick, applied after iteration. */
     private val pendingRemovals = mutableSetOf<UUID>()
+    /** Bees that need to be returned to their hive on removal (abnormal exit). */
+    private val pendingReturns = mutableSetOf<UUID>()
     private var isTicking = false
 
     /** Max checkpoint actions per tick — prevents mass-arrival lag spikes. Read from config. */
@@ -72,12 +115,14 @@ object ServerBeeManager {
     fun tickAll(serverLevel: ServerLevel, gameTime: Long) {
         isTicking = true
         pendingRemovals.clear()
+        pendingReturns.clear()
         val profiler = serverLevel.profiler
 
         val snapshot = bees.values.toTypedArray()
         var checkpointsThisTick = 0
         val confirmBatch = mutableListOf<BeeCheckpointConfirmPacket.Entry>()
 
+        profiler.push("checkpoints")
         for (bee in snapshot) {
             if (bee.id in pendingRemovals) continue
             bee._level = serverLevel
@@ -91,7 +136,7 @@ object ServerBeeManager {
             // Throttle: spread checkpoint processing across ticks
             if (checkpointsThisTick >= maxCheckpointsPerTick) continue
 
-            profiler.push("beeCheckpoint")
+            profiler.push("arrival")
             checkpointsThisTick++
             val checkpoint = plan.checkpoints[bee.currentCheckpointIndex]
             bee.pos = Vec3.atCenterOf(checkpoint.pos)
@@ -103,18 +148,32 @@ object ServerBeeManager {
                 }
                 advanceCheckpoint(bee, gameTime)
             }
-            profiler.pop()
+            profiler.pop() // arrival
 
-            if (bee.springTension < -999f) pendingRemovals.add(bee.id)
+            if (bee.springTension < -999f) {
+                pendingRemovals.add(bee.id)
+                pendingReturns.add(bee.id)
+            }
         }
+        profiler.pop() // checkpoints
 
         // Send all action confirmations in one batched packet
         if (confirmBatch.isNotEmpty()) {
+            profiler.push("broadcastConfirm")
             broadcastCheckpointConfirmBatch(confirmBatch)
+            profiler.pop()
         }
 
         isTicking = false
-        pendingRemovals.forEach { bees.remove(it) }
+        pendingRemovals.forEach { id ->
+            val bee = bees.remove(id)
+            // Only return bees that exited abnormally (spring signal), not those
+            // already returned by their checkpoint action (e.g., EnterHive).
+            if (bee != null && id in pendingReturns) {
+                returnBeeToHive(bee, level)
+            }
+        }
+        pendingReturns.clear()
     }
 
     private fun advanceCheckpoint(bee: ServerBeeData, gameTime: Long) {
@@ -180,10 +239,18 @@ object ServerBeeManager {
         val network = ServerBeeNetworkManager.getNetwork(networkId, level!!)
         if (network != null) {
             FlightPlanComputer.computeAsync(bee, batch, network, level!!) { plan ->
+                if (plan == null) {
+                    // Flight plan failed (e.g., no provider for required materials).
+                    // Return the bee to its hive and put the batch back to PENDING.
+                    // Don't count as a retry — material unavailability is transient.
+                    batch.releaseWithoutRetry()
+                    removeBee(bee.id)
+                    returnBeeToHive(bee, level)
+                    return@computeAsync
+                }
                 bee.flightPlan = plan
                 bee.planStartTick = level!!.gameTime
                 bee.currentCheckpointIndex = 0
-                // Start flying to checkpoint 1 — don't arrive at checkpoint 0 instantly
                 if (plan.checkpoints.size > 1) {
                     val travel = FlightPlan.travelTicks(
                         plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
@@ -191,7 +258,6 @@ object ServerBeeManager {
                     bee.currentCheckpointIndex = 1
                     bee.nextCheckpointArrivalTick = level!!.gameTime + travel
                 }
-                // Client starts at 0 (hive) so it renders the full departure flight
                 broadcastFlightPlan(bee, plan, clientStartIndex = 0)
             }
         }

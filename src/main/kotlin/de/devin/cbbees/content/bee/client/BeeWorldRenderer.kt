@@ -32,14 +32,14 @@ object BeeWorldRenderer {
     private val BUMBLE_MODEL = CreateBuzzyBeez.asResource("geo/mechanical_bumble_bee.geo.json")
     private val BUMBLE_TEXTURE = CreateBuzzyBeez.asResource("textures/entity/mechanical_bumble_bee.png")
 
-    private val WING_BONES = setOf("lwing", "rwing")
-    private const val LIGHT_BONE = "light"
-    private const val LIGHT_ALPHA = 0.45f
+    private val WING_BONES = setOf("leftwing_bone", "rightwing_bone")
+    private const val GEAR_BONE = "gear2"
 
     private const val MAX_RENDER_DIST_SQ = 64.0 * 64.0
     private const val FULL_BRIGHT_LIGHT = 0xF000F0
     private const val WING_FLAP_SPEED = 25f
     private const val WING_FLAP_AMPLITUDE = 0.6f
+    private const val GEAR_ROTATION_PERIOD = 4f
 
     @SubscribeEvent
     @JvmStatic
@@ -47,7 +47,8 @@ object BeeWorldRenderer {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return
 
         val mc = Minecraft.getInstance()
-        mc.level ?: return
+        val level = mc.level ?: return
+        val profiler = level.profiler
         val camPos = mc.gameRenderer.mainCamera.position
         val partialTick = event.partialTick.realtimeDeltaTicks
 
@@ -57,6 +58,7 @@ object BeeWorldRenderer {
         val flightBees = BeeClientTracker.getFlightBees()
         if (flightBees.isEmpty()) return
 
+        profiler.push("cbbees_beeRender")
         val maxDistSq = MAX_RENDER_DIST_SQ
         val time = System.nanoTime() / 1_000_000_000.0f
 
@@ -82,6 +84,7 @@ object BeeWorldRenderer {
         }
 
         bufferSource.endBatch()
+        profiler.pop()
     }
 
     private fun renderModel(
@@ -92,23 +95,17 @@ object BeeWorldRenderer {
         time: Float,
     ) {
         val bakedModel: BakedGeoModel = GeckoLibCache.getBakedModels()[modelRes] ?: return
-        val opaqueBuffer = bufferSource.getBuffer(RenderType.entityCutoutNoCull(textureRes))
+        val renderType = RenderType.entityCutoutNoCull(textureRes)
+        val buffer = bufferSource.getBuffer(renderType)
         val packedLight = FULL_BRIGHT_LIGHT
 
-        // Wing flap oscillation — same for both bee and bumble bee models
+        // Wing flap oscillation
         val wingAngle = sin(time * WING_FLAP_SPEED) * WING_FLAP_AMPLITUDE
+        // Gear spin — full rotation over ~4 seconds on X axis
+        val gearAngle = (time % GEAR_ROTATION_PERIOD) / GEAR_ROTATION_PERIOD * Math.PI.toFloat() * 2f
 
-        // Opaque pass — everything except the light bone
         bakedModel.topLevelBones.forEach { bone ->
-            if (bone.name != LIGHT_BONE) {
-                renderBone(poseStack, opaqueBuffer, bone, packedLight, wingAngle, 1f)
-            }
-        }
-
-        // Translucent pass — light bone only (if present)
-        bakedModel.topLevelBones.find { it.name == LIGHT_BONE }?.let { lightBone ->
-            val translucentBuffer = bufferSource.getBuffer(RenderType.entityTranslucent(textureRes))
-            renderBone(poseStack, translucentBuffer, lightBone, packedLight, wingAngle, LIGHT_ALPHA)
+            renderBone(poseStack, buffer, bone, packedLight, wingAngle, gearAngle)
         }
     }
 
@@ -118,16 +115,13 @@ object BeeWorldRenderer {
         bone: GeoBone,
         packedLight: Int,
         wingAngle: Float,
-        alpha: Float,
+        gearAngle: Float,
     ) {
         if (bone.isHidden) return
 
         poseStack.pushPose()
 
-        // Mirror the pivot X for left wing — both wings share pivot [-3, 7, -2]
-        // in the model, but lwing's cube is on the positive X side
-        val rawPx = bone.pivotX / 16f
-        val px = if (bone.name == "lwing") -rawPx else rawPx
+        val px = bone.pivotX / 16f
         val py = bone.pivotY / 16f
         val pz = bone.pivotZ / 16f
 
@@ -140,25 +134,27 @@ object BeeWorldRenderer {
             poseStack.mulPose(Axis.XP.rotation(bone.rotX))
         }
 
-        // Wing flap — lwing and rwing mirror each other on Z axis
-        if (bone.name in WING_BONES) {
-            val sign = if (bone.name == "lwing") 1f else -1f
-            poseStack.mulPose(Axis.ZP.rotation(wingAngle * sign))
+        // Animated bones
+        when (bone.name) {
+            in WING_BONES -> {
+                val sign = if (bone.name.startsWith("left")) 1f else -1f
+                poseStack.mulPose(Axis.ZP.rotation(wingAngle * sign))
+            }
+            GEAR_BONE -> {
+                poseStack.mulPose(Axis.YP.rotation(gearAngle))
+            }
         }
 
         poseStack.translate(-px.toDouble(), -py.toDouble(), -pz.toDouble())
 
         // Render cubes
-        val isWing = bone.name in WING_BONES
         val matrix = poseStack.last()
         bone.cubes.forEach { cube ->
             cube.quads().forEach { quad ->
                 val normal = quad.normal()
-                // Wings are zero-height planes — skip the bottom face to prevent z-fighting
-                if (isWing && normal.y() < 0) return@forEach
                 quad.vertices().forEach { vertex ->
                     buffer.addVertex(matrix.pose(), vertex.position().x(), vertex.position().y(), vertex.position().z())
-                        .setColor(1f, 1f, 1f, alpha)
+                        .setColor(1f, 1f, 1f, 1f)
                         .setUv(vertex.texU(), vertex.texV())
                         .setOverlay(OverlayTexture.NO_OVERLAY)
                         .setLight(packedLight)
@@ -169,7 +165,7 @@ object BeeWorldRenderer {
 
         // Recurse children
         bone.childBones.forEach { child ->
-            renderBone(poseStack, buffer, child, packedLight, wingAngle, alpha)
+            renderBone(poseStack, buffer, child, packedLight, wingAngle, gearAngle)
         }
 
         poseStack.popPose()

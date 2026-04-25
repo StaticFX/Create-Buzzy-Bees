@@ -59,24 +59,23 @@ object FlightPlanComputer {
         batch: TaskBatch,
         network: BeeNetwork,
         level: ServerLevel,
-        onComplete: (FlightPlan) -> Unit,
+        onComplete: (FlightPlan?) -> Unit,
     ) {
         // Snapshot: build raw checkpoints on the server thread (reads network/task data)
         val rawCheckpoints = buildRawConstructionCheckpoints(bee, batch, network)
+        if (rawCheckpoints == null) {
+            // Can't build a valid plan (e.g., missing materials with no provider).
+            // Return null so the caller can release the batch.
+            level.server.execute { onComplete(null) }
+            return
+        }
 
         // Snapshot: collect all block positions that need collision checks
         val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, level)
 
         executor.submit {
-            // Off-thread: insert obstacle waypoints using the snapshot (no Level access needed)
             val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, level)
-
-            val plan = FlightPlan(bee.id, BeeType.CONSTRUCTION, DEFAULT_SPEED, finalCheckpoints)
-
-            // Deliver result back on the server thread. server.execute drains
-            // during runAllTasks() at the start of the next tick — before our
-            // ServerTickScheduler and before ServerBeeManager.tickAll(), so the
-            // flight plan is set before the bee advances any checkpoints.
+            val plan = FlightPlan(bee.id, bee.type, DEFAULT_SPEED, finalCheckpoints)
             level.server.execute { onComplete(plan) }
         }
     }
@@ -148,10 +147,10 @@ object FlightPlanComputer {
         batch: TaskBatch,
         network: BeeNetwork,
         level: ServerLevel? = null
-    ): FlightPlan {
-        val raw = buildRawConstructionCheckpoints(bee, batch, network)
+    ): FlightPlan? {
+        val raw = buildRawConstructionCheckpoints(bee, batch, network) ?: return null
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan(bee.id, BeeType.CONSTRUCTION, DEFAULT_SPEED, checkpoints)
+        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
     }
 
     /**
@@ -161,25 +160,30 @@ object FlightPlanComputer {
     fun forTransport(bee: ServerBeeData, task: TransportTask, level: ServerLevel? = null): FlightPlan {
         val raw = buildRawTransportCheckpoints(bee, task)
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan(bee.id, BeeType.TRANSPORT, DEFAULT_SPEED, checkpoints)
+        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
     }
 
-    private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork) = buildList {
+    private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         val missing = computeMissingItems(bee, batch)
         if (missing.isNotEmpty()) {
-            findBestProvider(network, missing, bee.id)?.let {
-                add(Checkpoint(it.pos.above(), GatherFromPort(missing), clientPauseTicks = GATHER_PAUSE_TICKS))
+            val provider = findBestProvider(network, missing, bee.id)
+            if (provider == null) {
+                // No provider has the required materials — abort flight plan
+                return null
             }
+            add(Checkpoint(provider.pos.above(), GatherFromPort(missing), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val remainingTasks = batch.getRemainingTasks()
+        var lastCheckpointPos = bee.blockPosition()
         remainingTasks.forEach { task ->
             val action = task.action
             when (action) {
                 is DropOffItemsAction -> {
-                    val dropPort = network.findDropOff(ItemStack.EMPTY)
+                    val dropPort = network.findDropOff(ItemStack.EMPTY, bee.hiveId)
                     val dropPos = dropPort?.pos?.above() ?: task.targetPos
                     add(Checkpoint(dropPos, ExecuteBeeAction(action, task), clientPauseTicks = DROP_OFF_PAUSE_TICKS))
+                    lastCheckpointPos = dropPos
                 }
 
                 is RemoveBlockAction -> {
@@ -190,17 +194,18 @@ object FlightPlanComputer {
                             clientPauseTicks = action.getWorkTicks(bee.getBeeContext())
                         )
                     )
+                    lastCheckpointPos = task.targetPos
                 }
 
                 else -> {
                     add(Checkpoint(task.targetPos, ExecuteBeeAction(action, task)))
+                    lastCheckpointPos = task.targetPos
                 }
             }
         }
-        // Check for next batch RIGHT AFTER the last task — not at the hive.
-        // If work exists, the bee replans from here (the construction site) without flying home.
-        val lastTaskPos = remainingTasks.lastOrNull()?.targetPos ?: bee.blockPosition()
-        add(Checkpoint(lastTaskPos, CheckForNextWork()))
+        // Check for next batch at the last checkpoint position (which is the port
+        // for pickup/dropoff, or the block for construction/deconstruction).
+        add(Checkpoint(lastCheckpointPos, CheckForNextWork()))
         // Only reached if no more work — fly home and enter
         val hiveApproach = (bee.hivePos ?: bee.blockPosition()).above()
         add(Checkpoint(hiveApproach, EnterHive()))

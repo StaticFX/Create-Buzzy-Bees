@@ -49,6 +49,9 @@ object ConstructionRenderer {
     /** Alpha for ghost block rendering (0.0 = invisible, 1.0 = opaque). */
     private const val GHOST_ALPHA = 0.5f
 
+    private const val NORMAL_COLOR = 0x6886c5
+    private const val STUCK_COLOR = 0xFF5555
+
     private val outlineCache = mutableMapOf<UUID, AABBOutline>()
 
     /** Cached max bounds per job — only grows, never shrinks. */
@@ -84,9 +87,20 @@ object ConstructionRenderer {
             ColoringVertexConsumer(consumer, 1f, 1f, 1f, alpha)
 
         override fun getBuffer(type: RenderType): VertexConsumer {
-            // Redirect chunk buffer layers (solid, cutout, etc.) to translucent
-            // so GL blending is enabled and vertex alpha takes effect
-            val redirected = if (type in chunkLayers) RenderType.translucent() else type
+            // Redirect opaque render types to translucent variants so GL
+            // blending is enabled and the vertex alpha from ColoringVertexConsumer
+            // actually takes effect. This covers both chunk layers (solid, cutout)
+            // and entity layers (entitySolid, entityCutout — used by block entity
+            // renderers like chests, signs, beds, etc.).
+            val redirected = if (type in chunkLayers) {
+                RenderType.translucent()
+            } else if (!type.name.contains("translucent")) {
+                RenderType.entityTranslucentCull(
+                    net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS
+                )
+            } else {
+                type
+            }
             return wrap(delegate.getBuffer(redirected))
         }
 
@@ -104,6 +118,7 @@ object ConstructionRenderer {
 
         val mc = Minecraft.getInstance()
         val level = mc.level ?: return
+        val profiler = level.profiler
 
         val jobs = ClientJobCache.getAllJobs()
         if (jobs.isEmpty()) {
@@ -114,13 +129,24 @@ object ConstructionRenderer {
             return
         }
 
+        profiler.push("cbbees_constructionGhosts")
+
         val dataVersion = ClientJobCache.version
         val gameTick = level.gameTime
         val shouldCheckBlocks = gameTick - lastBlockCheckTick >= BLOCK_CHECK_INTERVAL
         if (dataVersion != lastDataVersion || shouldCheckBlocks) {
+            profiler.push("rebuildCache")
             rebuildCache(jobs, level, shouldCheckBlocks)
             lastDataVersion = dataVersion
             if (shouldCheckBlocks) lastBlockCheckTick = gameTick
+            profiler.pop()
+        }
+
+        // Update outline colors every frame (stall reason may change between cache rebuilds)
+        for (job in jobs) {
+            val outline = outlineCache[job.jobId] ?: continue
+            val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
+            outline.params.colored(color)
         }
 
         val poseStack = event.poseStack
@@ -130,21 +156,26 @@ object ConstructionRenderer {
         val transparentBuffer = TransparentBuffer(superBuffer, opacity)
 
         // Render each job's schematic via Create's SchematicRenderer with transparency
+        profiler.push("renderGhosts")
         for ((_, jobRenderer) in rendererCache) {
             poseStack.pushPose()
             poseStack.translate(-camera.x, -camera.y, -camera.z)
             jobRenderer.renderer.render(poseStack, transparentBuffer)
             poseStack.popPose()
         }
+        profiler.pop()
 
         // Render blue outlines (at full opacity, through the real buffer)
+        profiler.push("renderOutlines")
         val pt = AnimationTickHolder.getPartialTicks()
         for ((_, outline) in outlineCache) {
             outline.render(poseStack, superBuffer, camera, pt)
         }
+        profiler.pop()
 
         superBuffer.draw()
         RenderSystem.enableCull()
+        profiler.pop() // cbbees_constructionGhosts
     }
 
     private fun rebuildCache(jobs: List<ClientJobInfo>, clientLevel: Level, checkBlocks: Boolean) {
@@ -165,29 +196,37 @@ object ConstructionRenderer {
                 val renderer = buildSchematicRenderer(job, clientLevel)
                 if (renderer != null) {
                     rendererCache[job.jobId] = renderer
+                }
 
-                    // Build outline from actual block positions in the blockMap.
-                    // SchematicLevel is created with anchor=ZERO, so blockMap keys
-                    // are already in global coordinates — no anchor offset needed.
-                    val positions = renderer.schematicLevel.blockMap.keys
-                    if (positions.isEmpty()) continue
-                    val bounds = AABB(
-                        positions.minOf { it.x }.toDouble(),
-                        positions.minOf { it.y }.toDouble(),
-                        positions.minOf { it.z }.toDouble(),
-                        (positions.maxOf { it.x } + 1).toDouble(),
-                        (positions.maxOf { it.y } + 1).toDouble(),
-                        (positions.maxOf { it.z } + 1).toDouble()
-                    )
-                    outlineBoundsCache[job.jobId] = bounds
-                    val outline = AABBOutline(bounds)
-                    outline.params
-                        .colored(0x6886c5)
-                        .withFaceTexture(AllSpecialTextures.CHECKERED)
-                        .lineWidth(1 / 16f)
-                    outlineCache[job.jobId] = outline
+                // Build outline for this job — from schematic positions or batch targets
+                if (job.jobId !in outlineBoundsCache) {
+                    val positions: Set<BlockPos> = if (renderer != null) {
+                        renderer.schematicLevel.blockMap.keys
+                    } else {
+                        // Non-schematic jobs (deconstruction, pickup): use batch target positions
+                        job.batches.map { it.target }.toSet()
+                    }
+                    if (positions.isNotEmpty()) {
+                        val bounds = AABB(
+                            positions.minOf { it.x }.toDouble(),
+                            positions.minOf { it.y }.toDouble(),
+                            positions.minOf { it.z }.toDouble(),
+                            (positions.maxOf { it.x } + 1).toDouble(),
+                            (positions.maxOf { it.y } + 1).toDouble(),
+                            (positions.maxOf { it.z } + 1).toDouble()
+                        )
+                        outlineBoundsCache[job.jobId] = bounds
+                        val outline = AABBOutline(bounds)
+                        val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
+                        outline.params
+                            .colored(color)
+                            .withFaceTexture(AllSpecialTextures.CHECKERED)
+                            .lineWidth(1 / 16f)
+                        outlineCache[job.jobId] = outline
+                    }
                 }
             }
+
         }
     }
 

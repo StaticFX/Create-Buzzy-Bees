@@ -61,7 +61,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
             }
 
             level.destroyBlock(pos, false)
-            val hasPort = worker.network()?.findDropOff(ItemStack.EMPTY) != null
+            val hasPort = worker.network()?.findDropOff(ItemStack.EMPTY, worker.hiveId) != null
             (drops + extraDrops).forEach { drop ->
                 if (hasPort) {
                     // Port available — pick up into inventory for later deposit

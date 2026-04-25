@@ -290,10 +290,21 @@ class HiveJobsSyncPacket(
             val clientJobs = jobs.map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
                     val batches = job.batches.map { b ->
+                        val required = b.tasks.map { it.action }
+                            .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
+                            .flatMap { it.requiredItems }
                         ClientBatchInfo(
-                            b.status.name, b.targetPosition, emptyList(), emptyList(),
+                            b.status.name, b.targetPosition, required, emptyList(),
                             ghostBlocks = emptyMap()
                         )
+                    }
+                    // Live stall check: find the network for this job and resolve reason
+                    val networkId = job.batches.firstOrNull()?.assignedNetworkId
+                    val network = if (networkId != null) ServerBeeNetworkManager.getNetwork(networkId) else null
+                    val reason = if (network != null) {
+                        StuckReasonResolver.firstReasonOrNull(network, job)
+                    } else {
+                        null
                     }
                     ClientJobInfo(
                         job.jobId,
@@ -301,7 +312,7 @@ class HiveJobsSyncPacket(
                         job.status.name,
                         completed,
                         job.tasks.size,
-                        null,
+                        reason,
                         batches,
                         schematicPlacement = job.schematicPlacement
                     )

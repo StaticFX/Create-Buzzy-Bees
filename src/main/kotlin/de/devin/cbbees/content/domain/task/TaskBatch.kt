@@ -93,6 +93,19 @@ class TaskBatch(
         }
     }
 
+    /**
+     * Returns the batch to PENDING without incrementing the retry counter.
+     * Used when a flight plan fails due to transient conditions (missing materials)
+     * that the player can resolve — the batch should retry indefinitely.
+     */
+    fun releaseWithoutRetry() {
+        currentIndex = 0
+        assignedBeeId = null
+        tasks.forEach { it.release() }
+        status = TaskStatus.PENDING
+        // Keep assignedNetworkId so the stall resolver can find the network
+    }
+
     fun assignToBee(beeId: UUID, gameTime: Long) {
         status = TaskStatus.IN_PROGRESS
         assignedBeeId = beeId

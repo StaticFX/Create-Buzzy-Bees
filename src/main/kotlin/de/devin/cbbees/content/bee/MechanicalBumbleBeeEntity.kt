@@ -205,15 +205,24 @@ class MechanicalBumbleBeeEntity(entityType: EntityType<out PathfinderMob>, level
     override fun tick() {
         super.tick()
         if (level().isClientSide) return
-        // Legacy entity bee from old save — drop as item and discard
+        // Legacy entity bee from old save — return to hive or drop as item
         val beeItem = beeItemStack()
-        level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
-        // Drop inventory items
-        for (i in 0 until inventory.containerSize) {
-            val stack = inventory.getItem(i)
-            if (!stack.isEmpty) {
-                level().addFreshEntity(ItemEntity(level(), x, y, z, stack.copy()))
-                inventory.setItem(i, ItemStack.EMPTY)
+        val hive = beehive()
+        if (hive != null && hive.returnBee(beeItem)) {
+            val hivePos = hive.pos
+            for (i in 0 until inventory.containerSize) {
+                val stack = inventory.getItem(i)
+                if (!stack.isEmpty) {
+                    level().addFreshEntity(ItemEntity(level(), hivePos.x + 0.5, hivePos.y + 1.0, hivePos.z + 0.5, stack.copy()))
+                }
+            }
+        } else {
+            level().addFreshEntity(ItemEntity(level(), x, y, z, beeItem))
+            for (i in 0 until inventory.containerSize) {
+                val stack = inventory.getItem(i)
+                if (!stack.isEmpty) {
+                    level().addFreshEntity(ItemEntity(level(), x, y, z, stack.copy()))
+                }
             }
         }
         discard()

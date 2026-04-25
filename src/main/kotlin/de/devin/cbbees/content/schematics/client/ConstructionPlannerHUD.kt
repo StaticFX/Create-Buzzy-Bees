@@ -122,7 +122,7 @@ object ConstructionPlannerHUD {
         val secondHintWidth = mc.font.width(secondHint)
 
         // Compact hint (shown above panel when Alt not held)
-        val compactHint = Component.translatable("gui.cbbees.construction_planner.hint_alt")
+        val compactHint = Component.translatable("gui.cbbees.construction_planner.hint_alt", AllKeys.SCHEMATIC_MODIFIER.translatedKeyMessage)
         val compactHintWidth = mc.font.width(compactHint)
 
         // Breadcrumb

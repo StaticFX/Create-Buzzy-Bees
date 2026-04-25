@@ -1,7 +1,10 @@
 package de.devin.cbbees.content.domain
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import java.util.UUID
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -17,7 +20,7 @@ import de.devin.cbbees.util.ServerSide
  *
  */
 @ServerSide
-object GlobalJobPool : SavedData() {
+object GlobalJobPool : SavedData(), JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
@@ -34,8 +37,10 @@ object GlobalJobPool : SavedData() {
         watchdogCounter = 0
     }
 
-    fun tick(gameTime: Long = 0L) {
-        if (jobBacklog.removeIf { it.status == JobStatus.COMPLETED || it.status == JobStatus.CANCELLED }) {
+    override fun tick(gameTime: Long) {
+        if (jobBacklog.removeIf {
+            it.status == JobStatus.COMPLETED || it.status == JobStatus.CANCELLED
+        }) {
             this.setDirty()
         }
 
@@ -113,36 +118,66 @@ object GlobalJobPool : SavedData() {
      * - Retrying failed/released batches
      * - Assigning work to newly available bees in hives
      */
+    /** Max batches dispatched per call — prevents spawning hundreds of bees in one tick. */
+    private val maxDispatchesPerCycle: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
+
     private fun redispatchPendingBatches(gameTime: Long) {
         val allNetworks = ServerBeeNetworkManager.getNetworks()
         if (allNetworks.isEmpty()) return
 
+        var dispatched = 0
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
 
             for (batch in job.batches) {
+                if (dispatched >= maxDispatchesPerCycle) return
                 if (batch.status != TaskStatus.PENDING) continue
                 if (!batch.canRetry()) continue
                 if (!batch.isCooldownElapsed(gameTime)) continue
                 if (!job.isPhaseReady(batch.phase)) continue
 
-                val targetNetwork = allNetworks.filter { network ->
+                val inWorldNetworks = allNetworks.filter { network ->
                     val firstComp = network.components.firstOrNull()
-                    firstComp != null && firstComp.world == job.level &&
-                            network.isInRange(batch.targetPosition) &&
-                            network.hives.any { it.getAvailableBeeCount() > 0 }
-                }.minByOrNull { network ->
+                    firstComp != null && firstComp.world == job.level
+                }
+                if (inWorldNetworks.isEmpty()) continue
+
+                val inRangeNetworks = inWorldNetworks.filter { it.isInRange(batch.targetPosition) }
+                if (inRangeNetworks.isEmpty()) continue
+
+                val withBees = inRangeNetworks.filter { network ->
+                    network.hives.any { it.getAvailableBeeCount() > 0 }
+                }
+                if (withBees.isEmpty()) continue
+
+                val withPorts = if (batch.beeType == BeeType.TRANSPORT) {
+                    withBees.filter { it.findDropOff(net.minecraft.world.item.ItemStack.EMPTY) != null }
+                } else withBees
+                if (withPorts.isEmpty()) continue
+
+                val targetNetwork = withPorts.minByOrNull { network ->
                     network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
                 } ?: continue
+
+                // Always assign the network so StuckReasonResolver can find it
                 batch.assignedNetworkId = targetNetwork.id
+
+                // Check if required materials are available before dispatching.
+                // This prevents the wasteful spawn-fail-return cycle when materials are missing.
+                val missingMaterials = batch.tasks.map { it.action }
+                    .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
+                    .flatMap { it.requiredItems }
+                    .any { req -> targetNetwork.findAvailableProvider(req) == null }
+                if (missingMaterials) continue
                 targetNetwork.dispatchBatch(batch)
+                dispatched++
             }
         }
     }
 
     val workers: Set<BeeHive> get() = ServerBeeNetworkManager.getNetworks().flatMap { it.hives }.toSet()
 
-    fun getAllJobs(): List<BeeJob> = jobBacklog
+    override fun getAllJobs(): List<BeeJob> = jobBacklog
 
     fun workBacklog(beeHive: BeeHive): TaskBatch? {
         val network = beeHive.network()
@@ -208,7 +243,7 @@ object GlobalJobPool : SavedData() {
      * runs every few ticks. This avoids a synchronous O(batches × networks × hives)
      * spike when placing large schematics.
      */
-    fun dispatchNewJob(job: BeeJob) {
+    override fun dispatchNewJob(job: BeeJob) {
         // Prevent duplicate active jobs with same uniqueness key
         if (job.uniquenessKey != null && jobBacklog.any {
             it.uniquenessKey == job.uniquenessKey &&

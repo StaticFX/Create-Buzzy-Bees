@@ -126,11 +126,7 @@ class JobProgressToast(private val jobId: UUID) : Toast {
 
         private const val TITLE_COLOR = 0xFFFFFFFF.toInt()
         private const val DETAIL_COLOR = 0xFFAAAAAA.toInt()
-        private const val BAR_BG_COLOR = 0xFF333333.toInt()
-        private const val BAR_FILL_ACTIVE = 0xFFFFCC00.toInt() // bee yellow
-        private const val BAR_FILL_DONE = 0xFF55DD55.toInt()
-        private const val BAR_FILL_FAIL = 0xFFDD5555.toInt()
-
+        
         /** Auto-hide if no progress packets arrive for this long (server hung / left dim). */
         private const val STALE_TIMEOUT_MS = 60_000L
 

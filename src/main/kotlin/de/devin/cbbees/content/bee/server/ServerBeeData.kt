@@ -38,7 +38,7 @@ class ServerBeeData(
     val id: UUID,
     val type: BeeType,
     override var networkId: UUID,
-    var hiveId: UUID? = null,
+    override var hiveId: UUID? = null,
     /** Owner player UUID for portable beehive bees. */
     var ownerId: UUID? = null,
 ) : BeeWorker {

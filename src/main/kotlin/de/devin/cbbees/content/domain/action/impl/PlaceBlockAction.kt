@@ -56,7 +56,11 @@ class PlaceBlockAction(
             }
         }
 
-        consumeItems(worker)
+        if (!consumeItems(worker)) {
+            // Bee doesn't have the required materials — can't place.
+            // Signal failure so ExecuteBeeAction can handle it.
+            return false
+        }
 
         // Use Create's BlockHelper for proper schematic block placement.
         // This handles all edge cases: rails, state filtering, block entity data,

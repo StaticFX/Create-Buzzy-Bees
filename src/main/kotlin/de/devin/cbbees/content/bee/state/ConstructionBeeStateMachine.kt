@@ -299,7 +299,7 @@ object ConstructionBeeStateMachine {
     private fun tickDroppingItemsData(bee: ServerBeeData, level: ServerLevel) {
         val excess = getExcessItems(bee, bee.currentTask)
         if (excess.isEmpty()) { bee.constructionState = ConstructionBeeState.FLYING_HOME; bee.walkTarget = bee.hivePos; return }
-        val port = bee.network()?.findDropOff(excess.first())
+        val port = bee.network()?.findDropOff(excess.first(), bee.hiveId)
         if (port == null) {
             excess.forEach { item ->
                 bee.removeFromInventory(item, item.count)
@@ -774,7 +774,7 @@ object ConstructionBeeStateMachine {
         }
 
         val network = bee.network()
-        val dropOffPort = network?.findDropOff(excess.first())
+        val dropOffPort = network?.findDropOff(excess.first(), bee.homeId)
 
         if (dropOffPort == null) {
             val owner = bee.getOwnerPlayer()
