@@ -4,9 +4,10 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.beehive.BeeHive
-import java.util.UUID
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
+import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -153,13 +154,9 @@ object GlobalJobPool : SavedData(), JobPool {
                     network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
                 } ?: continue
 
-                batch.assignedNetworkId = targetNetwork.id
+                if (!hasMaterialsAvailable(batch, targetNetwork)) continue
 
-                val missingMaterials = batch.tasks.map { it.action }
-                    .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
-                    .flatMap { it.requiredItems }
-                    .any { req -> targetNetwork.findAvailableProvider(req) == null }
-                if (missingMaterials) continue
+                batch.assignedNetworkId = targetNetwork.id
                 targetNetwork.dispatchBatch(batch)
                 dispatched++
             }
@@ -195,7 +192,7 @@ object GlobalJobPool : SavedData(), JobPool {
             }
         }
 
-        if (bestAssigned != null) {
+        if (bestAssigned != null && hasMaterialsAvailable(bestAssigned, network)) {
             bestAssigned.status = TaskStatus.PICKED
             return bestAssigned
         }
@@ -219,10 +216,18 @@ object GlobalJobPool : SavedData(), JobPool {
             ?: return null
 
         if (!network.isInRange(batch.targetPosition)) return null
+        if (!hasMaterialsAvailable(batch, network)) return null
 
         batch.assignedNetworkId = networkId
         batch.status = TaskStatus.PICKED
         return batch
+    }
+
+    private fun hasMaterialsAvailable(batch: TaskBatch, network: BeeNetwork): Boolean {
+        return batch.tasks.map { it.action }
+            .filterIsInstance<ItemConsumingAction>()
+            .flatMap { it.requiredItems }
+            .all { req -> network.findAvailableProvider(req) != null }
     }
 
     /**

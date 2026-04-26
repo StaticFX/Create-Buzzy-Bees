@@ -308,7 +308,13 @@ object ConstructionRenderer {
      * Finds the job whose AABB is hit by the given ray (from [start] in direction [dir]).
      * Returns the jobId of the closest hit, or null if no job AABB is hit within [maxRange].
      */
-    fun findJobAtRay(start: Vec3, dir: Vec3, maxRange: Double): UUID? {
+    fun findJobAtRay(start: Vec3, dir: Vec3, maxRange: Double): UUID? =
+        findJobAtRayWithDist(start, dir, maxRange)?.first
+
+    /**
+     * Like [findJobAtRay] but also returns the hit distance from [start].
+     */
+    fun findJobAtRayWithDist(start: Vec3, dir: Vec3, maxRange: Double): Pair<UUID, Double>? {
         var bestDist = maxRange
         var bestJob: UUID? = null
 
@@ -322,7 +328,7 @@ object ConstructionRenderer {
                 }
             }
         }
-        return bestJob
+        return bestJob?.let { it to bestDist }
     }
 
     /**

@@ -77,8 +77,8 @@ object ConstructionPlannerClientEvents {
 
     /**
      * Handles right-click on construction job bounding boxes.
-     * Opens a [JobDetailScreen] when the player right-clicks while looking at a job AABB
-     * and not targeting a real block (i.e. the crosshair is in the air).
+     * Opens a [JobDetailScreen] when the player right-clicks while looking at a job AABB.
+     * If a real block is closer than the AABB, the click passes through to normal handling.
      */
     @SubscribeEvent
     @JvmStatic
@@ -91,12 +91,15 @@ object ConstructionPlannerClientEvents {
 
         val player = mc.player ?: return
 
-        val hit = mc.hitResult
-        if (hit != null && hit.type == net.minecraft.world.phys.HitResult.Type.BLOCK) return
-
         val eyePos = player.getEyePosition(1f)
         val lookDir = player.lookAngle
-        val jobId = ConstructionRenderer.findJobAtRay(eyePos, lookDir, 5.0) ?: return
+        val (jobId, aabbDist) = ConstructionRenderer.findJobAtRayWithDist(eyePos, lookDir, 5.0) ?: return
+
+        val hit = mc.hitResult
+        if (hit != null && hit.type == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+            val blockDist = hit.location.distanceTo(eyePos)
+            if (blockDist < aabbDist) return
+        }
 
         ConstructionRenderer.getJobInfo(jobId) ?: return
         mc.setScreen(JobDetailScreen(jobId))
