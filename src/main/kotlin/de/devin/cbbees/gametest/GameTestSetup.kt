@@ -3,6 +3,7 @@ package de.devin.cbbees.gametest
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.JobPool
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -117,6 +118,7 @@ object GameTestSetup {
                 (corner1.z + corner2.z) / 2,
             ),
             level = level,
+            jobType = JobType.Deconstruction,
         )
 
         val batches = SchematicCreateBridge(level).generateRemovalTasks(corner1, corner2, job)
@@ -145,6 +147,7 @@ object GameTestSetup {
             jobId = UUID.randomUUID(),
             centerPos = center,
             level = level,
+            jobType = JobType.Construction,
         )
 
         val batches = placements.map { placement ->

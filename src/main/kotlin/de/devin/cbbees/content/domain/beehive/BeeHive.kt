@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.beehive
 
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -41,6 +42,11 @@ interface BeeHive : INetworkComponent {
      * This is the count of bees that can be deployed for work.
      */
     fun getAvailableBeeCount(): Int
+
+    /**
+     * Checks whether this hive has at least one available bee of the given type.
+     */
+    fun hasBeeOfType(beeType: BeeType): Boolean
 
     /**
      * Gets the bee context (upgrades, stats) for this source.

@@ -94,9 +94,9 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     companion object {
-        const val ROBOT_SLOTS = 2
+        const val BEE_SLOTS = 2
         const val UPGRADE_SLOTS = 0
-        const val TOTAL_SLOTS = ROBOT_SLOTS
+        const val TOTAL_SLOTS = BEE_SLOTS
 
         // NBT keys for the container
         const val TAG_INVENTORY = "BackpackInventory"
@@ -107,7 +107,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
         /**
          * One-time migration: reads old upgrades from CONTAINER slots 2-5,
-         * auto-places them into a new UpgradeGrid, and trims the CONTAINER to robot-only slots.
+         * auto-places them into a new UpgradeGrid, and trims the CONTAINER to bee-only slots.
          */
         fun migrateUpgradesToGrid(stack: ItemStack) {
             // Skip if grid already exists
@@ -119,7 +119,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
             // Check if there are any upgrades in legacy slots (indices 2-5)
             val legacyUpgrades = mutableListOf<UpgradeType>()
-            for (i in ROBOT_SLOTS until LEGACY_TOTAL_SLOTS) {
+            for (i in BEE_SLOTS until LEGACY_TOTAL_SLOTS) {
                 val s = items[i]
                 val upgradeItem = s.item as? BeeUpgradeItem
                 if (upgradeItem != null && !s.isEmpty) {
@@ -152,12 +152,12 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
             // Save grid
             stack.set(AllDataComponents.UPGRADE_GRID.get(), grid)
 
-            // Trim CONTAINER to robot-only slots
-            val robotItems = mutableListOf<ItemStack>()
-            for (i in 0 until ROBOT_SLOTS) {
-                robotItems.add(items[i])
+            // Trim CONTAINER to bee-only slots
+            val beeItems = mutableListOf<ItemStack>()
+            for (i in 0 until BEE_SLOTS) {
+                beeItems.add(items[i])
             }
-            stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(robotItems))
+            stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(beeItems))
         }
     }
 
@@ -268,9 +268,9 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
 
-        val robotCount = getRobotCount(stack)
+        val beeCount = getBeeCount(stack)
         tooltipComponents.add(
-            Component.translatable("tooltip.cbbees.beehive.bees", robotCount, ROBOT_SLOTS)
+            Component.translatable("tooltip.cbbees.beehive.bees", beeCount, BEE_SLOTS)
                 .withStyle(ChatFormatting.GRAY)
         )
 
@@ -287,13 +287,13 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     /**
-     * Counts the number of robots currently stored in the backpack.
+     * Counts the number of bees currently stored in the backpack.
      */
-    fun getRobotCount(stack: ItemStack): Int {
+    fun getBeeCount(stack: ItemStack): Int {
         val contents = stack.get(DataComponents.CONTAINER) ?: return 0
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
-        return items.subList(0, ROBOT_SLOTS).count { isBeeItem(it.item) && !it.isEmpty }
+        return items.subList(0, BEE_SLOTS).count { isBeeItem(it.item) && !it.isEmpty }
     }
 
     /**
@@ -305,15 +305,15 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
     }
 
     /**
-     * Gets the total number of robots in the backpack (sum of all stacks).
+     * Gets the total number of bees in the backpack (sum of all stacks).
      */
-    fun getTotalRobotCount(stack: ItemStack): Int {
+    fun getTotalBeeCount(stack: ItemStack): Int {
         val contents = stack.get(DataComponents.CONTAINER) ?: return 0
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
 
         var count = 0
-        for (i in 0 until ROBOT_SLOTS) {
+        for (i in 0 until BEE_SLOTS) {
             val s = items[i]
             if (!s.isEmpty && isBeeItem(s.item)) {
                 count += s.count
@@ -331,7 +331,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
 
-        for (i in 0 until ROBOT_SLOTS) {
+        for (i in 0 until BEE_SLOTS) {
             val s = items[i]
             if (!s.isEmpty && isBeeItem(s.item)) {
                 val consumed = s.copyWithCount(1)
@@ -351,7 +351,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents.copyInto(items)
 
-        for (i in 0 until ROBOT_SLOTS) {
+        for (i in 0 until BEE_SLOTS) {
             val s = items[i]
             if (!s.isEmpty && itemClass.isInstance(s.item)) {
                 val consumed = s.copyWithCount(1)
@@ -368,13 +368,13 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
      * Adds a single bee to the backpack inventory.
      * @return true if successful, false if backpack is full
      */
-    fun addRobot(stack: ItemStack, beeItem: ItemStack): Boolean {
+    fun addBee(stack: ItemStack, beeItem: ItemStack): Boolean {
         val contents = stack.get(DataComponents.CONTAINER)
         val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
         contents?.copyInto(items)
 
-        // Try to stack with existing robots first
-        for (i in 0 until ROBOT_SLOTS) {
+        // Try to stack with existing bees first
+        for (i in 0 until BEE_SLOTS) {
             val s = items[i]
             if (!s.isEmpty && ItemStack.isSameItemSameComponents(s, beeItem) && s.count < s.maxStackSize) {
                 s.grow(1)
@@ -384,7 +384,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         }
 
         // Try to find an empty slot
-        for (i in 0 until ROBOT_SLOTS) {
+        for (i in 0 until BEE_SLOTS) {
             if (items[i].isEmpty) {
                 items[i] = beeItem.copyWithCount(1)
                 stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items))

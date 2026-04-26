@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.BlockState
 import de.devin.cbbees.util.ServerSide
 
 /**
- * Handler that bridges Create's schematic system with our robot task system.
+ * Handler that bridges Create's schematic system with our bee task system.
  *
  * This utility class is responsible for:
  * - Loading Create's `.nbt` schematic files into a [SchematicPrinter].
@@ -221,7 +221,7 @@ class SchematicCreateBridge(
      * @param corner1 First corner of the area
      * @param corner2 Second corner of the area
      * @param job The job to assign the tasks to
-     * @return List of RobotTasks for removing blocks in the area
+     * @return List of TaskBatches for removing blocks in the area
      */
     fun generateRemovalTasks(
         corner1: BlockPos,

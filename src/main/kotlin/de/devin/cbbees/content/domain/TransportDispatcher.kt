@@ -2,7 +2,7 @@ package de.devin.cbbees.content.domain
 
 import de.devin.cbbees.content.bee.BeeSeparation
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
-import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
@@ -54,7 +54,7 @@ object TransportDispatcher : SavedData() {
 
             val hivesWithBumbles = network.hives
                 .filterIsInstance<MechanicalBeehiveBlockEntity>()
-                .filter { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
+                .filter { it.hasBeeOfType(BeeType.TRANSPORT) }
 
             if (hivesWithBumbles.isEmpty()) continue
 
@@ -100,11 +100,11 @@ object TransportDispatcher : SavedData() {
 
                 // Use minByOrNull instead of sortedBy.firstOrNull to avoid full sort
                 val hive = hivesWithBumbles
-                    .filter { it.getAvailableBeeCountOfType(MechanicalBumbleBeeItem::class.java) > 0 }
+                    .filter { it.hasBeeOfType(BeeType.TRANSPORT) }
                     .minByOrNull { it.pos.distSqr(provider.pos) }
                     ?: break // no more bumble bees available in any hive
 
-                val beeItem = hive.consumeBeeOfType(MechanicalBumbleBeeItem::class.java)
+                val beeItem = hive.consumeBeeOfType(BeeType.TRANSPORT)
                 if (beeItem.isEmpty) continue
 
                 val bee = spawnMechanicalBumbleBee(hive, task)

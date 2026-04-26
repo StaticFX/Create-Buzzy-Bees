@@ -95,7 +95,7 @@ class BeeTestScope(
         val backpack = ItemStack(AllItems.PORTABLE_BEEHIVE.get())
         val backpackItem = backpack.item as PortableBeehiveItem
         val beeItem = ItemStack(AllItems.MECHANICAL_BEE.get())
-        repeat(beeCount) { backpackItem.addRobot(backpack, beeItem.copy()) }
+        repeat(beeCount) { backpackItem.addBee(backpack, beeItem.copy()) }
         // Give honey fuel (1000 should be enough for tests)
         backpack.set(de.devin.cbbees.registry.AllDataComponents.HONEY_FUEL.get(), 1000)
         fakePlayer.inventory.armor[2] = backpack

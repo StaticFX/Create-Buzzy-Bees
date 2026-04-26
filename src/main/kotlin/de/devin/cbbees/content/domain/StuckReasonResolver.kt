@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -8,12 +9,15 @@ import net.minecraft.world.item.ItemStack
 
 object StuckReasonResolver {
     fun firstReasonOrNull(network: BeeNetwork, job: BeeJob): String? {
-        if (job.batches.any { !network.isInRange(it.targetPosition) })
+        val pendingBatches = job.batches.filter { it.status == TaskStatus.PENDING }
+        if (pendingBatches.isEmpty()) return null
+
+        if (pendingBatches.any { !network.isInRange(it.targetPosition) })
             return "cbbees.stall.out_of_range"
 
         // Collect all missing items across all pending batches
         val allMissing = mutableMapOf<String, Int>()
-        job.batches.filter { it.status == TaskStatus.PENDING }.forEach { b ->
+        pendingBatches.forEach { b ->
             b.tasks.map { it.action }
                 .filterIsInstance<ItemConsumingAction>()
                 .flatMap { it.requiredItems }
@@ -29,6 +33,19 @@ object StuckReasonResolver {
             val suffix = if (entries.size > 5) " +${entries.size - 5} more" else ""
             return "Missing: $shown$suffix"
         }
+
+        if (pendingBatches.any { it.beeType == BeeType.TRANSPORT }
+            && network.findDropOff(ItemStack.EMPTY) == null) {
+            return "cbbees.stall.no_drop_off_port"
+        }
+
+        val needsTransport = pendingBatches.any { it.beeType == BeeType.TRANSPORT }
+        val needsConstruction = pendingBatches.any { it.beeType == BeeType.CONSTRUCTION }
+
+        if (needsTransport && network.hives.none { it.hasBeeOfType(BeeType.TRANSPORT) })
+            return "cbbees.stall.no_bumble_bees"
+        if (needsConstruction && network.hives.none { it.hasBeeOfType(BeeType.CONSTRUCTION) })
+            return "cbbees.stall.no_bees"
 
         val totalBees = network.hives.sumOf { it.getAvailableBeeCount() + it.getActiveBeeCount() }
         if (totalBees <= 0) return "cbbees.stall.no_bees"

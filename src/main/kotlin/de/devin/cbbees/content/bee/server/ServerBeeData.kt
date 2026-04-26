@@ -25,8 +25,12 @@ import java.util.UUID
 
 /**
  * Type of bee for determining which state machine to use.
+ * Each type maps to a specific bee item class.
  */
-enum class BeeType { CONSTRUCTION, TRANSPORT }
+enum class BeeType(val itemClass: Class<*>) {
+    CONSTRUCTION(de.devin.cbbees.content.bee.MechanicalBeeItem::class.java),
+    TRANSPORT(de.devin.cbbees.content.bee.MechanicalBumbleBeeItem::class.java)
+}
 
 /**
  * Lightweight bee data object — replaces the full [de.devin.cbbees.content.bee.MechanicalBeeEntity].

@@ -32,7 +32,8 @@ data class ClientJobInfo(
     val total: Int,
     val reason: String?,       // null if not stuck
     val batches: List<ClientBatchInfo>,
-    val schematicPlacement: SchematicPlacement? = null
+    val schematicPlacement: SchematicPlacement? = null,
+    val jobType: JobType = JobType.Construction
 )
 
 data class ClientNetworkInfo(

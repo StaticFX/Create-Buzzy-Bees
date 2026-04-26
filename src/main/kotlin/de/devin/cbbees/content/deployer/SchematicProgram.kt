@@ -5,6 +5,8 @@ import com.mojang.serialization.MapCodec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobType
+import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.network.ensureSchematicUploaded
@@ -22,6 +24,9 @@ import net.minecraft.world.level.block.Rotation
  */
 sealed class SchematicProgram {
 
+    abstract val jobType: JobType
+    abstract fun getCenterPos(): BlockPos
+    abstract fun configureJob(job: BeeJob)
     abstract fun generateBatches(level: Level, job: BeeJob): List<TaskBatch>
     abstract fun displayName(): String
 
@@ -43,6 +48,12 @@ sealed class SchematicProgram {
         val mirror: Mirror,
         val owner: String
     ) : SchematicProgram() {
+
+        override val jobType = JobType.Construction
+        override fun getCenterPos() = anchor
+        override fun configureJob(job: BeeJob) {
+            job.schematicPlacement = SchematicPlacement(schematicName, anchor, rotation, mirror)
+        }
 
         override fun generateBatches(level: Level, job: BeeJob): List<TaskBatch> {
             ensureSchematicUploaded(owner, schematicName)
@@ -108,6 +119,12 @@ sealed class SchematicProgram {
         val corner2: BlockPos,
     ) : SchematicProgram() {
 
+        override val jobType = JobType.Pickup
+        override fun getCenterPos() = BlockPos(
+            (corner1.x + corner2.x) / 2, (corner1.y + corner2.y) / 2, (corner1.z + corner2.z) / 2
+        )
+        override fun configureJob(job: BeeJob) {}
+
         override fun generateBatches(level: Level, job: BeeJob): List<TaskBatch> {
             val bridge = SchematicCreateBridge(level)
             return bridge.generatePickupBatches(corner1, corner2, job).batches
@@ -145,6 +162,12 @@ sealed class SchematicProgram {
         val corner1: BlockPos,
         val corner2: BlockPos
     ) : SchematicProgram() {
+
+        override val jobType = JobType.Deconstruction
+        override fun getCenterPos() = BlockPos(
+            (corner1.x + corner2.x) / 2, (corner1.y + corner2.y) / 2, (corner1.z + corner2.z) / 2
+        )
+        override fun configureJob(job: BeeJob) {}
 
         override fun generateBatches(level: Level, job: BeeJob): List<TaskBatch> {
             val bridge = SchematicCreateBridge(level)

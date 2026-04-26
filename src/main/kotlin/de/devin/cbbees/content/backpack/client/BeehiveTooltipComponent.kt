@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack
 /**
  * Client-side renderer for the backpack tooltip preview.
  *
- * Renders robot slots and a mini 6x4 upgrade grid.
+ * Renders bee slots and a mini 6x4 upgrade grid.
  */
 class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipComponent {
 
@@ -34,27 +34,27 @@ class BeehiveTooltipComponent(val data: BeehiveTooltipData) : ClientTooltipCompo
     }
 
     override fun getHeight(): Int {
-        // Robot row (18px) + gap (2px) + mini grid (ROWS * MINI_CELL) + padding
+        // Bee row (18px) + gap (2px) + mini grid (ROWS * MINI_CELL) + padding
         return 18 + 2 + UpgradeGrid.ROWS * MINI_CELL + 4
     }
 
     override fun getWidth(font: Font): Int {
-        // Wider of: robot slots or mini grid
-        val robotWidth = PortableBeehiveItem.ROBOT_SLOTS * 18 + 2
+        // Wider of: bee slots or mini grid
+        val beeWidth = PortableBeehiveItem.BEE_SLOTS * 18 + 2
         val gridWidth = UpgradeGrid.COLS * MINI_CELL + 2
-        return maxOf(robotWidth, gridWidth)
+        return maxOf(beeWidth, gridWidth)
     }
 
     override fun renderImage(font: Font, x: Int, y: Int, guiGraphics: GuiGraphics) {
         var currentY = y
 
-        // Render robots
-        for (i in 0 until PortableBeehiveItem.ROBOT_SLOTS) {
+        // Render bees
+        for (i in 0 until PortableBeehiveItem.BEE_SLOTS) {
             val stack = items[i]
             renderSlot(guiGraphics, x + i * 18, currentY, stack, font)
         }
 
-        // Render mini upgrade grid below robots
+        // Render mini upgrade grid below bees
         currentY += 18 + 2
         renderMiniGrid(guiGraphics, x, currentY)
     }

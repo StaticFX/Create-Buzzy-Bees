@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Mixin for {@link SchematicEditScreen} to add a "Start Construction" button
- * that triggers the robot construction system.
+ * that triggers the bee construction system.
  *
  * <p>Only shows the button when the active schematic item is a Construction Planner.
  * This screen is only reachable in state 3 (deployed), so no browsing preview logic needed.</p>

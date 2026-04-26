@@ -105,6 +105,11 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# VitePress
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 .gradle
 build/
 

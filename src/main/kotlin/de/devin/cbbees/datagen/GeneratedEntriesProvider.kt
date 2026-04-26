@@ -25,6 +25,6 @@ class GeneratedEntriesProvider(output: PackOutput, registries: CompletableFuture
     DatapackBuiltinEntriesProvider(output, registries, BUILDER, setOf(CreateBuzzyBeez.ID)) {
 
     override fun getName(): String {
-        return "Create Construction Robots Generated Entries"
+        return "Create Buzzy Beez Generated Entries"
     }
 }

@@ -93,13 +93,8 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             return
         }
 
-        val isPickup = j.batches.any { it.status != "COMPLETED" && it.required.isEmpty() } && j.schematicPlacement == null
-        val jobType = when {
-            j.schematicPlacement != null -> "Construction"
-            isPickup -> "Item Pickup"
-            else -> "Deconstruction"
-        }
-        graphics.drawCenteredString(font, "$jobType #${j.name}", x + w / 2, y + 5, GOLD)
+        val typeName = Component.translatable(j.jobType.translationKey).string
+        graphics.drawCenteredString(font, "$typeName #${j.name}", x + w / 2, y + 5, GOLD)
 
         val innerW = w - MARGIN * 2
         var ty = y + 22

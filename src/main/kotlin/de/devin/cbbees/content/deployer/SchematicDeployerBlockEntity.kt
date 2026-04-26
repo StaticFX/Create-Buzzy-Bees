@@ -11,7 +11,6 @@ import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
 import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
-import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicJobKey
 import de.devin.cbbees.network.HiveJobsSyncPacket
@@ -233,43 +232,18 @@ class SchematicDeployerBlockEntity(
 
         val storedProgram = heldItem.get(AllDataComponents.SCHEMATIC_PROGRAM)!!
         val program = resolveProgram(storedProgram)
-
-        val programDesc = when (program) {
-            is SchematicProgram.Construction -> "Construction(${program.schematicName}, anchor=${program.anchor}, rot=${program.rotation}, mirror=${program.mirror})"
-            is SchematicProgram.Deconstruction -> "Deconstruction(${program.corner1} to ${program.corner2})"
-            is SchematicProgram.Pickup -> "Pickup(${program.corner1} to ${program.corner2})"
-        }
-        BeeDebug.logAtPos(level, blockPos, tag, "Resolved program: $programDesc")
+        BeeDebug.logAtPos(level, blockPos, tag, "Resolved program: ${program.displayName()}")
 
         val jobId = UUID.randomUUID()
-        val centerPos = when (program) {
-            is SchematicProgram.Construction -> program.anchor
-            is SchematicProgram.Deconstruction -> BlockPos(
-                (program.corner1.x + program.corner2.x) / 2,
-                (program.corner1.y + program.corner2.y) / 2,
-                (program.corner1.z + program.corner2.z) / 2
-            )
-            is SchematicProgram.Pickup -> BlockPos(
-                (program.corner1.x + program.corner2.x) / 2,
-                (program.corner1.y + program.corner2.y) / 2,
-                (program.corner1.z + program.corner2.z) / 2
-            )
-        }
+        val centerPos = program.getCenterPos()
 
-        val job = BeeJob(jobId, centerPos, level).apply {
+        val job = BeeJob(jobId, centerPos, level, program.jobType).apply {
             uniquenessKey = SchematicJobKey(
                 UUID(blockPos.asLong(), blockPos.asLong()),
                 "deployer_${blockPos.x}_${blockPos.y}_${blockPos.z}",
                 centerPos.x, centerPos.y, centerPos.z
             )
-            if (program is SchematicProgram.Construction) {
-                schematicPlacement = SchematicPlacement(
-                    file = program.schematicName,
-                    anchor = program.anchor,
-                    rotation = program.rotation,
-                    mirror = program.mirror
-                )
-            }
+            program.configureJob(this)
         }
 
         val batches = program.generateBatches(level, job)

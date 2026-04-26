@@ -106,16 +106,10 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
-
-        val beeItemClass = if (batch.beeType == BeeType.TRANSPORT)
-            MechanicalBumbleBeeItem::class.java
-        else
-            MechanicalBeeItem::class.java
-
-        if (getAvailableBeeCountOfType(beeItemClass) <= 0) return false
+        if (!hasBeeOfType(batch.beeType)) return false
 
         this.setChanged()
-        val beeItem = consumeBeeOfType(beeItemClass)
+        val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
         return spawnBee(beeItem, batch)
     }
@@ -319,7 +313,8 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     /**
      * Consumes a bee of a specific item type (e.g. only MechanicalBeeItem or only MechanicalBumbleBeeItem).
      */
-    fun consumeBeeOfType(itemClass: Class<*>): ItemStack {
+    fun consumeBeeOfType(beeType: BeeType): ItemStack {
+        val itemClass = beeType.itemClass
         for (i in 0 until beeInventory.slots) {
             val stack = beeInventory.getStackInSlot(i)
             if (!stack.isEmpty && itemClass.isInstance(stack.item)) {
@@ -360,6 +355,9 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         }
         return count
     }
+
+    override fun hasBeeOfType(beeType: BeeType): Boolean =
+        getAvailableBeeCountOfType(beeType.itemClass) > 0
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
         super<KineticBlockEntity>.addToGoggleTooltip(tooltip, isPlayerSneaking)

@@ -1,23 +1,20 @@
 package de.devin.cbbees.network
 
-import com.simibubi.create.AllBlocks
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.StuckReasonResolver
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
-import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
-import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.ClientBatchInfo
 import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
 import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
@@ -124,6 +121,7 @@ class HiveJobsSyncPacket(
                     b.writeEnum(sp.rotation)
                     b.writeEnum(sp.mirror)
                 }
+                buf.writeVarInt(JobType.ordinalOf(j.jobType))
             },
             { buf ->
                 val id = UUID_CODEC.decode(buf)
@@ -141,7 +139,8 @@ class HiveJobsSyncPacket(
                         mirror = b.readEnum(net.minecraft.world.level.block.Mirror::class.java)
                     )
                 }
-                ClientJobInfo(id, name, status, completed, total, reason, batches, placement)
+                val jobType = JobType.fromOrdinal(buf.readVarInt())
+                ClientJobInfo(id, name, status, completed, total, reason, batches, placement, jobType)
             }
         )
 
@@ -188,31 +187,6 @@ class HiveJobsSyncPacket(
             }
         )
 
-        /**
-         * Collect all ghost block positions and states from a batch.
-         * Handles both regular PlaceBlockAction and PlaceBeltAction (belt chain + shafts).
-         */
-        private fun collectGhostBlocks(batch: TaskBatch): Map<BlockPos, BlockState> {
-            if (batch.status == TaskStatus.COMPLETED) return emptyMap()
-
-            val ghosts = mutableMapOf<BlockPos, BlockState>()
-            for (task in batch.tasks) {
-                when (val action = task.action) {
-                    is PlaceBlockAction -> ghosts[action.pos] = action.blockState
-                    is PlaceBeltAction -> {
-                        action.chain.forEachIndexed { index, pos ->
-                            if (!ghosts.containsKey(pos)) {
-                                val state = action.chainStates.getOrNull(index)
-                                    ?: AllBlocks.BELT.defaultState
-                                ghosts[pos] = state
-                            }
-                        }
-                    }
-                }
-            }
-            return ghosts
-        }
-
         fun handle(payload: HiveJobsSyncPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
                 ClientJobCache.update(payload.hivePos, payload.snapshot)
@@ -238,39 +212,17 @@ class HiveJobsSyncPacket(
                 }
                 .map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
-                    val total = job.tasks.size
-
                     val reason = StuckReasonResolver.firstReasonOrNull(net, job)
-
-                    val hasPlacement = job.schematicPlacement != null
-                    val batches = if (hasPlacement) {
-                        listOf(ClientBatchInfo(
-                            status = "SUMMARY",
-                            target = job.centerPos,
-                            required = emptyList(),
-                            assignedBeeIds = emptyList(),
-                            ghostBlocks = emptyMap()
-                        ))
-                    } else {
-                        job.batches.map { b ->
-                            ClientBatchInfo(
-                                status = b.status.name,
-                                target = b.targetPosition,
-                                required = emptyList(),
-                                assignedBeeIds = emptyList(),
-                                ghostBlocks = collectGhostBlocks(b)
-                            )
-                        }
-                    }
                     ClientJobInfo(
                         jobId = job.jobId,
                         name = job.jobId.toString().substring(0, 6).uppercase(),
                         status = job.status.name,
                         completed = completed,
-                        total = total,
+                        total = job.tasks.size,
                         reason = reason,
-                        batches = batches,
-                        schematicPlacement = job.schematicPlacement
+                        batches = job.jobType.collectClientBatches(job),
+                        schematicPlacement = job.schematicPlacement,
+                        jobType = job.jobType
                     )
                 }
 
@@ -294,7 +246,14 @@ class HiveJobsSyncPacket(
                         )
                     }
                     val networkId = job.batches.firstOrNull()?.assignedNetworkId
-                    val network = if (networkId != null) ServerBeeNetworkManager.getNetwork(networkId) else null
+                    val network = if (networkId != null) {
+                        ServerBeeNetworkManager.getNetwork(networkId)
+                    } else {
+                        ServerBeeNetworkManager.getNetworks().firstOrNull {
+                            val comp = it.components.firstOrNull()
+                            comp != null && comp.world == job.level && it.isInRange(job.centerPos)
+                        }
+                    }
                     val reason = if (network != null) {
                         StuckReasonResolver.firstReasonOrNull(network, job)
                     } else {
@@ -308,7 +267,8 @@ class HiveJobsSyncPacket(
                         job.tasks.size,
                         reason,
                         batches,
-                        schematicPlacement = job.schematicPlacement
+                        schematicPlacement = job.schematicPlacement,
+                        jobType = job.jobType
                     )
                 }
             val snapshot = HiveSnapshot(ClientNetworkInfo("Personal", 0, 0, 0), clientJobs)

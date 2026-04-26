@@ -38,7 +38,7 @@ object DroneViewManager {
         if (beehiveItem.getUpgradeCount(backpack, UpgradeType.DRONE_VIEW) <= 0) return
 
         // Check bees
-        if (beehiveItem.getTotalRobotCount(backpack) <= 0) return
+        if (beehiveItem.getTotalBeeCount(backpack) <= 0) return
 
         // Consume bee
         beehiveItem.consumeBee(backpack)
@@ -79,7 +79,7 @@ object DroneViewManager {
         val backpack = findBackpack(player)
         if (backpack != null) {
             val beehiveItem = backpack.item as PortableBeehiveItem
-            beehiveItem.addRobot(backpack, ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get(), 1))
+            beehiveItem.addBee(backpack, ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get(), 1))
         }
 
         // Sync to client
@@ -102,7 +102,7 @@ object DroneViewManager {
         val backpack = findBackpack(player)
         if (backpack != null) {
             val beehiveItem = backpack.item as PortableBeehiveItem
-            beehiveItem.addRobot(backpack, ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get(), 1))
+            beehiveItem.addBee(backpack, ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get(), 1))
         }
     }
 

@@ -42,13 +42,9 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getAvailableBeeCount() <= 0) return false
         if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
+        if (!hasBeeOfType(batch.beeType)) return false
 
-        val requiredType = if (batch.beeType == de.devin.cbbees.content.bee.server.BeeType.TRANSPORT)
-            de.devin.cbbees.content.bee.MechanicalBumbleBeeItem::class.java
-        else
-            de.devin.cbbees.content.bee.MechanicalBeeItem::class.java
-
-        val beeItem = consumeBeeOfType(requiredType)
+        val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
         val spawned = spawnBee(beeItem, batch)
         if (!spawned) {
@@ -153,7 +149,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     fun addBee(item: ItemStack): Boolean {
         val backpackItemStack = getBackpackStack()
         if (backpackItemStack.isEmpty) return false
-        return (backpackItemStack.item as PortableBeehiveItem).addRobot(backpackItemStack, item)
+        return (backpackItemStack.item as PortableBeehiveItem).addBee(backpackItemStack, item)
     }
 
     override fun consumeBee(): ItemStack {
@@ -162,16 +158,25 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         return (backpack.item as PortableBeehiveItem).consumeBee(backpack)
     }
 
-    fun consumeBeeOfType(itemClass: Class<*>): ItemStack {
+    fun consumeBeeOfType(beeType: de.devin.cbbees.content.bee.server.BeeType): ItemStack {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return ItemStack.EMPTY
-        return (backpack.item as PortableBeehiveItem).consumeBeeOfType(backpack, itemClass)
+        return (backpack.item as PortableBeehiveItem).consumeBeeOfType(backpack, beeType.itemClass)
+    }
+
+    override fun hasBeeOfType(beeType: de.devin.cbbees.content.bee.server.BeeType): Boolean {
+        val backpack = getBackpackStack()
+        if (backpack.isEmpty) return false
+        val contents = backpack.get(net.minecraft.core.component.DataComponents.CONTAINER) ?: return false
+        val items = net.minecraft.core.NonNullList.withSize(PortableBeehiveItem.TOTAL_SLOTS, ItemStack.EMPTY)
+        contents.copyInto(items)
+        return (0 until PortableBeehiveItem.BEE_SLOTS).any { !items[it].isEmpty && beeType.itemClass.isInstance(items[it].item) }
     }
 
     override fun getAvailableBeeCount(): Int {
         val backpack = getBackpackStack()
         if (backpack.isEmpty) return 0
-        return (backpack.item as PortableBeehiveItem).getTotalRobotCount(backpack)
+        return (backpack.item as PortableBeehiveItem).getTotalBeeCount(backpack)
     }
 
     override fun returnBee(item: ItemStack): Boolean {

@@ -23,6 +23,7 @@ data class BeeJob(
     val jobId: UUID,
     var centerPos: BlockPos,
     val level: Level,
+    val jobType: JobType,
     var ownerId: UUID? = null,
     var uniquenessKey: Any? = null
 ) {
@@ -116,7 +117,7 @@ data class BeeJob(
     }
 
     /**
-     * Gets the next pending task and assigns it to a robot.
+     * Gets the next pending task and assigns it to a bee.
      */
     @Synchronized
     fun claimNextTaskBatch(beeId: UUID, gameTime: Long): TaskBatch? {

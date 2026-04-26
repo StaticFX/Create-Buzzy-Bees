@@ -24,7 +24,7 @@ import top.theillusivec4.curios.api.CuriosApi
  * Container/Menu for the Constructor Backpack.
  *
  * Layout:
- * - Robot slots (4 slots)
+ * - Bee slots (2 slots)
  * - Upgrade slots (6 slots)
  * - Bottom section: Player inventory
  */
@@ -68,7 +68,7 @@ class BeehiveContainer : AbstractContainerMenu {
         // Migrate old flat upgrades to grid if needed
         PortableBeehiveItem.migrateUpgradesToGrid(backpackStack)
 
-        // Load contents from the backpack item (robot slots only)
+        // Load contents from the backpack item (bee slots only)
         val contents = backpackStack.get(DataComponents.CONTAINER)
         if (contents != null) {
             val items = NonNullList.withSize(PortableBeehiveItem.TOTAL_SLOTS, ItemStack.EMPTY)
@@ -84,11 +84,11 @@ class BeehiveContainer : AbstractContainerMenu {
     private fun setupSlots() {
         addDataSlots(fuelData)
 
-        // Robot slots (2 slots, stacked vertically)
+        // Bee slots (2 slots, stacked vertically)
         val beeSlotPositions = listOf(8 to 24, 8 to 51)
-        for (i in 0 until PortableBeehiveItem.ROBOT_SLOTS) {
+        for (i in 0 until PortableBeehiveItem.BEE_SLOTS) {
             val (x, y) = beeSlotPositions[i]
-            addSlot(RobotSlot(backpackInventory, i, x, y))
+            addSlot(BeeSlot(backpackInventory, i, x, y))
         }
 
         // Upgrades are now managed via the grid system (no container slots)
@@ -126,10 +126,10 @@ class BeehiveContainer : AbstractContainerMenu {
                     return ItemStack.EMPTY
                 }
             } else {
-                // Moving from player inventory to backpack — only robot slots
+                // Moving from player inventory to backpack — only bee slots
                 // Upgrades are placed via the grid system, not shift-click
                 if (slotStack.item is MechanicalBeeItem || slotStack.item is MechanicalBumbleBeeItem) {
-                    if (!moveItemStackTo(slotStack, 0, PortableBeehiveItem.ROBOT_SLOTS, false)) {
+                    if (!moveItemStackTo(slotStack, 0, PortableBeehiveItem.BEE_SLOTS, false)) {
                         return ItemStack.EMPTY
                     }
                 } else {
@@ -164,7 +164,7 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     private fun saveBackpackContents() {
-        // Save robot slot contents back to the backpack item
+        // Save bee slot contents back to the backpack item
         val items = mutableListOf<ItemStack>()
         for (i in 0 until backpackInventory.containerSize) {
             items.add(backpackInventory.getItem(i))
@@ -173,9 +173,9 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     /**
-     * Slot that only accepts robot items
+     * Slot that only accepts bee items
      */
-    inner class RobotSlot(container: Container, index: Int, x: Int, y: Int) : Slot(container, index, x, y) {
+    inner class BeeSlot(container: Container, index: Int, x: Int, y: Int) : Slot(container, index, x, y) {
         override fun mayPlace(stack: ItemStack): Boolean {
             return stack.item is MechanicalBeeItem || stack.item is MechanicalBumbleBeeItem
         }
