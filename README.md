@@ -35,9 +35,9 @@ Found a bug or have an idea? Open an issue using one of our templates:
 ## Roadmap
 
 - [x] Add support for 1.20.1
-- [ ] Overhaul Upgrade system for portable Beehive (in progress)
+- [x] Overhaul Upgrade system for portable Beehive
 - [ ] Allow upgrading of Mechanical Beehives
-- [ ] Schematic Deployer, auto redeploy a schematic each x seconds
-- [ ] Further schematic types (crop growing, picking up items, defending an area)
+- [x] Schematic Deployer, auto redeploy a schematic each x seconds
+- [x] Further schematic types (crop growing, picking up items, defending an area)
 - [ ] Factory Planner module (calculate flows in your world)
-- [ ] Birds Eye view using a bee
+- [x] Birds Eye view using a bee
