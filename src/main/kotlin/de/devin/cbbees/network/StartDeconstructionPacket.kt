@@ -81,6 +81,7 @@ class StartDeconstructionPacket(
                         }
 
                         GlobalJobPool.dispatchNewJob(job)
+                        HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                         tracker.complete("cbbees.deconstruction.started", tasks.size)
                     } else {
                         tracker.fail()

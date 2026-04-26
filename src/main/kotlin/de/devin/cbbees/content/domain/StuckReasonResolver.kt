@@ -24,8 +24,10 @@ object StuckReasonResolver {
                 }
         }
         if (allMissing.isNotEmpty()) {
-            val itemList = allMissing.entries.joinToString(", ") { "${it.value}x ${it.key}" }
-            return "Missing: $itemList"
+            val entries = allMissing.entries.toList()
+            val shown = entries.take(5).joinToString(", ") { "${it.value}x ${it.key}" }
+            val suffix = if (entries.size > 5) " +${entries.size - 5} more" else ""
+            return "Missing: $shown$suffix"
         }
 
         val totalBees = network.hives.sumOf { it.getAvailableBeeCount() + it.getActiveBeeCount() }

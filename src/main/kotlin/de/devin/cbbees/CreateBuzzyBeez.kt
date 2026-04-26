@@ -170,7 +170,7 @@ object CreateBuzzyBeez {
             )
             event.registerItem(
                 Capabilities.FluidHandler.ITEM,
-                { stack, _ -> de.devin.cbbees.content.backpack.BeehiveFluidHandler(stack) },
+                { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },
                 de.devin.cbbees.items.AllItems.PORTABLE_BEEHIVE.get()
             )
         }

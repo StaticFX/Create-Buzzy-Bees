@@ -129,7 +129,7 @@ class StartConstructionPacket(
                             ServerBeeNetworkManager.reconnectPortableHive(it)
                         }
                         GlobalJobPool.dispatchNewJob(job)
-
+                        HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                         tracker.complete("cbbees.construction.started", batches.size)
                     } else {
                         tracker.fail()

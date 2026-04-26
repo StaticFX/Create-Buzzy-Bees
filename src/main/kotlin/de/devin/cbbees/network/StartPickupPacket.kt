@@ -71,6 +71,7 @@ class StartPickupPacket(
                     }
 
                     GlobalJobPool.dispatchNewJob(job)
+                    HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                     tracker.complete("cbbees.pickup.started", result.batches.size)
                 } else {
                     tracker.fail()

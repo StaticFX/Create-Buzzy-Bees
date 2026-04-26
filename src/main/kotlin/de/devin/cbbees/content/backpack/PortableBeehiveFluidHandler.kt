@@ -23,7 +23,10 @@ class PortableBeehiveFluidHandler(private var stack: ItemStack) : IFluidHandlerI
     }
 
     private fun currentFuel(): Int = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
-    private fun maxFuel(): Int = CBBeesConfig.portableMaxHoney.get()
+    private fun maxFuel(): Int {
+        val beehiveItem = stack.item as? PortableBeehiveItem ?: return CBBeesConfig.portableMaxHoney.get()
+        return beehiveItem.getMaxHoney(stack)
+    }
     private fun fuelPerBottle(): Int = CBBeesConfig.honeyBottleFuelValue.get()
 
     /** How many mB the tank can still accept, based on remaining fuel capacity. */
@@ -70,7 +73,6 @@ class PortableBeehiveFluidHandler(private var stack: ItemStack) : IFluidHandlerI
         if (toFillMb <= 0) return 0
 
         if (action.execute()) {
-            // Convert mB to fuel: toFillMb / MB_PER_BOTTLE * fuelPerBottle
             val fuelGain = (toFillMb.toLong() * fuelPerBottle() / MB_PER_BOTTLE).toInt()
             val newFuel = minOf(currentFuel() + fuelGain, maxFuel())
             stack.set(AllDataComponents.HONEY_FUEL.get(), newFuel)

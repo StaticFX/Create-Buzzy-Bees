@@ -116,7 +116,7 @@ class HiveJobsSyncPacket(
                 STRING_CODEC.encode(buf, j.status)
                 buf.writeVarInt(j.completed)
                 buf.writeVarInt(j.total)
-                buf.writeNullable(j.reason) { b, s -> STRING_CODEC.encode(b, s) }
+                buf.writeNullable(j.reason?.take(250)) { b, s -> STRING_CODEC.encode(b, s) }
                 BATCH_LIST_CODEC.encode(buf, j.batches)
                 buf.writeNullable(j.schematicPlacement) { b, sp ->
                     STRING_CODEC.encode(b, sp.file)
