@@ -110,7 +110,9 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             x + MARGIN, ty, WHITE, false)
         ty += LINE_H
 
-        val activeBees = j.batches.flatMap { it.assignedBeeIds }.distinct().size
+        val activeBees = j.batches
+            .filter { it.status == "IN_PROGRESS" || it.status == "PICKED" }
+            .flatMap { it.assignedBeeIds }.distinct().size
         graphics.drawString(font, "Bees: $activeBees active", x + MARGIN, ty, GRAY, false)
         ty += LINE_H + 3
 
