@@ -156,6 +156,7 @@ object ServerBeeManager {
         isTicking = false
         pendingRemovals.forEach { id ->
             val bee = bees.remove(id)
+            broadcastRemoval(id)
             // Only return bees that exited abnormally (spring signal), not those
             // already returned by their checkpoint action (e.g., EnterHive).
             if (bee != null && id in pendingReturns) {
