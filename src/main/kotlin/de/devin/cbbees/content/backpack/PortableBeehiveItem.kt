@@ -26,8 +26,6 @@ import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.inventory.tooltip.TooltipComponent
 import net.minecraft.world.item.component.ItemContainerContents
 import net.minecraft.world.level.Level
-import top.theillusivec4.curios.api.SlotContext
-import top.theillusivec4.curios.api.type.capability.ICurioItem
 import java.util.Optional
 
 import net.minecraft.world.item.ArmorItem
@@ -59,7 +57,7 @@ data class BeehiveTooltipData(val stack: ItemStack) : TooltipComponent
  * of the workforce and providing the interface to initiate construction tasks.
  */
 class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRON, Type.CHESTPLATE, properties),
-    ICurioItem, GeoItem {
+    GeoItem {
 
     private val cache: AnimatableInstanceCache = GeckoLibUtil.createInstanceCache(this)
 
@@ -403,26 +401,4 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         return base + context.honeyCapacityBonus
     }
 
-    // ICurioItem implementation
-
-    override fun canEquip(slotContext: SlotContext, stack: ItemStack): Boolean {
-        // Only allow in "back" slot
-        return slotContext.identifier() == "back"
-    }
-
-    override fun canUnequip(slotContext: SlotContext, stack: ItemStack): Boolean {
-        return true
-    }
-
-    override fun curioTick(slotContext: SlotContext, stack: ItemStack) {
-        // Called every tick when worn
-    }
-
-    override fun onEquip(slotContext: SlotContext, prevStack: ItemStack, stack: ItemStack) {
-        // Called when the backpack is equipped
-    }
-
-    override fun onUnequip(slotContext: SlotContext, newStack: ItemStack, stack: ItemStack) {
-        // Called when the backpack is unequipped
-    }
 }

@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.network.PacketDistributor
-import top.theillusivec4.curios.api.CuriosApi
+import de.devin.cbbees.compat.CuriosCompat
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -111,9 +111,9 @@ object DroneViewManager {
     fun getDroneUUID(player: ServerPlayer): UUID? = activeDrones[player.uuid]
 
     fun findBackpack(player: ServerPlayer): ItemStack? {
-        // Check Curios back slot
-        val curios = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
-        if (curios.isPresent) return curios.get().stack()
+        // Check Curios back slot (if Curios is installed)
+        val curiosStack = CuriosCompat.findFirstCurio(player) { it.item is PortableBeehiveItem }
+        if (!curiosStack.isEmpty) return curiosStack
 
         // Check chestplate armor slot
         val armorStack = player.inventory.armor[2]

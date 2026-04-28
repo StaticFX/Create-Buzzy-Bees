@@ -18,7 +18,7 @@ import net.minecraft.world.inventory.SimpleContainerData
 import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.component.ItemContainerContents
-import top.theillusivec4.curios.api.CuriosApi
+import de.devin.cbbees.compat.CuriosCompat
 
 /**
  * Container/Menu for the Constructor Backpack.
@@ -154,8 +154,7 @@ class BeehiveContainer : AbstractContainerMenu {
     }
 
     private fun isBackpackEquippedInCurios(player: Player): Boolean {
-        val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it == backpackStack }
-        return curiosResult.isPresent
+        return !CuriosCompat.findFirstCurio(player) { it == backpackStack }.isEmpty
     }
 
     override fun removed(player: Player) {

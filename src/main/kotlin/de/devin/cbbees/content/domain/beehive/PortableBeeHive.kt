@@ -20,7 +20,7 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.neoforged.neoforge.items.IItemHandler
-import top.theillusivec4.curios.api.CuriosApi
+import de.devin.cbbees.compat.CuriosCompat
 import java.util.*
 
 /**
@@ -398,10 +398,8 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     fun isValid(): Boolean = !getBackpackStack().isEmpty
 
     private fun getBackpackStack(): ItemStack {
-        val curiosResult = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
-        if (curiosResult.isPresent) {
-            return curiosResult.get().stack()
-        }
+        val curiosStack = CuriosCompat.findFirstCurio(player) { it.item is PortableBeehiveItem }
+        if (!curiosStack.isEmpty) return curiosStack
         val chestplate = player.inventory.armor[2]
         if (chestplate.item is PortableBeehiveItem) {
             return chestplate

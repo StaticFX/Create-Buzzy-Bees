@@ -11,7 +11,7 @@ import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.entity.player.PlayerEvent
 import net.neoforged.neoforge.event.tick.PlayerTickEvent
 import net.neoforged.neoforge.network.PacketDistributor
-import top.theillusivec4.curios.api.CuriosApi
+import de.devin.cbbees.compat.CuriosCompat
 
 @ServerSide
 class PlayerTickEvent {
@@ -89,8 +89,8 @@ class PlayerTickEvent {
     }
 
     private fun hasPortableHive(player: net.minecraft.world.entity.player.Player): Boolean {
-        val curios = CuriosApi.getCuriosHelper().findFirstCurio(player) { it.item is PortableBeehiveItem }
-        if (curios.isPresent) return true
+        val curios = CuriosCompat.findFirstCurio(player) { it.item is PortableBeehiveItem }
+        if (!curios.isEmpty) return true
         return player.inventory.armor[2].item is PortableBeehiveItem
     }
 }
