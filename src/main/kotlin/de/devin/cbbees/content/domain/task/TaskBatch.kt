@@ -3,6 +3,10 @@ package de.devin.cbbees.content.domain.task
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.job.BeeJob
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
 import java.util.UUID
 
 class TaskBatch(
@@ -18,6 +22,30 @@ class TaskBatch(
         const val MAX_RETRIES = 5
         /** Minimum ticks before a released batch can be re-dispatched (3 seconds). */
         const val RETRY_COOLDOWN_TICKS = 60L
+
+        fun load(tag: CompoundTag, registries: HolderLookup.Provider, job: BeeJob): TaskBatch? {
+            val targetPos = BlockPos(tag.getInt("TargetX"), tag.getInt("TargetY"), tag.getInt("TargetZ"))
+            val phase = tag.getInt("Phase")
+            val beeType = BeeType.valueOf(tag.getString("BeeType"))
+
+            val taskList = tag.getList("Tasks", Tag.TAG_COMPOUND.toInt())
+            val tasks = (0 until taskList.size).mapNotNull { i ->
+                BeeTask.load(taskList.getCompound(i), registries, job)
+            }
+            if (tasks.isEmpty()) return null
+
+            val batch = TaskBatch(tasks, job, targetPos, phase, beeType)
+
+            val status = TaskStatus.valueOf(tag.getString("Status"))
+            batch.restoreState(
+                status = status,
+                retryCount = tag.getInt("RetryCount"),
+                lastReleasedTick = tag.getLong("LastReleasedTick"),
+                startedAtTick = tag.getLong("StartedAtTick"),
+                currentIndex = tag.getInt("CurrentIndex")
+            )
+            return batch
+        }
     }
 
     var status: TaskStatus = TaskStatus.PENDING
@@ -111,5 +139,41 @@ class TaskBatch(
         assignedBeeId = beeId
         startedAtTick = gameTime
         tasks.forEach { it.assignToBee(beeId) }
+    }
+
+    /**
+     * Restores mutable state during deserialization.
+     */
+    internal fun restoreState(
+        status: TaskStatus,
+        retryCount: Int,
+        lastReleasedTick: Long,
+        startedAtTick: Long,
+        currentIndex: Int
+    ) {
+        this.status = status
+        this.retryCount = retryCount
+        this.lastReleasedTick = lastReleasedTick
+        this.startedAtTick = startedAtTick
+        this.currentIndex = currentIndex
+    }
+
+    fun save(registries: HolderLookup.Provider): CompoundTag {
+        val tag = CompoundTag()
+        tag.putInt("TargetX", targetPosition.x)
+        tag.putInt("TargetY", targetPosition.y)
+        tag.putInt("TargetZ", targetPosition.z)
+        tag.putInt("Phase", phase)
+        tag.putString("BeeType", beeType.name)
+        tag.putString("Status", status.name)
+        tag.putInt("RetryCount", retryCount)
+        tag.putLong("LastReleasedTick", lastReleasedTick)
+        tag.putLong("StartedAtTick", startedAtTick)
+        tag.putInt("CurrentIndex", currentIndex)
+
+        val taskList = ListTag()
+        tasks.forEach { task -> taskList.add(task.save(registries)) }
+        tag.put("Tasks", taskList)
+        return tag
     }
 }

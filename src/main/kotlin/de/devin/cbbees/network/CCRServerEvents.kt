@@ -50,6 +50,10 @@ object CCRServerEvents {
         JobCalculationProgress.tickEvictions(server.tickCount)
         profiler.pop()
 
+        profiler.push("jobPoolInit")
+        GlobalJobPool.ensureLoaded(server)
+        profiler.pop()
+
         tickCounter++
         if (tickCounter >= 10) {
             tickCounter = 0
@@ -111,15 +115,23 @@ object CCRServerEvents {
     }
 
     /**
-     * Clears networks on server stop to prevent stale data between world loads.
+     * Prepares for server shutdown.
+     *
+     * Job pool batches are reset to PENDING (bees are ephemeral) and marked dirty
+     * so the subsequent [saveAllChunks] persists them. We do NOT clear the job
+     * backlog here — the save cycle runs AFTER this event and needs the data.
+     * Stale state is cleaned up by [GlobalJobPool.ensureLoaded] on next server start.
      */
     @SubscribeEvent
     @JvmStatic
     fun onServerStopping(event: ServerStoppingEvent) {
+        // Reset in-progress batches and mark dirty BEFORE bees are cleared,
+        // so the save cycle captures the reset state.
+        GlobalJobPool.prepareForSave()
+
         ServerBeeManager.clear()
         ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()
-        GlobalJobPool.clear()
         TransportDispatcher.clear()
         BeeDebug.clear()
         PlannerUploadPacket.shutdown()

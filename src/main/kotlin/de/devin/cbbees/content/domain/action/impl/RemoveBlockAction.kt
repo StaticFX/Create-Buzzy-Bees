@@ -85,4 +85,18 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
 
     override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
+
+    fun save(): net.minecraft.nbt.CompoundTag {
+        val tag = net.minecraft.nbt.CompoundTag()
+        tag.putInt("X", pos.x)
+        tag.putInt("Y", pos.y)
+        tag.putInt("Z", pos.z)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: net.minecraft.nbt.CompoundTag): RemoveBlockAction {
+            return RemoveBlockAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
+        }
+    }
 }

@@ -77,4 +77,82 @@ class PlaceBeltAction(
     override fun getDescription(): String {
         return "Placing belt from (${pos.x}, ${pos.y}, ${pos.z}) to (${end.x}, ${end.y}, ${end.z})"
     }
+
+    fun save(registries: net.minecraft.core.HolderLookup.Provider): net.minecraft.nbt.CompoundTag {
+        val tag = net.minecraft.nbt.CompoundTag()
+        tag.putInt("X", pos.x)
+        tag.putInt("Y", pos.y)
+        tag.putInt("Z", pos.z)
+        tag.putInt("EndX", end.x)
+        tag.putInt("EndY", end.y)
+        tag.putInt("EndZ", end.z)
+
+        val chainList = net.minecraft.nbt.ListTag()
+        chain.forEach { bp ->
+            val bpTag = net.minecraft.nbt.CompoundTag()
+            bpTag.putInt("X", bp.x)
+            bpTag.putInt("Y", bp.y)
+            bpTag.putInt("Z", bp.z)
+            chainList.add(bpTag)
+        }
+        tag.put("Chain", chainList)
+
+        val stateList = net.minecraft.nbt.ListTag()
+        chainStates.forEach { state ->
+            stateList.add(net.minecraft.nbt.NbtUtils.writeBlockState(state))
+        }
+        tag.put("ChainStates", stateList)
+
+        val casingList = net.minecraft.nbt.ListTag()
+        casings.forEach { casing ->
+            val ct = net.minecraft.nbt.CompoundTag()
+            ct.putString("Type", casing.name)
+            casingList.add(ct)
+        }
+        tag.put("Casings", casingList)
+
+        val coverArray = ByteArray(covers.size) { i -> if (covers[i]) 1.toByte() else 0.toByte() }
+        tag.putByteArray("Covers", coverArray)
+
+        val itemList = net.minecraft.nbt.ListTag()
+        requiredItems.forEach { stack ->
+            itemList.add(stack.save(registries))
+        }
+        tag.put("RequiredItems", itemList)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: net.minecraft.nbt.CompoundTag, registries: net.minecraft.core.HolderLookup.Provider): PlaceBeltAction {
+            val pos = BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z"))
+            val end = BlockPos(tag.getInt("EndX"), tag.getInt("EndY"), tag.getInt("EndZ"))
+            val blockLookup = registries.lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK)
+
+            val chainList = tag.getList("Chain", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val chain = (0 until chainList.size).map { i ->
+                val bp = chainList.getCompound(i)
+                BlockPos(bp.getInt("X"), bp.getInt("Y"), bp.getInt("Z"))
+            }
+
+            val stateList = tag.getList("ChainStates", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val chainStates = (0 until stateList.size).map { i ->
+                net.minecraft.nbt.NbtUtils.readBlockState(blockLookup, stateList.getCompound(i))
+            }
+
+            val casingList = tag.getList("Casings", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val casings = (0 until casingList.size).map { i ->
+                BeltBlockEntity.CasingType.valueOf(casingList.getCompound(i).getString("Type"))
+            }
+
+            val coverArray = tag.getByteArray("Covers")
+            val covers = coverArray.map { it != 0.toByte() }
+
+            val itemList = tag.getList("RequiredItems", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val items = (0 until itemList.size).mapNotNull { i ->
+                net.minecraft.world.item.ItemStack.parse(registries, itemList.getCompound(i)).orElse(null)
+            }
+
+            return PlaceBeltAction(pos, end, chain, chainStates, casings, covers, items)
+        }
+    }
 }

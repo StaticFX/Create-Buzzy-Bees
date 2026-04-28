@@ -13,15 +13,21 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
+import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.saveddata.SavedData
 import de.devin.cbbees.util.ServerSide
 
 /**
  * Global Bee Job distribution pool.
  *
+ * Jobs are persisted to the overworld via [JobPoolSavedData] so they survive server restarts.
+ * Bees are ephemeral — on reload, all in-progress batches reset to PENDING and the
+ * redispatch cycle re-assigns them to available hives.
  */
 @ServerSide
-object GlobalJobPool : SavedData(), JobPool {
+object GlobalJobPool : JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
@@ -29,17 +35,120 @@ object GlobalJobPool : SavedData(), JobPool {
     private const val WATCHDOG_INTERVAL = 20
     private const val STALE_BATCH_TICKS = 600L
 
-    fun clear() {
+    /** Reference to the SavedData wrapper for dirty-marking. */
+    var savedData: SavedData? = null
+        internal set
+
+    /** Deferred load state — set by [JobPoolSavedData] factory, consumed by [ensureLoaded]. */
+    @JvmField var pendingLoadTag: CompoundTag? = null
+    @JvmField var pendingLoadRegistries: HolderLookup.Provider? = null
+
+    /** Tracks the current server instance to detect world transitions. */
+    private var loadedForServer: MinecraftServer? = null
+
+    /**
+     * Called every server tick. On the first tick of a new server lifecycle,
+     * clears stale in-memory state and loads persisted jobs from disk.
+     */
+    fun ensureLoaded(server: MinecraftServer) {
+        if (loadedForServer === server) return
+        loadedForServer = server
+        // Clear any stale in-memory state from a previous world
         jobBacklog.clear()
         redispatchCounter = 0
         watchdogCounter = 0
+        savedData = null
+        pendingLoadTag = null
+        pendingLoadRegistries = null
+        // Register with data storage — triggers load from disk if data exists
+        JobPoolSavedData.register(server)
     }
+
+    /**
+     * Prepares job state for persistence before the server saves.
+     * Resets all in-progress/picked batches to PENDING since bees are ephemeral
+     * and won't exist after reload.
+     */
+    fun prepareForSave() {
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+            for (batch in job.batches) {
+                if (batch.status == TaskStatus.IN_PROGRESS || batch.status == TaskStatus.PICKED) {
+                    batch.assignedBeeId = null
+                    batch.assignedNetworkId = null
+                    batch.restoreState(
+                        status = TaskStatus.PENDING,
+                        retryCount = batch.retryCount,
+                        lastReleasedTick = batch.lastReleasedTick,
+                        startedAtTick = 0L,
+                        currentIndex = 0
+                    )
+                    batch.tasks.forEach { task ->
+                        if (task.status == TaskStatus.IN_PROGRESS || task.status == TaskStatus.PICKED) {
+                            task.release()
+                        }
+                    }
+                }
+            }
+        }
+        savedData?.setDirty()
+    }
+
+    // ── Serialization ──
+
+    fun saveJobs(tag: CompoundTag, registries: HolderLookup.Provider) {
+        tag.putInt("Version", 1)
+        val jobList = ListTag()
+        for (job in jobBacklog) {
+            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
+            jobList.add(job.save(registries))
+        }
+        tag.put("Jobs", jobList)
+        CreateBuzzyBeez.LOGGER.debug("[JobPool] Saved ${jobList.size} jobs to disk")
+    }
+
+    fun loadJobs(tag: CompoundTag, registries: HolderLookup.Provider, server: MinecraftServer) {
+        jobBacklog.clear()
+        val jobList = tag.getList("Jobs", Tag.TAG_COMPOUND.toInt())
+        var loaded = 0
+        for (i in 0 until jobList.size) {
+            val job = BeeJob.load(jobList.getCompound(i), registries, server) ?: continue
+            // Reset any in-progress batches since bees don't persist
+            for (batch in job.batches) {
+                if (batch.status == TaskStatus.IN_PROGRESS || batch.status == TaskStatus.PICKED) {
+                    batch.assignedBeeId = null
+                    batch.assignedNetworkId = null
+                    batch.restoreState(
+                        status = TaskStatus.PENDING,
+                        retryCount = batch.retryCount,
+                        lastReleasedTick = batch.lastReleasedTick,
+                        startedAtTick = 0L,
+                        currentIndex = 0
+                    )
+                    batch.tasks.forEach { task ->
+                        if (task.status == TaskStatus.IN_PROGRESS || task.status == TaskStatus.PICKED) {
+                            task.release()
+                        }
+                    }
+                }
+            }
+            // Ensure job status is compatible with reload
+            if (job.status == JobStatus.WAITING_FOR_BEES || job.status == JobStatus.IN_PROGRESS) {
+                job.status = JobStatus.IN_PROGRESS
+            }
+            jobBacklog.add(job)
+            loaded++
+        }
+        CreateBuzzyBeez.LOGGER.info("[JobPool] Loaded $loaded jobs from disk")
+    }
+
+    // ── Tick ──
 
     override fun tick(gameTime: Long) {
         if (jobBacklog.removeIf {
             it.status == JobStatus.COMPLETED || it.status == JobStatus.CANCELLED
         }) {
-            this.setDirty()
+            savedData?.setDirty()
         }
 
         redispatchCounter++
@@ -244,19 +353,12 @@ object GlobalJobPool : SavedData(), JobPool {
         }) return
 
         if (!jobBacklog.contains(job)) jobBacklog.add(job)
-        this.setDirty()
+        savedData?.setDirty()
 
         // Dispatch immediately so bees start flying without waiting for the next
         // 10-tick redispatch cycle
         redispatchPendingBatches(0L)
 
         CreateBuzzyBeez.LOGGER.debug("[JobPool] Registered job with ${job.batches.size} batches")
-    }
-
-    override fun save(
-        tag: CompoundTag,
-        registries: HolderLookup.Provider
-    ): CompoundTag {
-        return tag
     }
 }

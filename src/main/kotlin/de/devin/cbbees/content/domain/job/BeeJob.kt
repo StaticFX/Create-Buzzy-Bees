@@ -1,10 +1,20 @@
 package de.devin.cbbees.content.domain.job
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
+import de.devin.cbbees.content.schematics.SchematicJobKey
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
+import net.minecraft.core.registries.Registries
+import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
+import net.minecraft.resources.ResourceKey
+import net.minecraft.resources.ResourceLocation
+import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.Level
 import java.util.UUID
 
@@ -27,6 +37,9 @@ data class BeeJob(
     var ownerId: UUID? = null,
     var uniquenessKey: Any? = null
 ) {
+    /** Dimension key for serialization — resolved from [level] at creation time. */
+    val dimensionKey: ResourceKey<Level> = level.dimension()
+
     /** Schematic placement metadata for client-side ghost block rendering. */
     var schematicPlacement: SchematicPlacement? = null
 
@@ -49,7 +62,7 @@ data class BeeJob(
     private val contributions: MutableMap<BeeHive, Int> = mutableMapOf()
 
     var status: JobStatus = JobStatus.WAITING_FOR_BEES
-        private set
+        internal set
 
     /**
      * Checks if this job has enough bees to start.
@@ -182,5 +195,77 @@ data class BeeJob(
      */
     fun getRemainingTaskCount(): Int {
         return tasks.count { it.status == TaskStatus.PENDING || it.status == TaskStatus.IN_PROGRESS }
+    }
+
+    fun save(registries: HolderLookup.Provider): CompoundTag {
+        val tag = CompoundTag()
+        tag.putUUID("JobId", jobId)
+        tag.putInt("CenterX", centerPos.x)
+        tag.putInt("CenterY", centerPos.y)
+        tag.putInt("CenterZ", centerPos.z)
+        tag.putString("Dimension", dimensionKey.location().toString())
+        tag.putString("JobType", jobType.id)
+        tag.putString("Status", status.name)
+        if (ownerId != null) tag.putUUID("OwnerId", ownerId!!)
+
+        val key = uniquenessKey
+        if (key is SchematicJobKey) {
+            val keyTag = key.save()
+            keyTag.putString("Type", "schematic_job_key")
+            tag.put("UniquenessKey", keyTag)
+        }
+
+        schematicPlacement?.let { tag.put("SchematicPlacement", it.save()) }
+
+        val batchList = ListTag()
+        batches.forEach { batch -> batchList.add(batch.save(registries)) }
+        tag.put("Batches", batchList)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: CompoundTag, registries: HolderLookup.Provider, server: MinecraftServer): BeeJob? {
+            val dimStr = tag.getString("Dimension")
+            val dimKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(dimStr))
+            val level = server.getLevel(dimKey)
+            if (level == null) {
+                CreateBuzzyBeez.LOGGER.warn("[JobPool] Dropping job in unknown dimension: $dimStr")
+                return null
+            }
+
+            val jobId = tag.getUUID("JobId")
+            val centerPos = BlockPos(tag.getInt("CenterX"), tag.getInt("CenterY"), tag.getInt("CenterZ"))
+            val jobTypeId = tag.getString("JobType")
+            val jobType = JobType.entries.firstOrNull { it.id == jobTypeId }
+            if (jobType == null) {
+                CreateBuzzyBeez.LOGGER.warn("[JobPool] Dropping job with unknown type: $jobTypeId")
+                return null
+            }
+
+            val ownerId = if (tag.hasUUID("OwnerId")) tag.getUUID("OwnerId") else null
+
+            var uniquenessKey: Any? = null
+            if (tag.contains("UniquenessKey")) {
+                val keyTag = tag.getCompound("UniquenessKey")
+                if (keyTag.getString("Type") == "schematic_job_key") {
+                    uniquenessKey = SchematicJobKey.load(keyTag)
+                }
+            }
+
+            val job = BeeJob(jobId, centerPos, level, jobType, ownerId, uniquenessKey)
+            job.status = JobStatus.valueOf(tag.getString("Status"))
+
+            if (tag.contains("SchematicPlacement")) {
+                job.schematicPlacement = SchematicPlacement.load(tag.getCompound("SchematicPlacement"))
+            }
+
+            val batchList = tag.getList("Batches", Tag.TAG_COMPOUND.toInt())
+            for (i in 0 until batchList.size) {
+                val batch = TaskBatch.load(batchList.getCompound(i), registries, job) ?: continue
+                job.batches.add(batch)
+            }
+
+            return job
+        }
     }
 }

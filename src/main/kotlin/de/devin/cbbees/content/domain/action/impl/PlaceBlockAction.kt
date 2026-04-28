@@ -75,4 +75,35 @@ class PlaceBlockAction(
         val blockName = blockState.block.name.string
         return "Placing $blockName at (${pos.x}, ${pos.y}, ${pos.z})"
     }
+
+    fun save(registries: net.minecraft.core.HolderLookup.Provider): CompoundTag {
+        val tag = CompoundTag()
+        tag.putInt("X", pos.x)
+        tag.putInt("Y", pos.y)
+        tag.putInt("Z", pos.z)
+        tag.put("BlockState", net.minecraft.nbt.NbtUtils.writeBlockState(blockState))
+        if (blockEntityTag != null) {
+            tag.put("BlockEntityTag", blockEntityTag.copy())
+        }
+        val itemList = net.minecraft.nbt.ListTag()
+        requiredItems.forEach { stack ->
+            itemList.add(stack.save(registries))
+        }
+        tag.put("RequiredItems", itemList)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: CompoundTag, registries: net.minecraft.core.HolderLookup.Provider): PlaceBlockAction {
+            val pos = BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z"))
+            val blockLookup = registries.lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK)
+            val blockState = net.minecraft.nbt.NbtUtils.readBlockState(blockLookup, tag.getCompound("BlockState"))
+            val blockEntityTag = if (tag.contains("BlockEntityTag")) tag.getCompound("BlockEntityTag").copy() else null
+            val itemList = tag.getList("RequiredItems", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val items = (0 until itemList.size).mapNotNull { i ->
+                net.minecraft.world.item.ItemStack.parse(registries, itemList.getCompound(i)).orElse(null)
+            }
+            return PlaceBlockAction(pos, blockState, blockEntityTag, items)
+        }
+    }
 }

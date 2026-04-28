@@ -47,4 +47,18 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
 
     override fun shouldReturnAfter(context: BeeContext) = false
     override fun getDescription() = "Dropping off items at (${pos.x}, ${pos.y}, ${pos.z})"
+
+    fun save(): net.minecraft.nbt.CompoundTag {
+        val tag = net.minecraft.nbt.CompoundTag()
+        tag.putInt("X", _pos.x)
+        tag.putInt("Y", _pos.y)
+        tag.putInt("Z", _pos.z)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: net.minecraft.nbt.CompoundTag): DropOffItemsAction {
+            return DropOffItemsAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
+        }
+    }
 }

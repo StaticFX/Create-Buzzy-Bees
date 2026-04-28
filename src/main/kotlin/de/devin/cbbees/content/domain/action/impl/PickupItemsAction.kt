@@ -45,4 +45,18 @@ class PickupItemsAction(private val targetPos: BlockPos) : BeeAction {
     }
 
     override fun getDescription() = "Picking up items at (${targetPos.x}, ${targetPos.y}, ${targetPos.z})"
+
+    fun save(): net.minecraft.nbt.CompoundTag {
+        val tag = net.minecraft.nbt.CompoundTag()
+        tag.putInt("X", targetPos.x)
+        tag.putInt("Y", targetPos.y)
+        tag.putInt("Z", targetPos.z)
+        return tag
+    }
+
+    companion object {
+        fun load(tag: net.minecraft.nbt.CompoundTag): PickupItemsAction {
+            return PickupItemsAction(net.minecraft.core.BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
+        }
+    }
 }

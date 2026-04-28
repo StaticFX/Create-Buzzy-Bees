@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.task
 
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.action.BeeActionSerializer
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PickupItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
@@ -9,7 +10,10 @@ import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 import java.util.UUID
@@ -73,7 +77,23 @@ data class BeeTask(
         job.checkCompletion()
     }
 
+    fun save(registries: HolderLookup.Provider): CompoundTag {
+        val tag = CompoundTag()
+        tag.put("Action", BeeActionSerializer.save(action, registries))
+        tag.putInt("Priority", priority)
+        tag.putString("Status", status.name)
+        return tag
+    }
+
     companion object {
+        fun load(tag: CompoundTag, registries: HolderLookup.Provider, job: BeeJob): BeeTask? {
+            val action = BeeActionSerializer.load(tag.getCompound("Action"), registries) ?: return null
+            val priority = tag.getInt("Priority")
+            val task = BeeTask(action, job, priority)
+            task.status = TaskStatus.valueOf(tag.getString("Status"))
+            return task
+        }
+
         /**
          * Create a placement task
          */
