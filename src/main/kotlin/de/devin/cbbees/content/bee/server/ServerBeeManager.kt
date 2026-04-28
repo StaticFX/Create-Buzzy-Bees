@@ -6,6 +6,7 @@ import de.devin.cbbees.content.bee.flight.ClientCheckpoint
 import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
+import de.devin.cbbees.content.bee.flight.GatherFromPort
 import de.devin.cbbees.content.bee.state.*
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -232,6 +233,12 @@ object ServerBeeManager {
                     return@computeAsync
                 }
                 CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
+                // Reserve items at the gather port so other bees don't claim the same stock
+                val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
+                if (gatherAction != null) {
+                    val port = network.ports.firstOrNull { it.id == gatherAction.providerId }
+                    port?.reserve(bee.id, gatherAction.items, level!!.gameTime)
+                }
                 bee.flightPlan = plan
                 bee.planStartTick = level!!.gameTime
                 bee.currentCheckpointIndex = 0
@@ -341,6 +348,14 @@ object ServerBeeManager {
      * If called during [tickAll], defers removal until iteration completes.
      */
     fun removeBee(id: UUID) {
+        val bee = bees[id]
+        // Release any item reservations the bee held at network ports
+        if (bee != null) {
+            val networkId = bee.currentTask?.assignedNetworkId
+            if (networkId != null) {
+                ServerBeeNetworkManager.getNetwork(networkId)?.releaseReservations(id)
+            }
+        }
         if (isTicking) {
             pendingRemovals.add(id)
         } else {

@@ -1,7 +1,6 @@
 package de.devin.cbbees.content.domain.job
 
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -50,53 +49,8 @@ data class BeeJob(
 
     val tasks: List<BeeTask> get() = batches.flatMap { it.tasks }
 
-    /**
-     * Current number of bees contributed to this job.
-     */
-    var contributedBees: Int = 0
-        private set
-
-    /**
-     * Map of source IDs to the number of bees they've contributed.
-     */
-    private val contributions: MutableMap<BeeHive, Int> = mutableMapOf()
-
-    var status: JobStatus = JobStatus.WAITING_FOR_BEES
+    var status: JobStatus = JobStatus.IN_PROGRESS
         internal set
-
-    /**
-     * Checks if this job has enough bees to start.
-     */
-    fun canStart(): Boolean = contributedBees >= batches.size
-
-    /**
-     * Adds a contribution of bees from a source.
-     *
-     * @param beeHive the contributing source.
-     * @param beeCount The number of bees being contributed.
-     */
-    @Synchronized
-    fun addContribution(beeHive: BeeHive, beeCount: Int) {
-        val currentContribution = contributions.getOrDefault(beeHive, 0)
-        contributions[beeHive] = currentContribution + beeCount
-        contributedBees = contributions.values.sum()
-
-        if (canStart() && status == JobStatus.WAITING_FOR_BEES) {
-            status = JobStatus.IN_PROGRESS
-        }
-    }
-
-    @Synchronized
-    fun removeContribution(beeHive: BeeHive): Int {
-        val removed = contributions.remove(beeHive) ?: 0
-        contributedBees = contributions.values.sum()
-        return removed
-    }
-
-    /**
-     * Gets the number of bees contributed by a specific source.
-     */
-    fun getContribution(beeHive: BeeHive): Int = contributions.getOrDefault(beeHive, 0)
 
     /**
      * Returns true if all batches in phases lower than [phase] are finished
@@ -164,7 +118,7 @@ data class BeeJob(
      * Checks if this job should be completed.
      */
     fun checkCompletion() {
-        if ((status == JobStatus.IN_PROGRESS || status == JobStatus.WAITING_FOR_BEES) && isComplete()) {
+        if (status == JobStatus.IN_PROGRESS && isComplete()) {
             complete()
         }
     }

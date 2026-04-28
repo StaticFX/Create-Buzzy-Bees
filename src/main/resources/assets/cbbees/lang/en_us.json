@@ -137,6 +137,7 @@
   "cbbees.stall.out_of_range": "Swarm stalled: Target area is out of range!",
   "cbbees.stall.no_bees": "Swarm stalled: No bees available in hives!",
   "cbbees.stall.no_bumble_bees": "Swarm stalled: No bumble bees available for pickup/transport!",
+  "cbbees.stall.no_fuel": "Swarm stalled: Portable beehive is out of honey!",
   "cbbees.stall.no_drop_off_port": "Swarm stalled: No logistics port to deliver items!",
   "cbbees.stall.missing_materials": "Swarm stalled: Missing required materials!",
   "key.categories.cbbees": "Buzzy Bees",

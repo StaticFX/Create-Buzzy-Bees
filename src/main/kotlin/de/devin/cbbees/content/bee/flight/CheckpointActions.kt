@@ -38,7 +38,7 @@ object FlyThrough : CheckpointAction {
  * @param providerId the UUID of the logistics port selected by the flight planner
  * @see CheckpointAction
  */
-class GatherFromPort(private val items: List<ItemStack>, private val providerId: UUID) : CheckpointAction {
+class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
         val log = CreateBuzzyBeez.LOGGER
@@ -82,12 +82,32 @@ class GatherFromPort(private val items: List<ItemStack>, private val providerId:
             }
         }
 
+        // Release the reservation regardless of outcome — items are now in the bee's inventory or gone
+        network.releaseReservations(bee.id)
+
         if (allGathered) {
             log.debug("[GatherFromPort] All items gathered successfully")
             return true
         }
 
-        log.debug("[GatherFromPort] Gather FAILED, releasing batch and killing bee")
+        // Items unavailable — try to replan from current position with a different provider.
+        val newPlan = FlightPlanComputer.replanFrom(bee, bee.currentTask, bee.network(), level)
+        if (newPlan != null) {
+            log.debug("[GatherFromPort] Replanning flight for bee ${bee.id.toString().substring(0, 6)}")
+            // Reserve items at the new gather port
+            val newGather = newPlan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
+            if (newGather != null) {
+                val port = network.ports.firstOrNull { it.id == newGather.providerId }
+                port?.reserve(bee.id, newGather.items, gameTime)
+            }
+            bee.flightPlan = newPlan
+            bee.planStartTick = gameTime
+            bee.currentCheckpointIndex = 0
+            ServerBeeManager.broadcastFlightPlan(bee, newPlan, clientStartIndex = 0)
+            return true // advance past this checkpoint — the new plan starts fresh
+        }
+
+        log.debug("[GatherFromPort] Gather FAILED, no alternative provider — releasing batch")
         bee.currentTask?.releaseWithoutRetry()
         bee.springTension = -9999f
         return false

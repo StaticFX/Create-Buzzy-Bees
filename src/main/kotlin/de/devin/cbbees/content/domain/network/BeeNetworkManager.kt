@@ -63,6 +63,22 @@ object ServerBeeNetworkManager {
 
         if (getNetworkFor(component) != null) return
 
+        // PortableBeeHive always gets its own isolated network — never joins block networks.
+        // Linking to nearby block networks is handled by reconnectPortableHive().
+        if (component is PortableBeeHive) {
+            val stableId = stableNetworkId(component.player.uuid)
+            var portableNet = networkById[stableId]
+            if (portableNet == null) {
+                component.networkId = stableId
+                portableNet = BeeNetwork(stableId, topology)
+                networks.add(portableNet)
+            }
+            portableNet.addComponent(component)
+            rebuildIndexes()
+            CreateBuzzyBeez.LOGGER.info("[NET] Registered PortableBeeHive into isolated network $stableId")
+            return
+        }
+
         CreateBuzzyBeez.LOGGER.info("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
 
         val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()

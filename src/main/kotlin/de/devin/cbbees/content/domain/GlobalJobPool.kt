@@ -135,7 +135,7 @@ object GlobalJobPool : JobPool {
                 }
             }
             // Ensure job status is compatible with reload
-            if (job.status == JobStatus.WAITING_FOR_BEES || job.status == JobStatus.IN_PROGRESS) {
+            if (job.status != JobStatus.COMPLETED && job.status != JobStatus.CANCELLED) {
                 job.status = JobStatus.IN_PROGRESS
             }
             jobBacklog.add(job)

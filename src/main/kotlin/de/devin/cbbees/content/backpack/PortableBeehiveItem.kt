@@ -267,13 +267,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         tooltipFlag: TooltipFlag
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
-
-        val beeCount = getBeeCount(stack)
-        tooltipComponents.add(
-            Component.translatable("tooltip.cbbees.beehive.bees", beeCount, BEE_SLOTS)
-                .withStyle(ChatFormatting.GRAY)
-        )
-
+        
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
         val maxHoney = getMaxHoney(stack)
         tooltipComponents.add(

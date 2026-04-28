@@ -6,6 +6,7 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
+import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.logistics.ports.PortType
@@ -41,6 +42,9 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
 
     /** Active bee UUIDs grouped by job ID, mirroring MechanicalBeehiveBlockEntity's tracking. */
     private val activeBeesByJob = mutableMapOf<UUID, MutableSet<UUID>>()
+
+    /** Tracks item reservations made by bees picking up from the player's inventory. */
+    private val reservationManager = PortReservationManager()
 
     override fun getActiveBeeCount(): Int = activeBeesByJob.values.sumOf { it.size }
 
@@ -260,7 +264,56 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     }
 
     override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
-        return hasItemStack(stack)
+        if (player.isCreative) return true
+        val physical = countItem(stack)
+        val reserved = reservationManager.getReservedCount(stack, excludeBeeId)
+        return physical - reserved >= stack.count
+    }
+
+    private fun countItem(stack: ItemStack): Int {
+        var count = 0
+        for (i in 0 until player.inventory.containerSize) {
+            val slot = player.inventory.getItem(i)
+            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack)) {
+                count += slot.count
+            }
+        }
+        if (getBeeContext().inventoryAccessEnabled) {
+            count += countItemInContainers(stack)
+        }
+        return count
+    }
+
+    private fun countItemInContainers(stack: ItemStack): Int {
+        var count = 0
+        for (i in 0 until player.inventory.containerSize) {
+            val container = player.inventory.getItem(i)
+            val handler = container.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.ITEM)
+                ?: continue
+            for (slot in 0 until handler.slots) {
+                val slotStack = handler.getStackInSlot(slot)
+                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack)) {
+                    count += slotStack.count
+                }
+            }
+        }
+        return count
+    }
+
+    override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
+        reservationManager.reserve(beeId, items, tick)
+    }
+
+    override fun releaseReservation(beeId: UUID) {
+        reservationManager.release(beeId)
+    }
+
+    override fun cleanupReservations(currentTick: Long, maxAge: Long) {
+        reservationManager.cleanup(currentTick, maxAge)
+    }
+
+    override fun clearReservations() {
+        reservationManager.clear()
     }
 
     override fun removeItemStack(stack: ItemStack): Boolean {
