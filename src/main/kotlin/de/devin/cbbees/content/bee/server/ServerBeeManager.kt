@@ -220,39 +220,40 @@ object ServerBeeManager {
         bees[bee.id] = bee
         hive.onBeeSpawned(bee.id)
 
-        val network = ServerBeeNetworkManager.getNetwork(networkId, level!!)
+        val beeWorld = bee._level as? ServerLevel ?: level!!
+        val network = ServerBeeNetworkManager.getNetwork(networkId, beeWorld)
         if (network != null) {
-            val beeLevel = bee._level as? ServerLevel ?: level!!
-            FlightPlanComputer.computeAsync(bee, batch, network, beeLevel) { plan ->
+            FlightPlanComputer.computeAsync(bee, batch, network, beeWorld) { plan ->
                 if (plan == null) {
-                    // Flight plan failed (e.g., no provider for required materials).
-                    // Return the bee to its hive and put the batch back to PENDING.
-                    // Don't count as a retry — material unavailability is transient.
                     CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan FAILED for bee ${bee.id.toString().substring(0, 6)}, returning to hive")
                     batch.releaseWithoutRetry()
                     removeBee(bee.id)
-                    returnBeeToHive(bee, bee._level as? ServerLevel ?: level)
+                    returnBeeToHive(bee, beeWorld)
                     return@computeAsync
                 }
                 CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
-                // Reserve items at the gather port so other bees don't claim the same stock
                 val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
                 if (gatherAction != null) {
                     val port = network.ports.firstOrNull { it.id == gatherAction.providerId }
-                    port?.reserve(bee.id, gatherAction.items, level!!.gameTime)
+                    port?.reserve(bee.id, gatherAction.items, beeWorld.gameTime)
                 }
                 bee.flightPlan = plan
-                bee.planStartTick = level!!.gameTime
+                bee.planStartTick = beeWorld.gameTime
                 bee.currentCheckpointIndex = 0
                 if (plan.checkpoints.size > 1) {
                     val travel = FlightPlan.travelTicks(
                         plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
                     )
                     bee.currentCheckpointIndex = 1
-                    bee.nextCheckpointArrivalTick = level!!.gameTime + travel
+                    bee.nextCheckpointArrivalTick = beeWorld.gameTime + travel
                 }
                 broadcastFlightPlan(bee, plan, clientStartIndex = 0)
             }
+        } else {
+            CreateBuzzyBeez.LOGGER.warn("[SpawnBee] No network found for bee ${bee.id.toString().substring(0, 6)} (networkId=$networkId, level=${beeWorld.dimension().location()})")
+            batch.releaseWithoutRetry()
+            removeBee(bee.id)
+            returnBeeToHive(bee, beeWorld)
         }
 
         return bee
