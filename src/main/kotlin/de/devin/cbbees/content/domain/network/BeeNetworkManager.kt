@@ -320,7 +320,10 @@ object ServerBeeNetworkManager {
             }
         }
 
-        // Step 4: Link to a nearby block-based network (or clear stale links).
+        // Step 4: Keep the portable network's level in sync with the player's current dimension.
+        portableNetwork.level = playerLevel
+
+        // Step 5: Link to a nearby block-based network (or clear stale links).
         portableNetwork.clearLinks()
         val blockNetwork = networks.find { net ->
             net.level == playerLevel &&
