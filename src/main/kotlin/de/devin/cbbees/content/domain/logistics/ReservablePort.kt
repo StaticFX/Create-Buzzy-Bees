@@ -24,6 +24,9 @@ interface ReservablePort : INetworkComponent {
 
     fun walkTarget(): WalkTarget
 
+    /** Position where a flight-plan bee should hover to pick up or drop off items. */
+    fun gatherPos(): BlockPos = pos.above()
+
     fun priority(): Int
 
     fun hasItemStack(stack: ItemStack): Boolean

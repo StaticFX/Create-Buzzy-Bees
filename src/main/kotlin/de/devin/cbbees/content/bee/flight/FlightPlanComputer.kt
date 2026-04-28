@@ -7,7 +7,6 @@ import de.devin.cbbees.content.bee.flight.FlightPlanComputer.forConstruction
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -164,8 +163,7 @@ object FlightPlanComputer {
         val missing = computeMissingItems(bee, batch)
         if (missing.isNotEmpty()) {
             val provider = findBestProvider(network, missing, bee.id) ?: return null
-            val gatherPos = if (provider is PortableBeeHive) provider.pos.above(3) else provider.pos.above()
-            add(Checkpoint(gatherPos, GatherFromPort(missing, provider.id), clientPauseTicks = GATHER_PAUSE_TICKS))
+            add(Checkpoint(provider.gatherPos(), GatherFromPort(missing, provider.id), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val remainingTasks = batch.getRemainingTasks()
         var lastCheckpointPos = bee.blockPosition()

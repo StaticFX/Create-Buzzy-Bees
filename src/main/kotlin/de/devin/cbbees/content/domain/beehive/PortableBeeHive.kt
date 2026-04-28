@@ -220,6 +220,8 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         return WalkTarget(player.blockPosition().above(2), 1.0f, 1)
     }
 
+    override fun gatherPos(): BlockPos = player.blockPosition().above(3)
+
     /**
      * Portable beehive is always an anchor (BeeHive contract).
      * This takes precedence over [LogisticsPort]'s default of false.
