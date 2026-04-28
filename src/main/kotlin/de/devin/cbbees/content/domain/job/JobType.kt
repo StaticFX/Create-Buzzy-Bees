@@ -42,7 +42,7 @@ sealed interface JobType {
                     status = "SUMMARY",
                     target = job.centerPos,
                     required = emptyList(),
-                    assignedBeeIds = emptyList(),
+                    assignedBeeIds = job.batches.mapNotNull { it.assignedBeeId }.distinct(),
                     ghostBlocks = emptyMap()
                 )
             )
@@ -70,7 +70,7 @@ private fun perBatchSync(job: BeeJob): List<ClientBatchInfo> {
             status = b.status.name,
             target = b.targetPosition,
             required = emptyList(),
-            assignedBeeIds = emptyList(),
+            assignedBeeIds = listOfNotNull(b.assignedBeeId),
             ghostBlocks = collectGhostBlocks(b)
         )
     }

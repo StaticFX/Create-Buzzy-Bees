@@ -257,7 +257,7 @@ class HiveJobsSyncPacket(
                             .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
                             .flatMap { it.requiredItems }
                         ClientBatchInfo(
-                            b.status.name, b.targetPosition, required, emptyList(),
+                            b.status.name, b.targetPosition, required, listOfNotNull(b.assignedBeeId),
                             ghostBlocks = emptyMap()
                         )
                     }
