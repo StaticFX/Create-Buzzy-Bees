@@ -118,7 +118,6 @@ object ServerBeeManager {
         profiler.push("checkpoints")
         for (bee in snapshot) {
             if (bee.id in pendingRemovals) continue
-            bee._level = serverLevel
 
             val plan = bee.flightPlan
             if (plan == null || bee.currentCheckpointIndex >= plan.checkpoints.size) continue
@@ -131,7 +130,8 @@ object ServerBeeManager {
             val checkpoint = plan.checkpoints[bee.currentCheckpointIndex]
             bee.pos = Vec3.atCenterOf(checkpoint.pos)
 
-            val completed = checkpoint.action.onArrival(bee, serverLevel, gameTime)
+            val beeLevel = bee._level as? ServerLevel ?: serverLevel
+            val completed = checkpoint.action.onArrival(bee, beeLevel, gameTime)
             if (completed) {
                 if (checkpoint.action is ExecuteBeeAction) {
                     confirmBatch.add(BeeCheckpointConfirmPacket.Entry(bee.id, bee.currentCheckpointIndex))
@@ -159,7 +159,7 @@ object ServerBeeManager {
             // Only return bees that exited abnormally (spring signal), not those
             // already returned by their checkpoint action (e.g., EnterHive).
             if (bee != null && id in pendingReturns) {
-                returnBeeToHive(bee, level)
+                returnBeeToHive(bee, bee._level as? ServerLevel ?: level)
             }
         }
         pendingReturns.clear()
@@ -213,6 +213,7 @@ object ServerBeeManager {
             currentTask = batch
             constructionState = ConstructionBeeState.GATHERING
             cachedBeeContext = context
+            _level = hive.world
         }
 
         batch.assignToBee(bee.id, (level?.gameTime ?: 0L))
@@ -221,7 +222,8 @@ object ServerBeeManager {
 
         val network = ServerBeeNetworkManager.getNetwork(networkId, level!!)
         if (network != null) {
-            FlightPlanComputer.computeAsync(bee, batch, network, level!!) { plan ->
+            val beeLevel = bee._level as? ServerLevel ?: level!!
+            FlightPlanComputer.computeAsync(bee, batch, network, beeLevel) { plan ->
                 if (plan == null) {
                     // Flight plan failed (e.g., no provider for required materials).
                     // Return the bee to its hive and put the batch back to PENDING.
@@ -229,7 +231,7 @@ object ServerBeeManager {
                     CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan FAILED for bee ${bee.id.toString().substring(0, 6)}, returning to hive")
                     batch.releaseWithoutRetry()
                     removeBee(bee.id)
-                    returnBeeToHive(bee, level)
+                    returnBeeToHive(bee, bee._level as? ServerLevel ?: level)
                     return@computeAsync
                 }
                 CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
