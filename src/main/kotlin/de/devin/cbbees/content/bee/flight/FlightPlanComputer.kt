@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.bee.flight
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeAsync
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeTransportAsync
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.forConstruction
@@ -8,7 +9,6 @@ import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -163,7 +163,7 @@ object FlightPlanComputer {
         val missing = computeMissingItems(bee, batch)
         if (missing.isNotEmpty()) {
             val provider = findBestProvider(network, missing, bee.id) ?: return null
-            add(Checkpoint(provider.pos.above(), GatherFromPort(missing), clientPauseTicks = GATHER_PAUSE_TICKS))
+            add(Checkpoint(provider.pos.above(), GatherFromPort(missing, provider.id), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val remainingTasks = batch.getRemainingTasks()
         var lastCheckpointPos = bee.blockPosition()
@@ -360,8 +360,15 @@ object FlightPlanComputer {
         missing: List<ItemStack>,
         beeId: java.util.UUID,
     ): de.devin.cbbees.content.domain.logistics.LogisticsPort? {
+        val log = CreateBuzzyBeez.LOGGER
         val first = missing.firstOrNull() ?: return null
-        val provider = network.findAvailableProvider(first.copyWithCount(1), beeId) ?: return null
-        return if (provider is PortableBeeHive) null else provider
+        log.debug("[FlightPlan] Finding provider for ${first.hoverName.string} x${first.count}")
+        val provider = network.findAvailableProvider(first.copyWithCount(1), beeId)
+        if (provider == null) {
+            log.debug("[FlightPlan] No available provider found for ${first.hoverName.string}")
+        } else {
+            log.debug("[FlightPlan] Selected provider: ${provider.javaClass.simpleName} at ${provider.pos}")
+        }
+        return provider
     }
 }

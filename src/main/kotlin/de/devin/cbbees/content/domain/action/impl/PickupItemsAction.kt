@@ -5,6 +5,7 @@ import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
@@ -46,8 +47,8 @@ class PickupItemsAction(private val targetPos: BlockPos) : BeeAction {
 
     override fun getDescription() = "Picking up items at (${targetPos.x}, ${targetPos.y}, ${targetPos.z})"
 
-    fun save(): net.minecraft.nbt.CompoundTag {
-        val tag = net.minecraft.nbt.CompoundTag()
+    fun save(): CompoundTag {
+        val tag = CompoundTag()
         tag.putInt("X", targetPos.x)
         tag.putInt("Y", targetPos.y)
         tag.putInt("Z", targetPos.z)
@@ -55,8 +56,8 @@ class PickupItemsAction(private val targetPos: BlockPos) : BeeAction {
     }
 
     companion object {
-        fun load(tag: net.minecraft.nbt.CompoundTag): PickupItemsAction {
-            return PickupItemsAction(net.minecraft.core.BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
+        fun load(tag: CompoundTag): PickupItemsAction {
+            return PickupItemsAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
         }
     }
 }

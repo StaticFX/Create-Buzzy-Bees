@@ -7,6 +7,7 @@ import de.devin.cbbees.content.bee.flight.ClientBeeFlightData
 import de.devin.cbbees.content.bee.flight.ClientCheckpoint
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.job.JobCalculationProgress
+import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.network.JobProgressPacket
 import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.ChatFormatting
@@ -85,6 +86,20 @@ object BeeDebugCommand {
                             ctx.source.sendSuccess({
                                 Component.literal("Playing toast animation").withStyle(ChatFormatting.GREEN)
                             }, false)
+                            1
+                        }
+                )
+                .then(
+                    Commands.literal("resetnetworks")
+                        .requires { it.hasPermission(2) }
+                        .executes { ctx ->
+                            val count = ServerBeeNetworkManager.getNetworks().size
+                            ServerBeeNetworkManager.clear()
+                            // Re-register all block entities — they'll rebuild networks from scratch on next tick
+                            ctx.source.sendSuccess({
+                                Component.literal("Cleared $count networks. Re-equip backpacks and reload chunks to rebuild.")
+                                    .withStyle(ChatFormatting.YELLOW)
+                            }, true)
                             1
                         }
                 )

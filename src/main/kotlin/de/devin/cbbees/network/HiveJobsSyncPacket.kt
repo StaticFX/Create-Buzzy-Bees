@@ -212,7 +212,17 @@ class HiveJobsSyncPacket(
                 }
                 .map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
-                    val reason = StuckReasonResolver.firstReasonOrNull(net, job)
+                    // Use the job's actual dispatching network for stuck detection.
+                    // A portable hive job may appear in range of this block network but
+                    // its stuck reasons should be evaluated against the portable network
+                    // (which has links to block networks and proper port visibility).
+                    val jobNetworkId = job.batches.firstNotNullOfOrNull { it.assignedNetworkId }
+                    val jobNetwork = if (jobNetworkId != null && jobNetworkId != net.id) {
+                        ServerBeeNetworkManager.getNetwork(jobNetworkId) ?: net
+                    } else {
+                        net
+                    }
+                    val reason = StuckReasonResolver.firstReasonOrNull(jobNetwork, job)
                     ClientJobInfo(
                         jobId = job.jobId,
                         name = job.jobId.toString().substring(0, 6).uppercase(),
@@ -234,6 +244,12 @@ class HiveJobsSyncPacket(
             val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
 
+            // Use the player's portable hive network as the primary source for stuck detection.
+            // This is more reliable than guessing from batch assignedNetworkId, which gets
+            // cleared on dispatch failure.
+            val portableHive = ServerBeeNetworkManager.findPortableHive(player.uuid)
+            val playerNetwork = portableHive?.let { ServerBeeNetworkManager.getNetworkFor(it) }
+
             val clientJobs = jobs.map { job ->
                     val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
                     val batches = job.batches.map { b ->
@@ -245,19 +261,21 @@ class HiveJobsSyncPacket(
                             ghostBlocks = emptyMap()
                         )
                     }
-                    val networkId = job.batches.firstOrNull()?.assignedNetworkId
-                    val network = if (networkId != null) {
-                        ServerBeeNetworkManager.getNetwork(networkId)
-                    } else {
-                        ServerBeeNetworkManager.getNetworks().firstOrNull {
-                            val comp = it.components.firstOrNull()
-                            comp != null && comp.world == job.level && it.isInRange(job.centerPos)
+                    val network = playerNetwork ?: run {
+                        val networkId = job.batches.firstNotNullOfOrNull { it.assignedNetworkId }
+                        if (networkId != null) {
+                            ServerBeeNetworkManager.getNetwork(networkId)
+                        } else {
+                            ServerBeeNetworkManager.getNetworks().firstOrNull {
+                                val comp = it.components.firstOrNull()
+                                comp != null && comp.world == job.level && it.isInRange(job.centerPos)
+                            }
                         }
                     }
                     val reason = if (network != null) {
                         StuckReasonResolver.firstReasonOrNull(network, job)
                     } else {
-                        null
+                        "cbbees.stall.no_network"
                     }
                     ClientJobInfo(
                         job.jobId,
@@ -271,7 +289,18 @@ class HiveJobsSyncPacket(
                         jobType = job.jobType
                     )
                 }
-            val snapshot = HiveSnapshot(ClientNetworkInfo("Personal", 0, 0, 0), clientJobs)
+            val ni = if (playerNetwork != null) {
+                val hiveList = playerNetwork.hives
+                ClientNetworkInfo(
+                    playerNetwork.name,
+                    hiveList.sumOf { it.getActiveBeeCount() },
+                    hiveList.sumOf { it.getAvailableBeeCount() },
+                    hiveList.sumOf { it.getBeeContext().maxActiveBees }
+                )
+            } else {
+                ClientNetworkInfo("Personal", 0, 0, 0)
+            }
+            val snapshot = HiveSnapshot(ni, clientJobs)
             PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(BlockPos.ZERO, snapshot))
         }
     }

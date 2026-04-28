@@ -1,15 +1,14 @@
 package de.devin.cbbees.content.bee.flight
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
-import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -18,6 +17,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
+import java.util.UUID
 
 /**
  * Fly-through waypoint — always advances immediately.
@@ -30,41 +30,64 @@ object FlyThrough : CheckpointAction {
 }
 
 /**
- * Pick up items from a logistics port. Validates the port still exists and has stock.
- * Returns `false` if the port was destroyed (triggers flight plan recomputation).
+ * Pick up items from a specific logistics port. The [providerId] identifies the port
+ * selected during flight planning, ensuring the bee gathers from the intended source.
+ * Falls back to a network-wide scan if the original port is no longer available.
  *
  * @param items the items this bee needs to pick up
+ * @param providerId the UUID of the logistics port selected by the flight planner
  * @see CheckpointAction
  */
-class GatherFromPort(private val items: List<ItemStack>) : CheckpointAction {
+class GatherFromPort(private val items: List<ItemStack>, private val providerId: UUID) : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val network = bee.network() ?: return false
+        val log = CreateBuzzyBeez.LOGGER
+        val network = bee.network()
+        if (network == null) {
+            log.debug("[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network"); return false
+        }
 
+        val targetPort = network.ports.firstOrNull { it.id == providerId }
+        log.debug(
+            "[GatherFromPort] Bee ${
+                bee.id.toString().substring(0, 6)
+            } arrived, gathering ${items.size} item type(s) from ${targetPort?.javaClass?.simpleName ?: "fallback"}"
+        )
         var allGathered = true
         items.forEach { item ->
-            if (bee.isInventoryFull()) return@forEach
-            val searchStack = item.copyWithCount(1)
-            val provider = network.findAvailableProvider(searchStack, bee.id) ?: run {
+            if (bee.isInventoryFull()) {
+                log.debug("[GatherFromPort] Bee inventory full"); return@forEach
+            }
+            // Use the planned provider if it still has the item, otherwise fall back to network scan
+            val provider = if (targetPort != null && targetPort.hasItemStack(item)) {
+                targetPort
+            } else {
+                network.findAvailableProvider(item.copyWithCount(1), bee.id)
+            }
+
+            if (provider == null) {
+                log.debug("[GatherFromPort] No reachable provider for ${item.hoverName.string}")
                 allGathered = false
                 return@forEach
             }
-            if (provider is PortableBeeHive) { allGathered = false; return@forEach }
 
             if (provider.hasItemStack(item) && provider.removeItemStack(item)) {
                 val remainder = bee.addToInventory(item.copy())
                 if (!remainder.isEmpty) provider.addItemStack(remainder)
                 bee.consumeSpring(CBBeesConfig.springDrainPickup.get())
+                log.debug("[GatherFromPort] Gathered ${item.hoverName.string} x${item.count} from ${provider.javaClass.simpleName}")
             } else {
+                log.debug("[GatherFromPort] Provider ${provider.javaClass.simpleName} hasItemStack=false for ${item.hoverName.string}")
                 allGathered = false
             }
         }
 
-        if (allGathered) return true
+        if (allGathered) {
+            log.debug("[GatherFromPort] All items gathered successfully")
+            return true
+        }
 
-        // Items not available — another bee took them or provider was emptied.
-        // Return home immediately and release the batch so the stall system
-        // can report it and the batch gets redispatched when items are restocked.
+        log.debug("[GatherFromPort] Gather FAILED, releasing batch and killing bee")
         bee.currentTask?.releaseWithoutRetry()
         bee.springTension = -9999f
         return false
@@ -132,11 +155,15 @@ object ActionThrottle {
     private var lastTick = -1L
 
     fun canExecute(gameTime: Long): Boolean {
-        if (gameTime != lastTick) { lastTick = gameTime; opsThisTick = 0 }
+        if (gameTime != lastTick) {
+            lastTick = gameTime; opsThisTick = 0
+        }
         return opsThisTick < CBBeesConfig.maxBlockOperationsPerTick.get()
     }
 
-    fun record() { opsThisTick++ }
+    fun record() {
+        opsThisTick++
+    }
 }
 
 /**
@@ -204,7 +231,14 @@ class CheckForNextWork : CheckpointAction {
 class EnterHive : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val hive = bee.hiveInstance ?: return false
+        val log = CreateBuzzyBeez.LOGGER
+        val hive = bee.hiveInstance ?: run {
+            log.debug(
+                "[EnterHive] Bee ${
+                    bee.id.toString().substring(0, 6)
+                }: no hiveInstance"
+            ); return false
+        }
 
         val deficit = 1.0f - bee.springTension
         hive.chargeReturnFuel(deficit, bee.getBeeContext())
@@ -217,14 +251,24 @@ class EnterHive : CheckpointAction {
         )
 
         if (hive.returnBee(beeItem)) {
-            (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+            hive.onBeeRemovedById(bee.id)
+            log.debug(
+                "[EnterHive] Bee ${
+                    bee.id.toString().substring(0, 6)
+                } returned to ${hive.javaClass.simpleName}, activeBees=${hive.getActiveBeeCount()}"
+            )
             ServerBeeManager.removeBee(bee.id)
             return true
         }
 
         bee.dropInventory()
         level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
-        (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+        hive.onBeeRemovedById(bee.id)
+        log.debug(
+            "[EnterHive] Bee ${
+                bee.id.toString().substring(0, 6)
+            } dropped as item (hive full), activeBees=${hive.getActiveBeeCount()}"
+        )
         ServerBeeManager.removeBee(bee.id)
         return true
     }

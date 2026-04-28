@@ -10,8 +10,13 @@ import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
+import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.registries.Registries
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.ListTag
+import net.minecraft.nbt.NbtUtils
+import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -76,16 +81,16 @@ class PlaceBlockAction(
         return "Placing $blockName at (${pos.x}, ${pos.y}, ${pos.z})"
     }
 
-    fun save(registries: net.minecraft.core.HolderLookup.Provider): CompoundTag {
+    fun save(registries: HolderLookup.Provider): CompoundTag {
         val tag = CompoundTag()
         tag.putInt("X", pos.x)
         tag.putInt("Y", pos.y)
         tag.putInt("Z", pos.z)
-        tag.put("BlockState", net.minecraft.nbt.NbtUtils.writeBlockState(blockState))
+        tag.put("BlockState", NbtUtils.writeBlockState(blockState))
         if (blockEntityTag != null) {
             tag.put("BlockEntityTag", blockEntityTag.copy())
         }
-        val itemList = net.minecraft.nbt.ListTag()
+        val itemList = ListTag()
         requiredItems.forEach { stack ->
             itemList.add(stack.save(registries))
         }
@@ -94,14 +99,14 @@ class PlaceBlockAction(
     }
 
     companion object {
-        fun load(tag: CompoundTag, registries: net.minecraft.core.HolderLookup.Provider): PlaceBlockAction {
+        fun load(tag: CompoundTag, registries: HolderLookup.Provider): PlaceBlockAction {
             val pos = BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z"))
-            val blockLookup = registries.lookupOrThrow(net.minecraft.core.registries.Registries.BLOCK)
-            val blockState = net.minecraft.nbt.NbtUtils.readBlockState(blockLookup, tag.getCompound("BlockState"))
+            val blockLookup = registries.lookupOrThrow(Registries.BLOCK)
+            val blockState = NbtUtils.readBlockState(blockLookup, tag.getCompound("BlockState"))
             val blockEntityTag = if (tag.contains("BlockEntityTag")) tag.getCompound("BlockEntityTag").copy() else null
-            val itemList = tag.getList("RequiredItems", net.minecraft.nbt.Tag.TAG_COMPOUND.toInt())
+            val itemList = tag.getList("RequiredItems", Tag.TAG_COMPOUND.toInt())
             val items = (0 until itemList.size).mapNotNull { i ->
-                net.minecraft.world.item.ItemStack.parse(registries, itemList.getCompound(i)).orElse(null)
+                ItemStack.parse(registries, itemList.getCompound(i)).orElse(null)
             }
             return PlaceBlockAction(pos, blockState, blockEntityTag, items)
         }

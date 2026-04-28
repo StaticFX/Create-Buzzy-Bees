@@ -15,13 +15,14 @@ object StuckReasonResolver {
         if (pendingBatches.any { !network.isInRange(it.targetPosition) })
             return "cbbees.stall.out_of_range"
 
-        // Collect all missing items across all pending batches
+        // Collect all missing items across all pending batches.
+        // A provider only counts as available if at least one hive can reach it.
         val allMissing = mutableMapOf<String, Int>()
         pendingBatches.forEach { b ->
             b.tasks.map { it.action }
                 .filterIsInstance<ItemConsumingAction>()
                 .flatMap { it.requiredItems }
-                .filter { req -> network.findAvailableProvider(req) == null }
+                .filter { req -> !isProviderReachable(network, req) }
                 .forEach { stack ->
                     val name = stack.hoverName.string
                     allMissing[name] = (allMissing[name] ?: 0) + stack.count
@@ -51,5 +52,14 @@ object StuckReasonResolver {
         if (totalBees <= 0) return "cbbees.stall.no_bees"
 
         return null
+    }
+
+    /**
+     * Checks if a provider with the given item exists AND is reachable by at least one hive.
+     * Mirrors the logic in [FlightPlanComputer.findBestProvider] which rejects providers
+     * that are out of work range or belong to a different player's portable beehive.
+     */
+    private fun isProviderReachable(network: BeeNetwork, req: ItemStack): Boolean {
+        return network.findAvailableProvider(req) != null
     }
 }

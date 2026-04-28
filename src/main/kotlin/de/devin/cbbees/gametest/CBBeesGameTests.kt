@@ -24,6 +24,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.construction.ConstructionTests::class.java,
         de.devin.cbbees.gametest.transport.TransportTests::class.java,
         de.devin.cbbees.gametest.portable.PortableBeehiveTests::class.java,
+        de.devin.cbbees.gametest.network.NetworkLinkingTests::class.java,
     )
 
     fun onRegisterGameTests(event: RegisterGameTestsEvent) {

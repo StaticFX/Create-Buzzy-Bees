@@ -144,6 +144,12 @@ interface BeeHive : INetworkComponent {
      */
     fun onBeeRemoved(bee: Entity) {}
 
+    /**
+     * Called when a bee from this source is removed by UUID.
+     * Used when only the bee ID is available (e.g., during server shutdown cleanup).
+     */
+    fun onBeeRemovedById(beeId: java.util.UUID) {}
+
     override fun isAnchor(): Boolean = true
 
     override fun getNetworkingRange(): Double = Math.max(getWorkRange(), 8.0)

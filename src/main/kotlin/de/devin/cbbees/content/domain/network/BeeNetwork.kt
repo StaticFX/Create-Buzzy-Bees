@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.network
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
@@ -25,18 +26,37 @@ class BeeNetwork(
     private val _components = mutableSetOf<INetworkComponent>()
     val components: MutableSet<INetworkComponent> get() = _components
 
+    /**
+     * One-directional links to other networks. Used by portable beehive networks to
+     * access ports from nearby block-based networks without joining them as a component.
+     * The linked network's ports are visible through [ports] filtered by hive work range.
+     */
+    private val _linkedNetworks = mutableSetOf<BeeNetwork>()
+
+    fun linkNetwork(other: BeeNetwork) {
+        _linkedNetworks.add(other)
+    }
+
+    fun unlinkNetwork(other: BeeNetwork) {
+        _linkedNetworks.remove(other)
+    }
+
+    fun clearLinks() {
+        _linkedNetworks.clear()
+    }
+
     private var _hives: List<BeeHive>? = null
-    private var _ports: List<LogisticsPort>? = null
-    private var _transportPorts: List<TransportPort>? = null
-    private var _reservablePorts: List<ReservablePort>? = null
-    private var _transportPortsByPos: Map<BlockPos, TransportPort>? = null
+    private var _ownPorts: List<LogisticsPort>? = null
+    private var _ownTransportPorts: List<TransportPort>? = null
+    private var _ownReservablePorts: List<ReservablePort>? = null
+    private var _ownTransportPortsByPos: Map<BlockPos, TransportPort>? = null
 
     private fun invalidateComponentCaches() {
         _hives = null
-        _ports = null
-        _transportPorts = null
-        _reservablePorts = null
-        _transportPortsByPos = null
+        _ownPorts = null
+        _ownTransportPorts = null
+        _ownReservablePorts = null
+        _ownTransportPortsByPos = null
     }
 
     /**
@@ -66,16 +86,57 @@ class BeeNetwork(
             false
         }
         if (removed) {
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.warn("[NET] Purged stale/out-of-range component(s) from network $id")
+            CreateBuzzyBeez.LOGGER.warn("[NET] Purged stale/out-of-range component(s) from network $id")
             invalidateComponentCaches()
         }
     }
 
+    /** Own hives only — dispatch is always from own hives, never from linked networks. */
     val hives: List<BeeHive> get() = _hives ?: components.filterIsInstance<BeeHive>().also { _hives = it }
-    val ports: List<LogisticsPort> get() = _ports ?: components.filterIsInstance<LogisticsPort>().also { _ports = it }
-    val transportPorts: List<TransportPort> get() = _transportPorts ?: components.filterIsInstance<TransportPort>().also { _transportPorts = it }
-    val transportPortsByPos: Map<BlockPos, TransportPort> get() = _transportPortsByPos ?: transportPorts.associateBy { it.pos }.also { _transportPortsByPos = it }
-    val reservablePorts: List<ReservablePort> get() = _reservablePorts ?: components.filterIsInstance<ReservablePort>().also { _reservablePorts = it }
+
+    /** Own ports (cached). */
+    val ownPorts: List<LogisticsPort>
+        get() = _ownPorts ?: components.filterIsInstance<LogisticsPort>().also { _ownPorts = it }
+    val ownTransportPorts: List<TransportPort>
+        get() = _ownTransportPorts ?: components.filterIsInstance<TransportPort>().also { _ownTransportPorts = it }
+    val ownReservablePorts: List<ReservablePort>
+        get() = _ownReservablePorts ?: components.filterIsInstance<ReservablePort>().also { _ownReservablePorts = it }
+
+    /**
+     * All visible ports: own ports + reachable ports from linked networks.
+     * Linked ports are filtered by hive work range (not cached, since the player moves).
+     * For networks without links this returns the cached [ownPorts] directly.
+     */
+    val ports: List<LogisticsPort>
+        get() {
+            if (_linkedNetworks.isEmpty()) return ownPorts
+            return ownPorts + _linkedNetworks.flatMap { linked ->
+                linked.ownPorts.filter { port -> hives.any { it.isInWorkRange(port.pos) } }
+            }
+        }
+
+    val transportPorts: List<TransportPort>
+        get() {
+            if (_linkedNetworks.isEmpty()) return ownTransportPorts
+            return ownTransportPorts + _linkedNetworks.flatMap { linked ->
+                linked.ownTransportPorts.filter { port -> hives.any { it.isInWorkRange(port.pos) } }
+            }
+        }
+
+    val transportPortsByPos: Map<BlockPos, TransportPort>
+        get() {
+            if (_linkedNetworks.isEmpty()) return _ownTransportPortsByPos ?: ownTransportPorts.associateBy { it.pos }
+                .also { _ownTransportPortsByPos = it }
+            return transportPorts.associateBy { it.pos }
+        }
+
+    val reservablePorts: List<ReservablePort>
+        get() {
+            if (_linkedNetworks.isEmpty()) return ownReservablePorts
+            return ownReservablePorts + _linkedNetworks.flatMap { linked ->
+                linked.ownReservablePorts.filter { port -> hives.any { it.isInWorkRange(port.pos) } }
+            }
+        }
 
     /**
      * The aggregate operational range of all anchors in this network.
@@ -108,8 +169,17 @@ class BeeNetwork(
     }
 
     fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(stack, excludeBeeId) }
-            .maxByOrNull { it.priority() }
+        return findAvailableProviders(stack, excludeBeeId).firstOrNull()
+    }
+
+    fun findAvailableProviders(stack: ItemStack, excludeBeeId: UUID? = null): List<LogisticsPort> {
+        return ports.filter {
+            it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(
+                stack,
+                excludeBeeId
+            )
+        }
+            .sortedByDescending { it.priority() }
     }
 
     fun releaseReservations(beeId: UUID) {
@@ -124,20 +194,24 @@ class BeeNetwork(
         reservablePorts.forEach { it.clearReservations() }
     }
 
-    fun dispatchBatch(batch: TaskBatch) {
+    fun dispatchBatch(batch: TaskBatch): Boolean {
         val candidates = hives.filter {
             topology.isOperationalRange(it, batch.targetPosition) &&
                     it.getAvailableBeeCount() > 0
         }.sortedBy { it.pos.distSqr(batch.targetPosition) }
 
         for (hive in candidates) {
-            if (hive.acceptBatch(batch)) return
+            if (hive.acceptBatch(batch)) {
+                CreateBuzzyBeez.LOGGER.debug("[DispatchBatch] Accepted by ${hive.javaClass.simpleName} at ${hive.pos}")
+                return true
+            }
         }
+        return false
     }
 
     fun canConnect(component: INetworkComponent): Boolean {
         if (components.isEmpty()) {
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: network $id is EMPTY → true")
+            CreateBuzzyBeez.LOGGER.info("[NET] canConnect: network $id is EMPTY → true")
             return true
         }
         val firstComp = components.first()
@@ -150,12 +224,7 @@ class BeeNetwork(
         }
 
         val inRange = isInLogisticsRange(component.pos)
-        val anchors = components.filter { topology.isAnchor(it) }
-        for (anchor in anchors) {
-            val anchorInWorkRange = anchor.isInWorkRange(component.pos)
-            de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: port at ${component.pos} vs anchor at ${anchor.pos}, isInWorkRange=$anchorInWorkRange")
-        }
-        de.devin.cbbees.CreateBuzzyBeez.LOGGER.info("[NET]   canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
+        CreateBuzzyBeez.LOGGER.info("[NET] canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
         return inRange
     }
 

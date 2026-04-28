@@ -260,40 +260,59 @@ object ServerBeeNetworkManager {
     fun reconnectPortableHive(hive: PortableBeeHive) {
         val playerPos = hive.player.blockPosition()
         val playerLevel = hive.player.level()
+        val stableId = stableNetworkId(hive.player.uuid)
 
-        val currentNetwork = getNetworkFor(hive)
+        // Step 1: Remove the hive from ANY network that isn't its own portable network.
+        // This cleans up stale membership from old saves or previous code paths.
+        var needsRebuild = false
+        for (net in networks) {
+            if (net.id != stableId && net.components.contains(hive)) {
+                net.removeComponent(hive)
+                CreateBuzzyBeez.LOGGER.debug("[NET] Removed stale PortableBeeHive from network {}", net.id)
+                needsRebuild = true
+            }
+        }
+        if (needsRebuild) rebuildIndexes()
 
-        val blockNetwork = networks.find { net ->
-            net.level == playerLevel &&
-                net.isInRange(playerPos) &&
-                net.components.any { it.isAnchor() && it !is PortableBeeHive }
+        // Step 2: If a network with the stable ID exists but contains block components,
+        // it's corrupted (old save where the portable hive's ID leaked to a block network).
+        // Evict block components into a fresh network so the stable ID is reclaimed.
+        var portableNetwork = networks.find { it.id == stableId }
+        if (portableNetwork != null) {
+            val blockComponents = portableNetwork.components.filter { it !is PortableBeeHive }
+            if (blockComponents.isNotEmpty()) {
+                CreateBuzzyBeez.LOGGER.warn("[NET] Healing corrupted network $stableId: evicting ${blockComponents.size} block component(s)")
+                val freshNetwork = BeeNetwork()
+                blockComponents.forEach { comp ->
+                    portableNetwork!!.removeComponent(comp)
+                    freshNetwork.addComponent(comp)
+                }
+                networks.add(freshNetwork)
+                rebuildIndexes()
+            }
         }
 
-        if (blockNetwork != null) {
-            if (currentNetwork != blockNetwork) {
-                if (currentNetwork != null) {
-                    currentNetwork.removeComponent(hive)
-                    if (currentNetwork.components.isEmpty()) {
-                        networks.remove(currentNetwork)
-                    }
-                }
-                blockNetwork.addComponent(hive)
+        // Step 3: Ensure the hive is in its own portable network.
+        if (portableNetwork == null || !portableNetwork.components.contains(hive)) {
+            hive.networkId = stableId
+            if (portableNetwork == null) {
+                registerComponent(hive)
+                portableNetwork = getNetworkFor(hive) ?: return
+            } else {
+                portableNetwork.addComponent(hive)
                 rebuildIndexes()
-                CreateBuzzyBeez.LOGGER.debug("Reconnected portable hive for ${hive.player.name.string} to block network ${blockNetwork.id}")
             }
-        } else {
-            if (currentNetwork != null && currentNetwork.components.any { it.isAnchor() && it !is PortableBeeHive }) {
-                currentNetwork.removeComponent(hive)
-                if (currentNetwork.components.isEmpty()) {
-                    networks.remove(currentNetwork)
-                }
-                hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive)
-                CreateBuzzyBeez.LOGGER.debug("Detached portable hive for ${hive.player.name.string} into isolated network")
-            } else if (currentNetwork == null) {
-                hive.networkId = stableNetworkId(hive.player.uuid)
-                registerComponent(hive)
-            }
+        }
+
+        // Step 4: Link to a nearby block-based network (or clear stale links).
+        portableNetwork.clearLinks()
+        val blockNetwork = networks.find { net ->
+            net.level == playerLevel &&
+                    net.isInRange(playerPos) &&
+                    net.components.any { it.isAnchor() && it !is PortableBeeHive }
+        }
+        if (blockNetwork != null) {
+            portableNetwork.linkNetwork(blockNetwork)
         }
     }
 

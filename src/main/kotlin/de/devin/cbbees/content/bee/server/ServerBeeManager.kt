@@ -7,7 +7,6 @@ import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
 import de.devin.cbbees.content.bee.state.*
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.items.AllItems
@@ -88,7 +87,7 @@ object ServerBeeManager {
                     )
                 }
             }
-            (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+            hive.onBeeRemovedById(bee.id)
         } else if (currentLevel != null) {
             currentLevel.addFreshEntity(
                 ItemEntity(currentLevel, bee.pos.x, bee.pos.y, bee.pos.z, beeItem)
@@ -226,11 +225,13 @@ object ServerBeeManager {
                     // Flight plan failed (e.g., no provider for required materials).
                     // Return the bee to its hive and put the batch back to PENDING.
                     // Don't count as a retry — material unavailability is transient.
+                    CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan FAILED for bee ${bee.id.toString().substring(0, 6)}, returning to hive")
                     batch.releaseWithoutRetry()
                     removeBee(bee.id)
                     returnBeeToHive(bee, level)
                     return@computeAsync
                 }
+                CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
                 bee.flightPlan = plan
                 bee.planStartTick = level!!.gameTime
                 bee.currentCheckpointIndex = 0

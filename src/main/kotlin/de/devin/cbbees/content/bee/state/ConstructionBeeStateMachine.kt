@@ -6,7 +6,6 @@ import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
@@ -265,14 +264,14 @@ object ConstructionBeeStateMachine {
         val beeItem = ItemStack(CBeesItems.MECHANICAL_BEE.get())
         if (hive.returnBee(beeItem)) {
             // Update hive tracking before removing the bee
-            (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+            hive.onBeeRemovedById(bee.id)
             ServerBeeManager.removeBee(bee.id)
         } else {
             bee.hiveEntryRetries++
             if (bee.hiveEntryRetries >= 3) {
                 level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
                 bee.dropInventory()
-                (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+                hive.onBeeRemovedById(bee.id)
                 ServerBeeManager.removeBee(bee.id)
             }
         }

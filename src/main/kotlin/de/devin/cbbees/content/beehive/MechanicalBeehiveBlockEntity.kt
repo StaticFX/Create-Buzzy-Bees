@@ -124,7 +124,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         onBeeRemovedById(bee.uuid)
     }
 
-    fun onBeeRemovedById(beeId: UUID) {
+    override fun onBeeRemovedById(beeId: UUID) {
         var found = false
         val iter = activeBeesByJob.iterator()
         while (iter.hasNext()) {

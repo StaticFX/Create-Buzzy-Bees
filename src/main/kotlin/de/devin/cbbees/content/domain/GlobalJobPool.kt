@@ -31,9 +31,11 @@ object GlobalJobPool : JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
+    private var lastRedispatchLogTick = 0L
     private val REDISPATCH_INTERVAL: Int get() = CBBeesConfig.redispatchInterval.get()
     private const val WATCHDOG_INTERVAL = 20
     private const val STALE_BATCH_TICKS = 600L
+    private const val LOG_INTERVAL_TICKS = 100L // ~5 seconds
 
     /** Reference to the SavedData wrapper for dirty-marking. */
     var savedData: SavedData? = null
@@ -229,6 +231,13 @@ object GlobalJobPool : JobPool {
         val allNetworks = ServerBeeNetworkManager.getNetworks()
         if (allNetworks.isEmpty()) return
 
+        val log = CreateBuzzyBeez.LOGGER
+        val verbose = gameTime - lastRedispatchLogTick >= LOG_INTERVAL_TICKS
+
+        // Throttled summary counters
+        var noRetry = 0; var noWorld = 0; var noRange = 0; var noBees = 0; var noMaterials = 0; var noCapacity = 0
+        var totalPending = 0
+
         var dispatched = 0
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
@@ -236,7 +245,8 @@ object GlobalJobPool : JobPool {
             for (batch in job.batches) {
                 if (dispatched >= maxDispatchesPerCycle) return
                 if (batch.status != TaskStatus.PENDING) continue
-                if (!batch.canRetry()) continue
+                totalPending++
+                if (!batch.canRetry()) { noRetry++; continue }
                 if (!batch.isCooldownElapsed(gameTime)) continue
                 if (!job.isPhaseReady(batch.phase)) continue
 
@@ -244,15 +254,15 @@ object GlobalJobPool : JobPool {
                     val firstComp = network.components.firstOrNull()
                     firstComp != null && firstComp.world == job.level
                 }
-                if (inWorldNetworks.isEmpty()) continue
+                if (inWorldNetworks.isEmpty()) { noWorld++; continue }
 
                 val inRangeNetworks = inWorldNetworks.filter { it.isInRange(batch.targetPosition) }
-                if (inRangeNetworks.isEmpty()) continue
+                if (inRangeNetworks.isEmpty()) { noRange++; continue }
 
                 val withBees = inRangeNetworks.filter { network ->
-                    network.hives.any { it.getAvailableBeeCount() > 0 }
+                    network.hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }
                 }
-                if (withBees.isEmpty()) continue
+                if (withBees.isEmpty()) { noBees++; continue }
 
                 val withPorts = if (batch.beeType == BeeType.TRANSPORT) {
                     withBees.filter { it.findDropOff(net.minecraft.world.item.ItemStack.EMPTY) != null }
@@ -263,12 +273,21 @@ object GlobalJobPool : JobPool {
                     network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
                 } ?: continue
 
-                if (!hasMaterialsAvailable(batch, targetNetwork)) continue
+                if (!hasMaterialsAvailable(batch, targetNetwork)) { noMaterials++; continue }
 
                 batch.assignedNetworkId = targetNetwork.id
-                targetNetwork.dispatchBatch(batch)
-                dispatched++
+                if (targetNetwork.dispatchBatch(batch)) {
+                    dispatched++
+                } else {
+                    noCapacity++
+                    batch.assignedNetworkId = null
+                }
             }
+        }
+
+        if (verbose && totalPending > 0) {
+            lastRedispatchLogTick = gameTime
+            log.debug("[Redispatch] pending=$totalPending, dispatched=$dispatched | blocked: noRetry=$noRetry, noWorld=$noWorld, noRange=$noRange, noBees=$noBees, noMaterials=$noMaterials, noCapacity=$noCapacity | networks=${allNetworks.size}")
         }
     }
 

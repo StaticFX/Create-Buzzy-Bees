@@ -4,6 +4,7 @@ import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -48,8 +49,8 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     override fun shouldReturnAfter(context: BeeContext) = false
     override fun getDescription() = "Dropping off items at (${pos.x}, ${pos.y}, ${pos.z})"
 
-    fun save(): net.minecraft.nbt.CompoundTag {
-        val tag = net.minecraft.nbt.CompoundTag()
+    fun save(): CompoundTag {
+        val tag = CompoundTag()
         tag.putInt("X", _pos.x)
         tag.putInt("Y", _pos.y)
         tag.putInt("Z", _pos.z)
@@ -57,7 +58,7 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     }
 
     companion object {
-        fun load(tag: net.minecraft.nbt.CompoundTag): DropOffItemsAction {
+        fun load(tag: CompoundTag): DropOffItemsAction {
             return DropOffItemsAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
         }
     }

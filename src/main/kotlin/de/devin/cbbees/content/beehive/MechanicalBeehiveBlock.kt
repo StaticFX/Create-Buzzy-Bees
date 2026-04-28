@@ -7,6 +7,8 @@ import de.devin.cbbees.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.Direction.Axis
+import net.minecraft.world.Containers
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.LevelReader
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -24,6 +26,21 @@ class MechanicalBeehiveBlock(properties: Properties) : KineticBlock(properties),
     }
 
     // No right-click GUI — use goggles for network info, click job AABB for job details
+
+    override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, movedByPiston: Boolean) {
+        if (!state.`is`(newState.block)) {
+            val be = getBlockEntity(level, pos)
+            if (be != null) {
+                for (i in 0 until be.beeInventory.slots) {
+                    val stack = be.beeInventory.getStackInSlot(i)
+                    if (!stack.isEmpty) {
+                        Containers.dropItemStack(level, pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble(), stack)
+                    }
+                }
+            }
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston)
+    }
 
     override fun getBlockEntityType(): BlockEntityType<out MechanicalBeehiveBlockEntity> {
         return AllBlockEntityTypes.MECHANICAL_BEEHIVE.get()

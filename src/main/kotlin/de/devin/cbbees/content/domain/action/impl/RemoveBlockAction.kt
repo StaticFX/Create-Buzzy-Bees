@@ -8,6 +8,7 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
@@ -86,8 +87,8 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
     override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
 
-    fun save(): net.minecraft.nbt.CompoundTag {
-        val tag = net.minecraft.nbt.CompoundTag()
+    fun save(): CompoundTag {
+        val tag = CompoundTag()
         tag.putInt("X", pos.x)
         tag.putInt("Y", pos.y)
         tag.putInt("Z", pos.z)
@@ -95,7 +96,7 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     }
 
     companion object {
-        fun load(tag: net.minecraft.nbt.CompoundTag): RemoveBlockAction {
+        fun load(tag: CompoundTag): RemoveBlockAction {
             return RemoveBlockAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
         }
     }

@@ -6,7 +6,6 @@ import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.items.AllItems as CBeesItems
@@ -138,14 +137,14 @@ object TransportBeeStateMachine {
                 hive.chargeReturnFuel(1.0f - bee.springTension, bee.getBeeContext())
                 val beeItem = ItemStack(CBeesItems.MECHANICAL_BUMBLE_BEE.get())
                 if (hive.returnBee(beeItem)) {
-                    (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+                    hive.onBeeRemovedById(bee.id)
                     ServerBeeManager.removeBee(bee.id)
                 } else {
                     bee.hiveEntryRetries++
                     if (bee.hiveEntryRetries >= 3) {
                         level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
                         bee.dropInventory()
-                        (hive as? MechanicalBeehiveBlockEntity)?.onBeeRemovedById(bee.id)
+                        hive.onBeeRemovedById(bee.id)
                         ServerBeeManager.removeBee(bee.id)
                     }
                 }

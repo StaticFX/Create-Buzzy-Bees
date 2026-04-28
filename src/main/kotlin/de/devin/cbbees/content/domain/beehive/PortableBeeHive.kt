@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.beehive
 
+import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.ServerBeeManager
@@ -33,19 +34,31 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     companion object {
         /** Networking range for portable beehives (blocks). */
         const val NETWORKING_RANGE = 6.0
+
+        /** Maximum work/logistics range for portable beehives (blocks). */
+        const val MAX_WORK_RANGE = 64.0
     }
 
-    private val activeBees = mutableSetOf<UUID>()
+    /** Active bee UUIDs grouped by job ID, mirroring MechanicalBeehiveBlockEntity's tracking. */
+    private val activeBeesByJob = mutableMapOf<UUID, MutableSet<UUID>>()
 
-    override fun getActiveBeeCount(): Int = activeBees.size
+    override fun getActiveBeeCount(): Int = activeBeesByJob.values.sumOf { it.size }
+
+    fun getActiveBeeCountForJob(jobId: UUID): Int = activeBeesByJob[jobId]?.size ?: 0
 
     override fun acceptBatch(batch: TaskBatch): Boolean {
         if (getAvailableBeeCount() <= 0) return false
         if (getActiveBeeCount() >= getBeeContext().maxActiveBees) return false
         if (!hasBeeOfType(batch.beeType)) return false
+        if (getActiveBeeCountForJob(batch.job.jobId) >= getMaxContributionBees()) return false
+
+        val ctx = getBeeContext()
+        val honeyCost = (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+        if (!hasHoney(honeyCost)) return false
 
         val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
+        CreateBuzzyBeez.LOGGER.debug("[PortableHive] Spawning bee for batch at ${batch.targetPosition}")
         val spawned = spawnBee(beeItem, batch)
         if (!spawned) {
             addBee(beeItem)
@@ -68,12 +81,23 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             ownerId = player.uuid,
         )
 
-        activeBees.add(bee.id)
+        activeBeesByJob.getOrPut(batch.job.jobId) { mutableSetOf() }.add(bee.id)
         return true
     }
 
     override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
-        activeBees.remove(bee.uuid)
+        onBeeRemovedById(bee.uuid)
+    }
+
+    override fun onBeeRemovedById(beeId: UUID) {
+        val iter = activeBeesByJob.iterator()
+        while (iter.hasNext()) {
+            val (_, bees) = iter.next()
+            if (bees.remove(beeId)) {
+                if (bees.isEmpty()) iter.remove()
+                break
+            }
+        }
     }
 
     /**
@@ -82,9 +106,14 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
      */
     fun cleanupOrphanedBees() {
         val level = player.level() as? ServerLevel ?: return
-        activeBees.removeIf { beeId ->
-            val entity = level.getEntity(beeId)
-            entity == null || !entity.isAlive
+        val iter = activeBeesByJob.iterator()
+        while (iter.hasNext()) {
+            val (_, bees) = iter.next()
+            bees.removeIf { beeId ->
+                ServerBeeManager.getBee(beeId) == null &&
+                    ((level.getEntity(beeId)?.isAlive) != true)
+            }
+            if (bees.isEmpty()) iter.remove()
         }
     }
 
@@ -193,6 +222,8 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
      */
     override fun isAnchor(): Boolean = true
 
+    override fun getWorkRange(): Double = minOf(super.getWorkRange(), MAX_WORK_RANGE)
+
     override fun isInWorkRange(pos: BlockPos): Boolean = isInRange(pos)
 
     override fun sync() {}
@@ -218,7 +249,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (player.isCreative) return true
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack) && slot.count >= stack.count) {
+            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack) && slot.count >= stack.count) {
                 return true
             }
         }
@@ -237,7 +268,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         var remaining = stack.count
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
+            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack)) {
                 val take = minOf(remaining, slot.count)
                 slot.shrink(take)
                 if (slot.isEmpty) player.inventory.setItem(i, ItemStack.EMPTY)
@@ -258,7 +289,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             val contents = slot.getOrDefault(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY)
             if (contents == net.minecraft.world.item.component.ItemContainerContents.EMPTY) continue
             for (contained in contents.nonEmptyItems()) {
-                if (ItemStack.isSameItemSameComponents(contained, stack) && contained.count >= stack.count) {
+                if (ItemStack.isSameItem(contained, stack) && contained.count >= stack.count) {
                     return true
                 }
             }
@@ -279,7 +310,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             var modified = false
             for (j in items.indices) {
                 val contained = items[j]
-                if (ItemStack.isSameItemSameComponents(contained, stack)) {
+                if (ItemStack.isSameItem(contained, stack)) {
                     val take = minOf(remaining, contained.count)
                     contained.shrink(take)
                     remaining -= take

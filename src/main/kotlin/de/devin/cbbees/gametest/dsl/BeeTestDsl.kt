@@ -102,23 +102,21 @@ class BeeTestScope(
 
         val portableHive = PortableBeeHive(fakePlayer)
 
+        // Portable hive always gets its own isolated network
+        val networkId = ServerBeeNetworkManager.stableNetworkId(fakePlayer.uuid)
+        portableHive.networkId = networkId
+        val portableNetwork = BeeNetwork(networkId)
+        portableNetwork.addComponent(portableHive)
+        ServerBeeNetworkManager.addNetwork(portableNetwork)
+
         if (joinExistingNetwork && ::jobPool.isInitialized) {
-            // Add to existing test network directly via jobPool reference
-            val network = jobPool.network
-            portableHive.networkId = network.id
-            network.addComponent(portableHive)
-            ServerBeeNetworkManager.rebuildIndexes()
-        } else {
-            // Create isolated portable network
-            val networkId = ServerBeeNetworkManager.stableNetworkId(fakePlayer.uuid)
-            portableHive.networkId = networkId
-            val network = BeeNetwork(networkId)
-            network.addComponent(portableHive)
-            ServerBeeNetworkManager.addNetwork(network)
-            // Only set jobPool if not already initialized (don't overwrite stationary network's pool)
-            if (!::jobPool.isInitialized) {
-                jobPool = TestJobPool(network)
-            }
+            // Link the portable network to the existing block network
+            portableNetwork.linkNetwork(jobPool.network)
+        }
+
+        // Only set jobPool if not already initialized (don't overwrite stationary network's pool)
+        if (!::jobPool.isInitialized) {
+            jobPool = TestJobPool(portableNetwork)
         }
 
         return portableHive
