@@ -195,7 +195,7 @@ object FlightPlanComputer {
             }
         }
         add(Checkpoint(lastCheckpointPos, CheckForNextWork()))
-        val hiveApproach = (bee.hivePos ?: bee.blockPosition()).above()
+        val hiveApproach = bee.hiveInstance?.approachPos() ?: (bee.hivePos ?: bee.blockPosition()).above()
         add(Checkpoint(hiveApproach, EnterHive()))
     }
 
@@ -203,7 +203,7 @@ object FlightPlanComputer {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         add(Checkpoint(task.sourcePos.above(), PickupTransport(task), clientPauseTicks = PICKUP_PAUSE_TICKS))
         add(Checkpoint(task.targetPos.above(), DepositTransport(task), clientPauseTicks = DEPOSIT_PAUSE_TICKS))
-        val hiveApproach = (bee.hivePos ?: bee.blockPosition()).above()
+        val hiveApproach = bee.hiveInstance?.approachPos() ?: (bee.hivePos ?: bee.blockPosition()).above()
         add(Checkpoint(hiveApproach, EnterHive()))
     }
 

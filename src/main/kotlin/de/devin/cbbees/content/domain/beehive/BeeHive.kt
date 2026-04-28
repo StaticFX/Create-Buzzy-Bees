@@ -102,6 +102,9 @@ interface BeeHive : INetworkComponent {
      */
     fun walkTarget(): WalkTarget
 
+    /** Position where a flight-plan bee should hover when approaching or returning to this hive. */
+    fun approachPos(): BlockPos = pos.above()
+
     /**
      * Gets the number of bees currently active from this source.
      */
