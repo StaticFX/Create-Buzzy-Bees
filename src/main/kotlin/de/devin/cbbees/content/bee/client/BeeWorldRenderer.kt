@@ -136,7 +136,10 @@ object BeeWorldRenderer {
                 val sign = if (bone.name.startsWith("left")) 1f else -1f
                 poseStack.mulPose(Axis.ZP.rotation(wingAngle * sign))
             }
+
             GEAR_BONE -> {
+                poseStack.mulPose(Axis.YN.rotationDegrees(90f))
+                poseStack.mulPose(Axis.XP.rotationDegrees(90f))
                 poseStack.mulPose(Axis.YP.rotation(gearAngle))
             }
         }

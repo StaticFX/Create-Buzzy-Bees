@@ -267,7 +267,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
         tooltipFlag: TooltipFlag
     ) {
         super.appendHoverText(stack, context, tooltipComponents, tooltipFlag)
-        
+
         val honey = stack.getOrDefault(AllDataComponents.HONEY_FUEL.get(), 0)
         val maxHoney = getMaxHoney(stack)
         tooltipComponents.add(
@@ -278,16 +278,6 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     private fun isBeeItem(item: net.minecraft.world.item.Item): Boolean {
         return item is MechanicalBeeItem || item is MechanicalBumbleBeeItem
-    }
-
-    /**
-     * Counts the number of bees currently stored in the backpack.
-     */
-    fun getBeeCount(stack: ItemStack): Int {
-        val contents = stack.get(DataComponents.CONTAINER) ?: return 0
-        val items = NonNullList.withSize(TOTAL_SLOTS, ItemStack.EMPTY)
-        contents.copyInto(items)
-        return items.subList(0, BEE_SLOTS).count { isBeeItem(it.item) && !it.isEmpty }
     }
 
     /**
