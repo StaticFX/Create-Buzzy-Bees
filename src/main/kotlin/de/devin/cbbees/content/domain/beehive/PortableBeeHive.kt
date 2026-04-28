@@ -341,12 +341,13 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
 
     private fun hasItemInContainers(stack: ItemStack): Boolean {
         for (i in 0 until player.inventory.containerSize) {
-            val slot = player.inventory.getItem(i)
-            if (slot.isEmpty) continue
-            val contents = slot.getOrDefault(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY)
-            if (contents == net.minecraft.world.item.component.ItemContainerContents.EMPTY) continue
-            for (contained in contents.nonEmptyItems()) {
-                if (ItemStack.isSameItem(contained, stack) && contained.count >= stack.count) {
+            val container = player.inventory.getItem(i)
+            if (container.isEmpty) continue
+            val handler = container.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.ITEM)
+                ?: continue
+            for (slot in 0 until handler.slots) {
+                val slotStack = handler.getStackInSlot(slot)
+                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack) && slotStack.count >= stack.count) {
                     return true
                 }
             }
@@ -358,26 +359,17 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         var remaining = count
         for (i in 0 until player.inventory.containerSize) {
             if (remaining <= 0) break
-            val slot = player.inventory.getItem(i)
-            if (slot.isEmpty) continue
-            val contents = slot.getOrDefault(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY)
-            if (contents == net.minecraft.world.item.component.ItemContainerContents.EMPTY) continue
-
-            val items = contents.nonEmptyItems().toMutableList()
-            var modified = false
-            for (j in items.indices) {
-                val contained = items[j]
-                if (ItemStack.isSameItem(contained, stack)) {
-                    val take = minOf(remaining, contained.count)
-                    contained.shrink(take)
-                    remaining -= take
-                    modified = true
-                    if (remaining <= 0) break
+            val container = player.inventory.getItem(i)
+            if (container.isEmpty) continue
+            val handler = container.getCapability(net.neoforged.neoforge.capabilities.Capabilities.ItemHandler.ITEM)
+                ?: continue
+            for (slot in 0 until handler.slots) {
+                if (remaining <= 0) break
+                val slotStack = handler.getStackInSlot(slot)
+                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack)) {
+                    val extracted = handler.extractItem(slot, remaining, false)
+                    remaining -= extracted.count
                 }
-            }
-            if (modified) {
-                slot.set(net.minecraft.core.component.DataComponents.CONTAINER,
-                    net.minecraft.world.item.component.ItemContainerContents.fromItems(items))
             }
         }
         return remaining
