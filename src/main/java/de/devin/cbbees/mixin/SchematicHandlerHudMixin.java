@@ -1,6 +1,7 @@
 package de.devin.cbbees.mixin;
 
 import com.simibubi.create.AllDataComponents;
+import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import de.devin.cbbees.content.drone.client.DroneViewClientState;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
@@ -50,14 +51,16 @@ public abstract class SchematicHandlerHudMixin {
     /* ------------------------------------------------------------------ */
 
     /**
-     * Reads placement data from the client-side ItemStack and sends a
+     * Reads placement data from the SchematicHandler's transformation and sends a
      * StartConstructionPacket. Only used in state 3 (deployed).
      */
     @Unique
     private void ccr$sendConstructionPacket(ItemStack stack) {
-        BlockPos anchor = stack.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-        Rotation rotation = stack.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-        Mirror mirror = stack.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+        var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+        var settings = transform.toSettings();
+        BlockPos anchor = transform.getAnchor();
+        Rotation rotation = settings.getRotation();
+        Mirror mirror = settings.getMirror();
         PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
     }
 

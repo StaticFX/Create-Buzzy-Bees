@@ -16,7 +16,9 @@ enum class UpgradeType(
         ctx.speedMultiplier += count * CBBeesConfig.rapidWingsSpeedBonus.get()
     }),
     SWARM_INTELLIGENCE("tooltip.cbbees.upgrade.swarm_intelligence", UpgradeShape.T_SHAPE, IUpgrade { ctx, count ->
-        ctx.maxActiveBees += count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
+        val bonus = count * CBBeesConfig.swarmIntelligenceBeeBonus.get()
+        ctx.maxActiveBees += bonus
+        ctx.maxContributedBees += bonus
     }),
     HONEY_EFFICIENCY("tooltip.cbbees.upgrade.honey_efficiency", UpgradeShape.BAR_2, IUpgrade { ctx, count ->
         ctx.breakSpeedMultiplier -= count * CBBeesConfig.honeyEfficiencyBreakSpeedReduction.get()
