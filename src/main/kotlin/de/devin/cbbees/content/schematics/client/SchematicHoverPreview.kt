@@ -197,7 +197,7 @@ object SchematicHoverPreview {
 
     fun render(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return
-        if (!CBBeesClientConfig.showSchematicPreview.get()) return
+        if (!CBBeesClientConfig.showSchematicPreviewSafe()) return
         if (!ConstructionPlannerHandler.isBrowsingPreview) return
         if (currentSchematic == null || schematicSize == Vec3i.ZERO) return
 
@@ -218,7 +218,7 @@ object SchematicHoverPreview {
         // Render ghost blocks only if renderer is ready (built asynchronously)
         val renderer = getActiveRenderer()
         if (renderer != null) {
-            val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
+            val opacity = CBBeesClientConfig.ghostBlockOpacitySafe().toFloat()
             val transparentBuffer = TransparentBuffer(superBuffer, opacity)
             poseStack.pushPose()
 

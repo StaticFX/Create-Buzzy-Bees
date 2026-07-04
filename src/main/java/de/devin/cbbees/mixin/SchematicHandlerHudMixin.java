@@ -111,14 +111,27 @@ public abstract class SchematicHandlerHudMixin {
             ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
             cir.setReturnValue(true);
         } else if (tool == ConstructionToolState.CustomTool.PROGRAM) {
-            // Read placement data and send a ProgramSchematicPacket
+            // Read live placement data from Create's SchematicTransformation.
+            // The ItemStack components only store the first deploy anchor and are not
+            // updated immediately by Move XZ / Move Y / Rotate / Mirror tools. Those
+            // tools update the transformation and only sync later via Create's normal
+            // SchematicSyncPacket. Programming from the ItemStack therefore rolled the
+            // schematic back to its first clicked position. This must match Construct.
             String schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE);
             String owner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER);
             if (schematicFile == null || owner == null) return;
 
-            BlockPos anchor = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-            Rotation rotation = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-            Mirror mirror = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+            var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+            var settings = transform.toSettings();
+            BlockPos anchor = transform.getAnchor();
+            Rotation rotation = settings.getRotation();
+            Mirror mirror = settings.getMirror();
+
+            // Keep the client stack coherent too. This avoids later local reads using
+            // stale placement data after the user presses Program.
+            mainHand.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor);
+            mainHand.set(AllDataComponents.SCHEMATIC_ROTATION, rotation);
+            mainHand.set(AllDataComponents.SCHEMATIC_MIRROR, mirror);
 
             SchematicProgram program = new SchematicProgram.Construction(
                 schematicFile, anchor, rotation, mirror, owner

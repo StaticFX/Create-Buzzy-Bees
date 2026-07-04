@@ -102,7 +102,7 @@ object ConstructionRenderer {
     @JvmStatic
     fun onRenderLevel(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return
-        if (!CBBeesClientConfig.showConstructionGhosts.get()) return
+        if (!CBBeesClientConfig.showConstructionGhostsSafe()) return
 
         val mc = Minecraft.getInstance()
         val level = mc.level ?: return
@@ -139,7 +139,7 @@ object ConstructionRenderer {
         val poseStack = event.poseStack
         val camera = mc.gameRenderer.mainCamera.position
         val superBuffer = DefaultSuperRenderTypeBuffer.getInstance()
-        val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
+        val opacity = CBBeesClientConfig.ghostBlockOpacitySafe().toFloat()
         val transparentBuffer = TransparentBuffer(superBuffer, opacity)
 
         profiler.push("renderGhosts")

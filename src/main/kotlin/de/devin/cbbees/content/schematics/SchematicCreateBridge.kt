@@ -344,20 +344,64 @@ class SchematicCreateBridge(
     }
 
     /**
-     * Convert Create's ItemRequirement to a list of ItemStacks
+     * Convert Create's ItemRequirement to material stacks consumed by bees.
+     *
+     * Create can report both a default/plain item stack and a component-rich stack for
+     * the same represented block. For component-sensitive blocks (for example CBC
+     * shells with fuze data, or Copycat blocks with material data), keeping both
+     * stacks makes bees consume the plain item and the component item together.
+     *
+     * Rules:
+     * - only CONSUME requirements become bee material requirements
+     * - merge exact same item + component stacks
+     * - when the same item has a special component stack, drop the plain/default
+     *   duplicate and keep the component stack
      */
     private fun getItemsFromRequirement(requirement: ItemRequirement): List<ItemStack> {
         if (requirement.isInvalid) return emptyList()
 
-        val items = mutableListOf<ItemStack>()
+        val rawItems = mutableListOf<ItemStack>()
 
-        // Get required items from the requirement
-        // StackRequirement has a 'stack' field containing the ItemStack
         requirement.requiredItems.forEach { reqItem ->
-            items.add(reqItem.stack.copy())
+            if (reqItem.usage != ItemRequirement.ItemUseType.CONSUME) return@forEach
+
+            val stack = reqItem.stack.copy()
+            if (!stack.isEmpty) {
+                rawItems.add(stack)
+            }
         }
 
-        return items
+        if (rawItems.isEmpty()) return emptyList()
+
+        val result = mutableListOf<ItemStack>()
+
+        rawItems.forEach { stack ->
+            val sameItemHasSpecialStack = rawItems.any { other ->
+                ItemStack.isSameItem(other, stack) && hasSpecialComponents(other)
+            }
+
+            if (!hasSpecialComponents(stack) && sameItemHasSpecialStack) {
+                return@forEach
+            }
+
+            val existing = result.firstOrNull { existing ->
+                ItemStack.isSameItemSameComponents(existing, stack)
+            }
+
+            if (existing != null) {
+                existing.grow(stack.count)
+            } else {
+                result.add(stack.copy())
+            }
+        }
+
+        return result
+    }
+
+    private fun hasSpecialComponents(stack: ItemStack): Boolean {
+        if (stack.isEmpty) return false
+        val defaultStack = stack.item.defaultInstance
+        return !ItemStack.isSameItemSameComponents(stack, defaultStack)
     }
 
 

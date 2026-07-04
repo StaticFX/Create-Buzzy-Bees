@@ -30,7 +30,7 @@ class BumbleBeeCarriedItemLayer(renderer: GeoRenderer<MechanicalBumbleBeeEntity>
     ) {
         // Skip item rendering for distant bees
         val cam = Minecraft.getInstance().gameRenderer.mainCamera.position
-        val itemDist = de.devin.cbbees.config.CBBeesClientConfig.beeItemRenderDistance.get()
+        val itemDist = de.devin.cbbees.config.CBBeesClientConfig.beeItemRenderDistanceSafe()
         if (animatable.distanceToSqr(cam) > itemDist.toLong() * itemDist) return
 
         val contents = animatable.getInventoryContents()
