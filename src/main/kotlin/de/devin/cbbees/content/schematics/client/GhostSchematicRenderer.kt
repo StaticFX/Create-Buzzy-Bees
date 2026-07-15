@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.vertex.PoseStack

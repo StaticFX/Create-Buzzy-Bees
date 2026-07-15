@@ -39,7 +39,6 @@ import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.registry.AllKeys
 import de.devin.cbbees.registry.AllMenuTypes
 import de.devin.cbbees.tabs.AllCreativeModeTabs
-import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
@@ -153,26 +152,7 @@ object CreateBuzzyBeez {
         MOD_BUS.addListener<FMLCommonSetupEvent> { onCommonSetup(it) }
 
         MOD_BUS.addListener<RegisterCapabilitiesEvent> { event ->
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.MECHANICAL_BEEHIVE.get(),
-                { be, side -> be.inventory }
-            )
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.LOGISTICS_PORT.get(),
-                { be, side -> be.getItemHandler(be.world) }
-            )
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.SCHEMATIC_DEPLOYER.get(),
-                { be, _ -> de.devin.cbbees.content.deployer.SchematicDeployerItemHandler(be) }
-            )
-            event.registerItem(
-                Capabilities.FluidHandler.ITEM,
-                { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },
-                de.devin.cbbees.items.AllItems.PORTABLE_BEEHIVE.get()
-            )
+            de.devin.cbbees.compat.NeoForgeCapabilityCompat.register(event)
         }
 
         NeoForge.EVENT_BUS.addListener<RegisterCommandsEvent> {

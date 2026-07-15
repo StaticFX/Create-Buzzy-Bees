@@ -19,7 +19,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
-import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.common.util.FakePlayerFactory
 import net.neoforged.neoforge.items.ItemHandlerHelper
 import net.minecraft.world.level.block.state.BlockState
@@ -188,7 +187,7 @@ class BeeTestScope(
      * Inserts items into the inventory at the given position (e.g., a vault).
      */
     fun insertItems(pos: BlockPos, item: Item, count: Int) {
-        val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null)
+        val handler = de.devin.cbbees.compat.NeoForgeCapabilityCompat.getUnsidedItemHandler(level, pos)
             ?: throw GameTestAssertException("No item handler at $pos")
         val remainder = ItemHandlerHelper.insertItemStacked(handler, ItemStack(item, count), false)
         if (!remainder.isEmpty) {

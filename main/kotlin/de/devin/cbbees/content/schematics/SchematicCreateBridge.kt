@@ -346,48 +346,55 @@ class SchematicCreateBridge(
     /**
      * Convert Create's ItemRequirement to a list of ItemStacks.
      *
-     * Some modded blocks with saved data can produce two same-item requirements:
-     * - a loose/default block item requirement, and
-     * - a component/NBT-bearing item requirement for the actual saved block.
-     *
-     * CBBees stores requirements as ItemStacks only. If both entries are copied as-is,
-     * the bee collects one plain item plus one NBT item. Collapse same-item default +
-     * component stacks so the component-bearing stack satisfies the loose default cost.
+     * Create can return both a loose StackRequirement for the block item and a
+     * StrictNbtStackRequirement for the same item when the block/entity needs its
+     * saved components. CBBees stores requirements as ItemStacks only, so a naïve
+     * copy of both entries makes bees collect/consume the plain item plus the NBT
+     * item. Collapse those pairs by letting strict/component stacks satisfy the
+     * matching loose same-item requirement.
      */
     private fun getItemsFromRequirement(requirement: ItemRequirement): List<ItemStack> {
         if (requirement.isInvalid) return emptyList()
 
+        data class RequirementEntry(
+            val stack: ItemStack,
+            val strictComponents: Boolean
+        )
+
         val entries = requirement.requiredItems
-            .map { it.stack.copy() }
-            .filterNot { it.isEmpty }
+            .mapNotNull { reqItem ->
+                val stack = reqItem.stack.copy()
+                if (stack.isEmpty) null
+                else RequirementEntry(stack, reqItem is ItemRequirement.StrictNbtStackRequirement)
+            }
 
         if (entries.isEmpty()) return emptyList()
 
         val result = mutableListOf<ItemStack>()
-        val groupedByItem = entries.groupBy { it.item }
+        val groupedByItem = entries.groupBy { it.stack.item }
 
         for (group in groupedByItem.values) {
-            val componentStacks = group.filter { hasNonDefaultComponents(it) }
-            val defaultStacks = group.filterNot { hasNonDefaultComponents(it) }
+            val strictEntries = group.filter { it.strictComponents }
+            val looseEntries = group.filterNot { it.strictComponents }
 
-            if (componentStacks.isEmpty()) {
-                defaultStacks.forEach { mergeRequirementStack(result, it) }
+            if (strictEntries.isEmpty()) {
+                looseEntries.forEach { mergeRequirementStack(result, it.stack) }
                 continue
             }
 
-            // If a same-item requirement has any component/NBT-bearing stack, keep only
-            // the exact component stacks. Create/modded blocks can report both the loose
-            // default stack and the saved component stack for the same block item; counting
-            // the loose stack again makes bees collect/consume the plain variant too.
-            componentStacks.forEach { mergeRequirementStack(result, it) }
+            strictEntries.forEach { mergeRequirementStack(result, it.stack) }
+
+            val strictCount = strictEntries.sumOf { it.stack.count }
+            val looseCount = looseEntries.sumOf { it.stack.count }
+            val looseRemainder = looseCount - strictCount
+            if (looseRemainder > 0) {
+                val looseStack = looseEntries.first().stack.copy()
+                looseStack.count = looseRemainder
+                mergeRequirementStack(result, looseStack)
+            }
         }
 
         return result
-    }
-
-    private fun hasNonDefaultComponents(stack: ItemStack): Boolean {
-        if (stack.isEmpty) return false
-        return !ItemStack.isSameItemSameComponents(stack, ItemStack(stack.item))
     }
 
     private fun mergeRequirementStack(result: MutableList<ItemStack>, stack: ItemStack) {

@@ -116,9 +116,14 @@ public abstract class SchematicHandlerHudMixin {
             String owner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER);
             if (schematicFile == null || owner == null) return;
 
-            BlockPos anchor = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-            Rotation rotation = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-            Mirror mirror = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+            // Read the live preview transformation instead of the planner item components.
+            // Create only syncs those components after a delay, so programming immediately
+            // after moving/rotating/mirroring could store the previous placement.
+            var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+            var settings = transform.toSettings();
+            BlockPos anchor = transform.getAnchor();
+            Rotation rotation = settings.getRotation();
+            Mirror mirror = settings.getMirror();
 
             SchematicProgram program = new SchematicProgram.Construction(
                 schematicFile, anchor, rotation, mirror, owner

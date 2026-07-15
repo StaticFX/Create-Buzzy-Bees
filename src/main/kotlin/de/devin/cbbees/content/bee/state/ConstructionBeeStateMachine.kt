@@ -269,8 +269,10 @@ object ConstructionBeeStateMachine {
         } else {
             bee.hiveEntryRetries++
             if (bee.hiveEntryRetries >= 3) {
+                // Do not dump carried construction materials as loose ItemEntity objects.
+                // Some modded stacks (for example loaded shells) can arm/explode when dropped.
+                // Drop only the bee item; keep construction materials from being spawned as entities.
                 level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
-                bee.dropInventory()
                 hive.onBeeRemovedById(bee.id)
                 ServerBeeManager.removeBee(bee.id)
             }
@@ -300,18 +302,21 @@ object ConstructionBeeStateMachine {
         if (excess.isEmpty()) { bee.constructionState = ConstructionBeeState.FLYING_HOME; bee.walkTarget = bee.hivePos; return }
         val port = bee.network()?.findDropOff(excess.first(), bee.hiveId)
         if (port == null) {
-            excess.forEach { item ->
-                bee.removeFromInventory(item, item.count)
-                level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, item.copy()))
-            }
+            // Safety: never spawn carried construction materials as loose items.
+            // If there is no valid INSERT/drop-off port, keep the items inside the bee
+            // and try again later after the network/configuration is fixed.
             bee.constructionState = ConstructionBeeState.FLYING_HOME; bee.walkTarget = bee.hivePos
             return
         }
         if (bee.blockPosition().closerThan(port.pos, 2.5)) {
             excess.forEach { item ->
                 val remainder = port.addItemStack(item.copy())
-                if (!remainder.isEmpty) level.addFreshEntity(ItemEntity(level, port.pos.x + 0.5, port.pos.y + 0.5, port.pos.z + 0.5, remainder))
-                bee.removeFromInventory(item, item.count)
+                val remainingCount = if (remainder.isEmpty) 0 else remainder.count
+                val deposited = item.count - remainingCount
+                if (deposited > 0) {
+                    bee.removeFromInventory(item.copyWithCount(deposited), deposited)
+                }
+                // If the port is full, keep the remainder inside the bee instead of dropping it.
             }
             bee.constructionState = ConstructionBeeState.FLYING_HOME; bee.walkTarget = bee.hivePos
         } else {
@@ -776,20 +781,9 @@ object ConstructionBeeStateMachine {
         val dropOffPort = network?.findDropOff(excess.first(), bee.homeId)
 
         if (dropOffPort == null) {
-            val owner = bee.getOwnerPlayer()
-            if (owner != null) {
-                for (item in excess) {
-                    bee.removeFromInventory(item, item.count)
-                    if (!owner.inventory.add(item.copy())) {
-                        level.addFreshEntity(ItemEntity(level, owner.x, owner.y, owner.z, item.copy()))
-                    }
-                }
-            } else {
-                for (item in excess) {
-                    bee.removeFromInventory(item, item.count)
-                    level.addFreshEntity(ItemEntity(level, bee.x, bee.y, bee.z, item.copy()))
-                }
-            }
+            // No loose ItemEntity fallback for construction materials. Some modded stacks
+            // are unsafe when dropped as items. Keep the items inside the bee until a
+            // valid drop-off path exists or the duplicate requirement bug is fixed.
             transitionToHome(bee)
             return
         }
@@ -797,10 +791,12 @@ object ConstructionBeeStateMachine {
         if (bee.blockPosition().closerThan(dropOffPort.pos, bee.workRange)) {
             for (item in excess) {
                 val remainder = dropOffPort.addItemStack(item.copy())
-                if (!remainder.isEmpty) {
-                    level.addFreshEntity(ItemEntity(level, dropOffPort.pos.x + 0.5, dropOffPort.pos.y + 0.5, dropOffPort.pos.z + 0.5, remainder))
+                val remainingCount = if (remainder.isEmpty) 0 else remainder.count
+                val deposited = item.count - remainingCount
+                if (deposited > 0) {
+                    bee.removeFromInventory(item.copyWithCount(deposited), deposited)
                 }
-                bee.removeFromInventory(item, item.count)
+                // If the port is full, keep the remainder inside the bee instead of dropping it.
             }
             transitionToHome(bee)
         } else {
@@ -886,9 +882,13 @@ object ConstructionBeeStateMachine {
 
     private fun playerHasItem(player: net.minecraft.world.entity.player.Player, stack: ItemStack): Boolean {
         if (player.isCreative) return true
+        var found = 0
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) return true
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
+                found += slot.count
+                if (found >= stack.count) return true
+            }
         }
         return false
     }

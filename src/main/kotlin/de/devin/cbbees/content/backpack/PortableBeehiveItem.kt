@@ -2,6 +2,7 @@ package de.devin.cbbees.content.backpack
 
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
+import de.devin.cbbees.content.backpack.client.PortableBeehiveRenderProvider
 import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.content.upgrades.UpgradeGrid
@@ -31,14 +32,13 @@ import java.util.Optional
 import net.minecraft.world.item.ArmorItem
 import net.minecraft.world.item.ArmorMaterials
 import software.bernie.geckolib.animatable.GeoItem
+import software.bernie.geckolib.animatable.client.GeoRenderProvider
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache
 import software.bernie.geckolib.animation.AnimatableManager
 import software.bernie.geckolib.animation.AnimationController
 import software.bernie.geckolib.animation.RawAnimation
 import software.bernie.geckolib.util.GeckoLibUtil
 import java.util.function.Consumer
-import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions
-import de.devin.cbbees.content.backpack.client.PortableBeehiveRenderer
 import kotlin.math.roundToInt
 
 /**
@@ -61,24 +61,8 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     private val cache: AnimatableInstanceCache = GeckoLibUtil.createInstanceCache(this)
 
-    override fun initializeClient(consumer: Consumer<IClientItemExtensions>) {
-        consumer.accept(object : IClientItemExtensions {
-            private var renderer: PortableBeehiveRenderer? = null
-
-            override fun getHumanoidArmorModel(
-                livingEntity: net.minecraft.world.entity.LivingEntity,
-                itemStack: ItemStack,
-                armorSlot: net.minecraft.world.entity.EquipmentSlot,
-                original: net.minecraft.client.model.HumanoidModel<*>
-            ): net.minecraft.client.model.HumanoidModel<*> {
-                if (this.renderer == null) {
-                    this.renderer = PortableBeehiveRenderer()
-                }
-                this.renderer!!.updateRenderState(itemStack, livingEntity)
-                this.renderer!!.prepForRender(livingEntity, itemStack, armorSlot, original)
-                return this.renderer!!
-            }
-        })
+    override fun createGeoRenderer(consumer: Consumer<GeoRenderProvider>) {
+        consumer.accept(PortableBeehiveRenderProvider())
     }
 
     override fun registerControllers(controllers: AnimatableManager.ControllerRegistrar) {

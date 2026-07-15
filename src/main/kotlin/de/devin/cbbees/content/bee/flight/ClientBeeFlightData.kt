@@ -155,6 +155,32 @@ class ClientBeeFlightData(
 
     fun yRot(): Float = currentYRot
 
+    /**
+     * Stable block positions the renderer may use to resolve optional Sable
+     * render context. Do not sample the bee's interpolated air position for
+     * this; Sable's getContaining(...) can return null for air/not-yet-expanded
+     * cells and cause transformed/raw render flicker.
+     *
+     * Current segment endpoints are tried first, then the rest of the plan as
+     * fallback anchors.
+     */
+    fun renderSampleCandidates(): List<BlockPos> {
+        if (checkpoints.isEmpty()) return emptyList()
+
+        val (segIndex, _, _) = findSegment(elapsedNano())
+        val result = mutableListOf<BlockPos>()
+
+        fun add(pos: BlockPos?) {
+            if (pos != null && pos !in result) result.add(pos)
+        }
+
+        add(checkpoints.getOrNull(segIndex)?.pos)
+        add(checkpoints.getOrNull(segIndex + 1)?.pos)
+        checkpoints.forEach { add(it.pos) }
+
+        return result
+    }
+
     // ── Position computation ──
 
     private fun computePositionAtNano(nano: Long): Vec3 {

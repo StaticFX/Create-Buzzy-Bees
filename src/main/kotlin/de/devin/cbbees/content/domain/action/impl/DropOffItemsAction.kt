@@ -5,7 +5,6 @@ import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 
@@ -34,14 +33,14 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
             val port = worker.network()?.findDropOff(item, worker.hiveId)
             if (port != null) {
                 val remainder = port.addItemStack(item.copy())
-                worker.removeFromInventory(item, item.count)
-                if (!remainder.isEmpty) {
-                    level.addFreshEntity(ItemEntity(level, port.pos.x + 0.5, port.pos.y + 0.5, port.pos.z + 0.5, remainder))
+                val remainingCount = if (remainder.isEmpty) 0 else remainder.count
+                val deposited = item.count - remainingCount
+                if (deposited > 0) {
+                    worker.removeFromInventory(item.copyWithCount(deposited), deposited)
                 }
-            } else {
-                worker.removeFromInventory(item, item.count)
-                level.addFreshEntity(ItemEntity(level, worker.getWorkerX(), worker.getWorkerY(), worker.getWorkerZ(), item.copy()))
+                // If the port is full, keep the remainder inside the bee instead of dropping it.
             }
+            // No loose ItemEntity fallback. Some modded construction items are unsafe when dropped.
         }
         return true
     }

@@ -81,11 +81,7 @@ class PlayerTickEvent {
         if (player.isCreative || player.isSpectator) return
         // Mechanical Wings upgrade was removed in 1.3.0. Gracefully disable flight
         // for players who had it active from a previous version.
-        if (player.abilities.mayfly && !player.isCreative && !player.isSpectator) {
-            player.abilities.mayfly = false
-            player.abilities.flying = false
-            player.onUpdateAbilities()
-        }
+        de.devin.cbbees.compat.PlayerFlightCompat.clearLegacyFlight(player)
     }
 
     private fun hasPortableHive(player: net.minecraft.world.entity.player.Player): Boolean {

@@ -48,7 +48,7 @@ class PortableBeehiveFluidHandler(private var stack: ItemStack) : IFluidHandlerI
     }
 
     private fun isHoney(fluid: FluidStack): Boolean {
-        return fluid.fluid.`is`(Tags.Fluids.HONEY)
+        return fluid.`is`(Tags.Fluids.HONEY)
     }
 
     override fun getTanks(): Int = 1

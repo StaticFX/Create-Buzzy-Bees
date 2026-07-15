@@ -141,10 +141,12 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         if (hasCreativeCrate()) return true
 
         val handler = getItemHandler(level) ?: return false
+        var found = 0
         for (i in 0 until handler.slots) {
             val stackInSlot = handler.getStackInSlot(i)
             if (!stackInSlot.isEmpty && ItemStack.isSameItemSameComponents(stackInSlot, stack)) {
-                return true
+                found += stackInSlot.count
+                if (found >= stack.count) return true
             }
         }
         return false
@@ -171,14 +173,18 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         if (hasCreativeCrate()) return true
 
         val handler = getItemHandler(level) ?: return false
+        if (!hasItemStack(stack)) return false
+
+        var remaining = stack.count
         for (i in 0 until handler.slots) {
+            if (remaining <= 0) break
             val inSlot = handler.getStackInSlot(i)
             if (!inSlot.isEmpty && ItemStack.isSameItemSameComponents(inSlot, stack)) {
-                val extracted = handler.extractItem(i, stack.count, false)
-                if (!extracted.isEmpty) return true
+                val extracted = handler.extractItem(i, remaining, false)
+                remaining -= extracted.count
             }
         }
-        return false
+        return remaining <= 0
     }
 
     override fun addItemStack(stack: ItemStack): ItemStack {

@@ -280,11 +280,21 @@ class SchematicDeployerScreen(
     }
 
     private fun confirm() {
+        val offset = BlockPos(offsetX, offsetY, offsetZ)
+
+        // Optimistically update the client-side BE so reopening the GUI in Sable
+        // immediately shows the selected mode even if the server BE lives in a
+        // shipyard/sub-level coordinate space and vanilla chunk sync is delayed.
+        be.deployMode = currentMode
+        be.relativeOffset = offset
+        be.relativeRotation = currentRotation
+        be.relativeMirror = currentMirror
+
         CatnipServices.NETWORK.sendToServer(
             DeployerSettingsPacket(
                 be.blockPos,
                 currentMode,
-                BlockPos(offsetX, offsetY, offsetZ),
+                offset,
                 currentRotation,
                 currentMirror
             )

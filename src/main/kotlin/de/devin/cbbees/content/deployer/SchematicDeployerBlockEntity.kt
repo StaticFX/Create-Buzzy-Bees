@@ -20,6 +20,7 @@ import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.world.item.ItemStack
@@ -316,18 +317,29 @@ class SchematicDeployerBlockEntity(
     }
 
     /**
-     * Sends the newly deployed job to nearby clients via [HiveJobsSyncPacket]
+     * Sends the newly deployed job to clients via [HiveJobsSyncPacket]
      * so [ConstructionRenderer] can render ghost blocks immediately.
+     *
+     * Sable/physics worlds can expose block entities through a level wrapper that is
+     * not the exact same ServerLevel instance as the player's normal world. The old
+     * `player.level() == level` check could therefore prevent the client from ever
+     * receiving the active deployer job, causing the unfinished-job frame/ghost to
+     * disappear only when the deployer was on Sable.
      */
     private fun syncJobToClients(job: BeeJob, batches: List<TaskBatch>) {
-        val level = level as? ServerLevel ?: return
+        val serverLevel = level as? ServerLevel ?: return
         val clientBatches = batches.map { b ->
+            val ghostBlocks = b.tasks.mapNotNull { task ->
+                val action = task.action
+                if (action is PlaceBlockAction) action.pos to action.blockState else null
+            }.toMap()
+
             ClientBatchInfo(
                 status = b.status.name,
                 target = b.targetPosition,
                 required = emptyList(),
                 assignedBeeIds = emptyList(),
-                ghostBlocks = emptyMap()
+                ghostBlocks = ghostBlocks
             )
         }
         val clientJob = ClientJobInfo(
@@ -338,15 +350,11 @@ class SchematicDeployerBlockEntity(
             total = job.tasks.size,
             reason = null,
             batches = clientBatches,
-            schematicPlacement = job.schematicPlacement
+            schematicPlacement = job.schematicPlacement,
+            jobType = job.jobType
         )
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(clientJob))
-        val packet = HiveJobsSyncPacket(blockPos, snapshot)
-        for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
-                PacketDistributor.sendToPlayer(player, packet)
-            }
-        }
+        sendDeployerSnapshotToClients(serverLevel, snapshot)
     }
 
     /**
@@ -354,14 +362,43 @@ class SchematicDeployerBlockEntity(
      * from [ClientJobCache] when the job completes.
      */
     private fun syncJobClearedToClients() {
-        val level = level as? ServerLevel ?: return
+        val serverLevel = level as? ServerLevel ?: return
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), emptyList())
+        sendDeployerSnapshotToClients(serverLevel, snapshot)
+    }
+
+    private fun sendDeployerSnapshotToClients(serverLevel: ServerLevel, snapshot: HiveSnapshot) {
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
-        for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
-                PacketDistributor.sendToPlayer(player, packet)
-            }
+        val players = serverLevel.server.playerList.players
+
+        val nearbyPlayers = players.filter { player ->
+            shouldReceiveDeployerSnapshot(player, serverLevel)
         }
+
+        // If Sable/shipyard coordinates prevent a normal distance match, still send
+        // this small snapshot to all connected clients so the owner can render/clear
+        // the active deployer job. This only runs on deploy and on job clear.
+        val targets = nearbyPlayers.ifEmpty { players }
+
+        for (player in targets) {
+            PacketDistributor.sendToPlayer(player, packet)
+        }
+    }
+
+    private fun shouldReceiveDeployerSnapshot(player: ServerPlayer, serverLevel: ServerLevel): Boolean {
+        if (player.level() == serverLevel && player.blockPosition().closerThan(blockPos, 128.0)) {
+            return true
+        }
+
+        // Some Sable/physics wrappers keep the same dimension key but do not compare
+        // equal as level instances. Accept same-dimension nearby players too.
+        if (player.level().dimension() == serverLevel.dimension() && player.blockPosition().closerThan(blockPos, 128.0)) {
+            return true
+        }
+
+        // Final coordinate-space fallback for wrapper levels that report a different
+        // dimension object but still use visible world-space coordinates.
+        return player.blockPosition().closerThan(blockPos, 128.0)
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {

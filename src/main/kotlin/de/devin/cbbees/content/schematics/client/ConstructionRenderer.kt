@@ -10,8 +10,10 @@ import com.simibubi.create.foundation.blockEntity.IMultiBlockEntityContainer
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesClientConfig
+import de.devin.cbbees.compat.SableCompanionCompat
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.job.ClientJobInfo
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.world.phys.Vec3
 import net.createmod.catnip.animation.AnimationTickHolder
@@ -56,6 +58,10 @@ object ConstructionRenderer {
     private val outlineBoundsCache = mutableMapOf<UUID, AABB>()
 
     private val rendererCache = mutableMapOf<UUID, JobRenderer>()
+
+    /** Last known Sable visual offset per job. Used only as a short fallback
+     * when Sable temporarily cannot return a pose for a frame. */
+    private val jobRenderOffsetCache = mutableMapOf<UUID, Vec3>()
 
     private var lastDataVersion = -1L
 
@@ -113,6 +119,7 @@ object ConstructionRenderer {
             outlineCache.clear()
             outlineBoundsCache.clear()
             rendererCache.clear()
+            jobRenderOffsetCache.clear()
             lastDataVersion = -1L
             return
         }
@@ -146,6 +153,7 @@ object ConstructionRenderer {
         for ((_, jobRenderer) in rendererCache) {
             poseStack.pushPose()
             poseStack.translate(-camera.x, -camera.y, -camera.z)
+            SableCompanionCompat.applyRenderTransform(poseStack, level, jobRenderer.anchor, AnimationTickHolder.getPartialTicks())
             jobRenderer.renderer.render(poseStack, transparentBuffer)
             poseStack.popPose()
         }
@@ -153,8 +161,27 @@ object ConstructionRenderer {
 
         profiler.push("renderOutlines")
         val pt = AnimationTickHolder.getPartialTicks()
-        for ((_, outline) in outlineCache) {
-            outline.render(poseStack, superBuffer, camera, pt)
+        for ((jobId, outline) in outlineCache) {
+            val localBounds = outlineBoundsCache[jobId]
+            val samplePos = rendererCache[jobId]?.anchor
+            val transformedBounds = if (localBounds != null && samplePos != null) {
+                SableCompanionCompat.projectAabb(level, localBounds, samplePos, pt)
+            } else {
+                localBounds?.let { bounds -> SableCompanionCompat.projectAabb(level, bounds, pt) }
+            }
+
+            if (transformedBounds != null) {
+                val job = jobs.firstOrNull { it.jobId == jobId }
+                val color = if (job?.reason != null) STUCK_COLOR else NORMAL_COLOR
+                val transformedOutline = AABBOutline(transformedBounds)
+                transformedOutline.params
+                    .colored(color)
+                    .withFaceTexture(AllSpecialTextures.CHECKERED)
+                    .lineWidth(1 / 16f)
+                transformedOutline.render(poseStack, superBuffer, camera, pt)
+            } else {
+                outline.render(poseStack, superBuffer, camera, pt)
+            }
         }
         profiler.pop()
 
@@ -168,6 +195,7 @@ object ConstructionRenderer {
         outlineCache.keys.removeAll { it !in activeJobIds }
         outlineBoundsCache.keys.removeAll { it !in activeJobIds }
         rendererCache.keys.removeAll { it !in activeJobIds }
+        jobRenderOffsetCache.keys.removeAll { it !in activeJobIds }
 
         for (job in jobs) {
             val existing = rendererCache[job.jobId]
@@ -301,7 +329,8 @@ object ConstructionRenderer {
 
         val ghostLevel = GhostBlockLevel(clientLevel)
         ghostLevel.populate(allGhosts)
-        return JobRenderer(GhostSchematicRenderer(ghostLevel), ghostLevel, BlockPos.ZERO)
+        val anchor = allGhosts.keys.firstOrNull() ?: BlockPos.ZERO
+        return JobRenderer(GhostSchematicRenderer(ghostLevel), ghostLevel, anchor)
     }
 
     /**
@@ -329,6 +358,109 @@ object ConstructionRenderer {
             }
         }
         return bestJob?.let { it to bestDist }
+    }
+
+    /**
+     * Converts a fake/client-only construction bee position into the same visual
+     * Sable space as the unfinished-job frame.
+     *
+     * The bee itself is not an entity and its path is only rendered client-side.
+     * Do not ask Sable for a transform at the bee's current air position: that
+     * can flicker or fail because air cells are often not registered. Instead,
+     * resolve the active construction job/frame and use its stable block anchor
+     * as the Sable render context.
+     */
+    fun getBeeRenderPosition(beeId: UUID, rawPos: Vec3, level: Level, partialTicks: Float): Vec3? {
+        val job = resolveBeeJob(beeId, rawPos) ?: return null
+        val samplePos = samplePosFor(job) ?: return null
+
+        val projected = SableCompanionCompat.projectPosition(level, rawPos, samplePos, partialTicks)
+        if (projected != null) {
+            jobRenderOffsetCache[job.jobId] = projected.subtract(rawPos)
+            return projected
+        }
+
+        // AABB-center fallback: approximate the bee path into the same visible
+        // area as the job frame. This is less perfect for rotation, but prevents
+        // jumping back to hidden sub-level coordinates if Sable misses one frame.
+        val bounds = boundsFor(job)
+        if (bounds != null) {
+            val projectedBounds = SableCompanionCompat.projectAabb(level, bounds, samplePos, partialTicks)
+            if (projectedBounds != null) {
+                val delta = centerOf(projectedBounds).subtract(centerOf(bounds))
+                jobRenderOffsetCache[job.jobId] = delta
+                return rawPos.add(delta)
+            }
+        }
+
+        return jobRenderOffsetCache[job.jobId]?.let { rawPos.add(it) }
+    }
+
+    private fun resolveBeeJob(beeId: UUID, rawPos: Vec3): ClientJobInfo? {
+        val jobs = ClientJobCache.getAllJobs().filter { it.jobType == JobType.Construction }
+        if (jobs.isEmpty()) return null
+
+        jobs.firstOrNull { job ->
+            job.batches.any { batch -> beeId in batch.assignedBeeIds }
+        }?.let { return it }
+
+        // Deployer-start snapshots can arrive before assignedBeeIds are known.
+        // In that case, choose a nearby active construction frame.
+        val nearby = jobs.mapNotNull { job ->
+            val bounds = boundsFor(job)?.inflate(32.0) ?: return@mapNotNull null
+            if (bounds.contains(rawPos)) job else null
+        }
+        if (nearby.size == 1) return nearby.first()
+
+        if (jobs.size == 1) return jobs.first()
+
+        return jobs.minByOrNull { job ->
+            val center = boundsFor(job)?.let { centerOf(it) }
+                ?: Vec3.atCenterOf(job.batches.firstOrNull()?.target ?: BlockPos.ZERO)
+            center.distanceToSqr(rawPos)
+        }
+    }
+
+    private fun samplePosFor(job: ClientJobInfo): BlockPos? {
+        return rendererCache[job.jobId]?.anchor
+            ?: job.schematicPlacement?.anchor
+            ?: boundsFor(job)?.let { BlockPos.containing(centerOf(it)) }
+            ?: job.batches.firstOrNull()?.target
+    }
+
+    private fun boundsFor(job: ClientJobInfo): AABB? {
+        outlineBoundsCache[job.jobId]?.let { return it }
+
+        val renderer = rendererCache[job.jobId]
+        if (renderer != null && renderer.schematicLevel.blockMap.isNotEmpty()) {
+            val positions = renderer.schematicLevel.blockMap.keys.map { it.offset(renderer.schematicLevel.anchor) }
+            return boundsFromPositions(positions)
+        }
+
+        val ghosts = job.batches.flatMap { batch ->
+            if (batch.ghostBlocks.isNotEmpty()) batch.ghostBlocks.keys else listOf(batch.target)
+        }
+        return boundsFromPositions(ghosts)
+    }
+
+    private fun boundsFromPositions(positions: Collection<BlockPos>): AABB? {
+        if (positions.isEmpty()) return null
+        return AABB(
+            positions.minOf { it.x }.toDouble(),
+            positions.minOf { it.y }.toDouble(),
+            positions.minOf { it.z }.toDouble(),
+            (positions.maxOf { it.x } + 1).toDouble(),
+            (positions.maxOf { it.y } + 1).toDouble(),
+            (positions.maxOf { it.z } + 1).toDouble()
+        )
+    }
+
+    private fun centerOf(bounds: AABB): Vec3 {
+        return Vec3(
+            (bounds.minX + bounds.maxX) * 0.5,
+            (bounds.minY + bounds.maxY) * 0.5,
+            (bounds.minZ + bounds.maxZ) * 0.5
+        )
     }
 
     /**

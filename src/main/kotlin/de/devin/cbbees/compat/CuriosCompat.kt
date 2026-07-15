@@ -29,8 +29,10 @@ object CuriosCompat {
  */
 private object CuriosCompatImpl {
     fun findFirstCurio(player: Player, predicate: (ItemStack) -> Boolean): ItemStack {
-        val result = top.theillusivec4.curios.api.CuriosApi.getCuriosHelper()
-            .findFirstCurio(player, predicate)
-        return if (result.isPresent) result.get().stack() else ItemStack.EMPTY
+        val result = top.theillusivec4.curios.api.CuriosApi.getCuriosInventory(player)
+            .flatMap { handler ->
+                handler.findFirstCurio(java.util.function.Predicate { stack -> predicate(stack) })
+            }
+        return result.map { it.stack() }.orElse(ItemStack.EMPTY)
     }
 }

@@ -19,7 +19,6 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Block
-import net.neoforged.neoforge.capabilities.Capabilities
 import java.util.UUID
 
 /**
@@ -174,7 +173,7 @@ object GameTestSetup {
     // ── Helpers ──
 
     fun countItem(level: ServerLevel, pos: BlockPos, item: Item): Int {
-        val handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null) ?: return 0
+        val handler = de.devin.cbbees.compat.NeoForgeCapabilityCompat.getUnsidedItemHandler(level, pos) ?: return 0
         var count = 0
         for (slot in 0 until handler.slots) {
             val stack = handler.getStackInSlot(slot)

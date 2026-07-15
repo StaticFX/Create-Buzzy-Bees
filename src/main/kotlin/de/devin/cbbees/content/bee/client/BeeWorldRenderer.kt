@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.server.BeeType
+import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
@@ -63,7 +64,13 @@ object BeeWorldRenderer {
         val time = System.nanoTime() / 1_000_000_000.0f
 
         flightBees.forEach { bee ->
-            val pos = bee.lerpPos(partialTick)
+            val rawPos = bee.lerpPos(partialTick)
+            val pos = if (bee.type == BeeType.CONSTRUCTION) {
+                ConstructionRenderer.getBeeRenderPosition(bee.id, rawPos, level, partialTick) ?: rawPos
+            } else {
+                rawPos
+            }
+
             val dx = pos.x - camPos.x
             val dy = pos.y - camPos.y
             val dz = pos.z - camPos.z
