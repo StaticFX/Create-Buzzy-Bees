@@ -10,6 +10,7 @@ import org.joml.Matrix4d
 import org.joml.Matrix4f
 import org.joml.Vector3d
 import org.joml.Vector3dc
+import org.joml.Vector3f
 import java.lang.reflect.Method
 
 /**
@@ -116,19 +117,27 @@ object SableCompanionCompat {
     fun projectPosition(level: Level, pos: Vec3, samplePos: BlockPos, partialTicks: Float): Vec3? {
         val subLevel = getSubLevel(level, samplePos) ?: return null
         val pose = getRenderPose(subLevel, partialTicks) ?: return null
-        return try {
-            val src = Vector3d(pos.x, pos.y, pos.z)
-            val dest = Vector3d()
+
+        // Preferred path when Sable's pose exposes direct projection.
+        try {
             val method = pose.javaClass.methods.firstOrNull { m ->
                 m.name == "transformPosition" && m.parameterTypes.size == 2 &&
                     Vector3dc::class.java.isAssignableFrom(m.parameterTypes[0]) &&
                     Vector3d::class.java.isAssignableFrom(m.parameterTypes[1])
-            } ?: return null
-            method.invoke(pose, src, dest)
-            Vec3(dest.x, dest.y, dest.z)
+            }
+            if (method != null) {
+                val dest = Vector3d()
+                method.invoke(pose, Vector3d(pos.x, pos.y, pos.z), dest)
+                return Vec3(dest.x, dest.y, dest.z)
+            }
         } catch (_: Throwable) {
-            null
+            // Fall through to matrix projection below.
         }
+
+        // Some Sable/Sable Companion builds provide only bakeIntoMatrix(...).
+        // Ghost/frame rendering already works through this matrix path, so use
+        // the same path for fake bee projection instead of returning null.
+        return projectPositionWithMatrix(pose, pos)
     }
 
     fun projectAabb(level: Level, bounds: AABB, partialTicks: Float): AABB? {
@@ -144,38 +153,53 @@ object SableCompanionCompat {
         val subLevel = getSubLevel(level, samplePos) ?: return null
         val pose = getRenderPose(subLevel, partialTicks) ?: return null
 
-        try {
+        val points = mutableListOf<Vec3>()
+        for (x in listOf(bounds.minX, bounds.maxX)) {
+            for (y in listOf(bounds.minY, bounds.maxY)) {
+                for (z in listOf(bounds.minZ, bounds.maxZ)) {
+                    points += Vec3(x, y, z)
+                }
+            }
+        }
+
+        val transformed = points.mapNotNull { point ->
+            tryProjectPositionDirect(pose, point) ?: projectPositionWithMatrix(pose, point)
+        }
+        if (transformed.size != points.size) return null
+
+        return AABB(
+            transformed.minOf { it.x },
+            transformed.minOf { it.y },
+            transformed.minOf { it.z },
+            transformed.maxOf { it.x },
+            transformed.maxOf { it.y },
+            transformed.maxOf { it.z },
+        )
+    }
+    private fun tryProjectPositionDirect(pose: Any, pos: Vec3): Vec3? {
+        return try {
             val method = pose.javaClass.methods.firstOrNull { m ->
                 m.name == "transformPosition" && m.parameterTypes.size == 2 &&
                     Vector3dc::class.java.isAssignableFrom(m.parameterTypes[0]) &&
                     Vector3d::class.java.isAssignableFrom(m.parameterTypes[1])
             } ?: return null
-
-            var minX = Double.POSITIVE_INFINITY
-            var minY = Double.POSITIVE_INFINITY
-            var minZ = Double.POSITIVE_INFINITY
-            var maxX = Double.NEGATIVE_INFINITY
-            var maxY = Double.NEGATIVE_INFINITY
-            var maxZ = Double.NEGATIVE_INFINITY
-
-            for (x in listOf(bounds.minX, bounds.maxX)) {
-                for (y in listOf(bounds.minY, bounds.maxY)) {
-                    for (z in listOf(bounds.minZ, bounds.maxZ)) {
-                        val dest = Vector3d()
-                        method.invoke(pose, Vector3d(x, y, z), dest)
-                        minX = minOf(minX, dest.x)
-                        minY = minOf(minY, dest.y)
-                        minZ = minOf(minZ, dest.z)
-                        maxX = maxOf(maxX, dest.x)
-                        maxY = maxOf(maxY, dest.y)
-                        maxZ = maxOf(maxZ, dest.z)
-                    }
-                }
-            }
-
-            return AABB(minX, minY, minZ, maxX, maxY, maxZ)
+            val dest = Vector3d()
+            method.invoke(pose, Vector3d(pos.x, pos.y, pos.z), dest)
+            Vec3(dest.x, dest.y, dest.z)
         } catch (_: Throwable) {
-            return null
+            null
         }
     }
+
+    private fun projectPositionWithMatrix(pose: Any, pos: Vec3): Vec3? {
+        val matrix = bakePoseMatrix(pose) ?: return null
+        return try {
+            val v = Vector3f(pos.x.toFloat(), pos.y.toFloat(), pos.z.toFloat())
+            matrix.transformPosition(v)
+            Vec3(v.x().toDouble(), v.y().toDouble(), v.z().toDouble())
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
 }
