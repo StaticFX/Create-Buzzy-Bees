@@ -256,3 +256,8 @@ if (System.getenv("MODRINTH_TOKEN")) {
         }
     }
 }
+
+tasks.named('compileJava') {
+    dependsOn tasks.named('compileKotlin')
+    classpath += files(tasks.named('compileKotlin').flatMap { it.destinationDirectory })
+}

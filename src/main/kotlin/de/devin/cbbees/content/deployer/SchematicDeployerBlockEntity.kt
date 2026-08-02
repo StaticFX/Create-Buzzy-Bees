@@ -13,6 +13,7 @@ import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicJobKey
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import de.devin.cbbees.network.HiveJobsSyncPacket
 import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.BlockPos
@@ -20,6 +21,7 @@ import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.world.item.ItemStack
@@ -27,6 +29,7 @@ import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.network.PacketDistributor
 import java.util.UUID
 
@@ -52,6 +55,11 @@ class SchematicDeployerBlockEntity(
     var activeJobId: UUID? = null
         private set
     private var lazyTickCounter = 0
+
+    private companion object {
+        const val JOB_SYNC_RANGE = 128.0
+        const val JOB_SYNC_RANGE_SQUARED = JOB_SYNC_RANGE * JOB_SYNC_RANGE
+    }
 
     /**
      * Deploy mode: ABSOLUTE uses stored coordinates as-is,
@@ -238,6 +246,7 @@ class SchematicDeployerBlockEntity(
         val centerPos = program.getCenterPos()
 
         val job = BeeJob(jobId, centerPos, level, program.jobType).apply {
+            dispatchOrigin = blockPos
             uniquenessKey = SchematicJobKey(
                 UUID(blockPos.asLong(), blockPos.asLong()),
                 "deployer_${blockPos.x}_${blockPos.y}_${blockPos.z}",
@@ -316,6 +325,27 @@ class SchematicDeployerBlockEntity(
     }
 
     /**
+     * Uses Sable's projected distance when either endpoint belongs to a sub-level.
+     * This keeps deployer job packets working when the deployer is visually near a
+     * player but its logical block coordinates are far away.
+     */
+    private fun isPlayerNearDeployer(player: ServerPlayer, level: ServerLevel): Boolean {
+        if (player.level() != level) return false
+
+        val distanceSquared = SableRenderSupport.distanceSquaredWithSubLevels(
+            level,
+            player.position(),
+            Vec3.atCenterOf(blockPos)
+        )
+
+        return if (distanceSquared != null) {
+            distanceSquared <= JOB_SYNC_RANGE_SQUARED
+        } else {
+            player.blockPosition().closerThan(blockPos, JOB_SYNC_RANGE)
+        }
+    }
+
+    /**
      * Sends the newly deployed job to nearby clients via [HiveJobsSyncPacket]
      * so [ConstructionRenderer] can render ghost blocks immediately.
      */
@@ -338,12 +368,13 @@ class SchematicDeployerBlockEntity(
             total = job.tasks.size,
             reason = null,
             batches = clientBatches,
-            schematicPlacement = job.schematicPlacement
+            schematicPlacement = job.schematicPlacement,
+            jobType = job.jobType
         )
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(clientJob))
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
+            if (isPlayerNearDeployer(player, level)) {
                 PacketDistributor.sendToPlayer(player, packet)
             }
         }
@@ -358,7 +389,7 @@ class SchematicDeployerBlockEntity(
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), emptyList())
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
+            if (isPlayerNearDeployer(player, level)) {
                 PacketDistributor.sendToPlayer(player, packet)
             }
         }

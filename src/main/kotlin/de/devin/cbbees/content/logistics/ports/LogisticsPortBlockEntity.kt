@@ -43,7 +43,6 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
             onNetworkIdChanged(old, value)
         }
 
-    var filterStack: ItemStack = ItemStack.EMPTY
     var priority = 0
 
     private val reservationManager = de.devin.cbbees.content.domain.logistics.PortReservationManager()
@@ -110,22 +109,16 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         if (tag.hasUUID("NetworkId")) {
             networkId = tag.getUUID("NetworkId")
         }
-        if (tag.contains("Filter")) {
-            filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
-        }
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("lp_id", id)
         tag.putUUID("NetworkId", networkId)
-        if (!filterStack.isEmpty) {
-            tag.put("Filter", filterStack.save(registries))
-        }
     }
 
     override fun getFilter(): ItemStack {
-        return filterStack
+        return if (::filteringBehavior.isInitialized) filteringBehavior.getFilter() else ItemStack.EMPTY
     }
 
     override fun getItemHandler(level: Level): IItemHandler? {

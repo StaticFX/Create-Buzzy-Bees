@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.bee.flight
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeAsync
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeTransportAsync
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.forConstruction
@@ -9,6 +10,7 @@ import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -17,6 +19,7 @@ import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -67,10 +70,21 @@ object FlightPlanComputer {
             return
         }
 
-        val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, level)
+        // Pickup ItemEntity positions are often in global/world space while a
+        // Sable hive and its ports use plot-grid coordinates. Convert only the
+        // flight waypoints to one visible/global space; checkpoint actions keep
+        // their original logical positions inside BeeTask. This also prevents
+        // collision sampling across a multi-million-block plot-grid segment.
+        val flightCheckpoints = if (batch.job.jobType == JobType.Pickup) {
+            projectPickupFlightCheckpoints(rawCheckpoints, level)
+        } else {
+            rawCheckpoints
+        }
+
+        val collisionSnapshot = snapshotCollisions(flightCheckpoints.map { it.pos }, level)
 
         executor.submit {
-            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, level)
+            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(flightCheckpoints, collisionSnapshot, level)
             val plan = FlightPlan(bee.id, bee.type, DEFAULT_SPEED, finalCheckpoints)
             level.server.execute { onComplete(plan) }
         }
@@ -144,7 +158,12 @@ object FlightPlanComputer {
         level: ServerLevel? = null
     ): FlightPlan? {
         val raw = buildRawConstructionCheckpoints(bee, batch, network) ?: return null
-        val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
+        val flightCheckpoints = if (level != null && batch.job.jobType == JobType.Pickup) {
+            projectPickupFlightCheckpoints(raw, level)
+        } else {
+            raw
+        }
+        val checkpoints = if (level != null) insertObstacleWaypoints(flightCheckpoints, level) else flightCheckpoints
         return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
     }
 
@@ -156,6 +175,26 @@ object FlightPlanComputer {
         val raw = buildRawTransportCheckpoints(bee, task)
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
         return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
+    }
+
+    /**
+     * Converts pickup flight waypoints to global/render coordinates. The action
+     * stored on each checkpoint still executes against its original task data,
+     * so block/item/port lookups remain in the correct logical coordinate space.
+     */
+    private fun projectPickupFlightCheckpoints(
+        checkpoints: List<Checkpoint>,
+        level: ServerLevel
+    ): List<Checkpoint> = checkpoints.map { checkpoint ->
+        val projected = SableRenderSupport.projectOutOfSubLevel(
+            level,
+            Vec3.atCenterOf(checkpoint.pos)
+        )
+        if (projected != null) {
+            checkpoint.copy(pos = BlockPos.containing(projected))
+        } else {
+            checkpoint
+        }
     }
 
     private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {
@@ -220,7 +259,13 @@ object FlightPlanComputer {
         if (network == null) return null
         return when (bee.type) {
             BeeType.CONSTRUCTION -> batch?.let { forConstruction(bee, it, network, level) }
-            BeeType.TRANSPORT -> bee.transportTask?.let { forTransport(bee, it, level) }
+            BeeType.TRANSPORT -> {
+                if (batch?.job?.jobType == JobType.Pickup) {
+                    forConstruction(bee, batch, network, level)
+                } else {
+                    bee.transportTask?.let { forTransport(bee, it, level) }
+                }
+            }
         }
     }
 

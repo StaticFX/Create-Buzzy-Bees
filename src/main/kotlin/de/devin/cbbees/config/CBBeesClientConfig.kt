@@ -61,4 +61,19 @@ object CBBeesClientConfig {
 
         SPEC = builder.build()
     }
+
+    private fun <T> safeGet(value: ModConfigSpec.ConfigValue<T>, fallback: T): T {
+        return runCatching { value.get() }.getOrDefault(fallback)
+    }
+
+    fun showConstructionGhostsSafe(): Boolean = safeGet(showConstructionGhosts, true)
+    fun showSchematicPreviewSafe(): Boolean = safeGet(showSchematicPreview, true)
+    fun showBeehiveRangeSafe(): Boolean = safeGet(showBeehiveRange, true)
+    fun showBeeTargetLinesSafe(): Boolean = safeGet(showBeeTargetLines, true)
+    fun ghostBlockOpacitySafe(): Double = safeGet(ghostBlockOpacity, 0.5)
+    fun renderGhostBlockEntitiesSafe(): Boolean = safeGet(renderGhostBlockEntities, false)
+    fun maxGhostBlockEntitiesSafe(): Int = safeGet(maxGhostBlockEntities, 64)
+    fun beeShadowDistanceSafe(): Int = safeGet(beeShadowDistance, 16)
+    fun beeItemRenderDistanceSafe(): Int = safeGet(beeItemRenderDistance, 24)
+
 }

@@ -59,6 +59,11 @@ object AllPackets {
             SelectSchematicPacket.Companion::handle
         )
         registrar.playToServer(
+            PlannerTransformSyncPacket.TYPE,
+            PlannerTransformSyncPacket.STREAM_CODEC,
+            PlannerTransformSyncPacket.Companion::handle
+        )
+        registrar.playToServer(
             UnselectSchematicPacket.TYPE,
             UnselectSchematicPacket.STREAM_CODEC,
             UnselectSchematicPacket.Companion::handle

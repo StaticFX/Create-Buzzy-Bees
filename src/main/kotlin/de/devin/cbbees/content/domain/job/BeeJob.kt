@@ -43,6 +43,14 @@ data class BeeJob(
     var schematicPlacement: SchematicPlacement? = null
 
     /**
+     * Logical position that started this job (for example, the deployer block).
+     * Pickup ItemEntity coordinates can be global/world-space even when the
+     * triggering deployer is inside Sable, so hive routing must not infer the
+     * preferred coordinate space from the item position alone.
+     */
+    var dispatchOrigin: BlockPos? = null
+
+    /**
      * The batches associated with this job.
      */
     val batches: MutableList<TaskBatch> = mutableListOf()
@@ -170,6 +178,11 @@ data class BeeJob(
         }
 
         schematicPlacement?.let { tag.put("SchematicPlacement", it.save()) }
+        dispatchOrigin?.let { origin ->
+            tag.putInt("DispatchOriginX", origin.x)
+            tag.putInt("DispatchOriginY", origin.y)
+            tag.putInt("DispatchOriginZ", origin.z)
+        }
 
         val batchList = ListTag()
         batches.forEach { batch -> batchList.add(batch.save(registries)) }
@@ -211,6 +224,13 @@ data class BeeJob(
 
             if (tag.contains("SchematicPlacement")) {
                 job.schematicPlacement = SchematicPlacement.load(tag.getCompound("SchematicPlacement"))
+            }
+            if (tag.contains("DispatchOriginX")) {
+                job.dispatchOrigin = BlockPos(
+                    tag.getInt("DispatchOriginX"),
+                    tag.getInt("DispatchOriginY"),
+                    tag.getInt("DispatchOriginZ")
+                )
             }
 
             val batchList = tag.getList("Batches", Tag.TAG_COMPOUND.toInt())

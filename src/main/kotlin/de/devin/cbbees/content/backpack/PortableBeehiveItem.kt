@@ -61,6 +61,7 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     private val cache: AnimatableInstanceCache = GeckoLibUtil.createInstanceCache(this)
 
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun initializeClient(consumer: Consumer<IClientItemExtensions>) {
         consumer.accept(object : IClientItemExtensions {
             private var renderer: PortableBeehiveRenderer? = null

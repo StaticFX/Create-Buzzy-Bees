@@ -7,6 +7,7 @@ import de.devin.cbbees.config.CBBeesClientConfig
 import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.content.drone.client.DroneViewClientState
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import dev.engine_room.flywheel.lib.transform.TransformStack
 import net.createmod.catnip.impl.client.render.ColoringVertexConsumer
 import net.createmod.catnip.levelWrappers.SchematicLevel
@@ -197,7 +198,7 @@ object SchematicHoverPreview {
 
     fun render(event: RenderLevelStageEvent) {
         if (event.stage != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return
-        if (!CBBeesClientConfig.showSchematicPreview.get()) return
+        if (!CBBeesClientConfig.showSchematicPreviewSafe()) return
         if (!ConstructionPlannerHandler.isBrowsingPreview) return
         if (currentSchematic == null || schematicSize == Vec3i.ZERO) return
 
@@ -210,20 +211,35 @@ object SchematicHoverPreview {
 
         // Compute internal target from anchor (replicates Create's fromAnchor)
         val target = fromAnchor(anchor)
+        val level = mc.level ?: return
 
         val xO = schematicSize.x / 2.0
         val zO = schematicSize.z / 2.0
         val rot = -(currentRotation.ordinal * 90.0).toFloat()
+        val partialTicks = event.partialTick.getGameTimeDeltaPartialTick(false)
+        val localAabb = computeTransformedAABB(target)
+        val usesSableProjection = SableRenderSupport.hasProjection(level, anchor)
 
-        // Render ghost blocks only if renderer is ready (built asynchronously)
+        // Render ghost blocks only if renderer is ready (built asynchronously).
+        // The crosshair anchor selects the Sable transform; the schematic corner
+        // remains a local offset so it is not transformed twice.
         val renderer = getActiveRenderer()
         if (renderer != null) {
-            val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
+            val opacity = CBBeesClientConfig.ghostBlockOpacitySafe().toFloat()
             val transparentBuffer = TransparentBuffer(superBuffer, opacity)
             poseStack.pushPose()
 
-            TransformStack.of(poseStack)
-                .translate(Vec3.atLowerCornerOf(target).subtract(camera))
+            poseStack.translate(-camera.x, -camera.y, -camera.z)
+            val projected = usesSableProjection &&
+                SableRenderSupport.applyProjectedLocalTransform(poseStack, level, anchor)
+
+            if (projected) {
+                val localOffset = target.subtract(anchor)
+                TransformStack.of(poseStack).translate(Vec3.atLowerCornerOf(localOffset))
+            } else {
+                TransformStack.of(poseStack).translate(Vec3.atLowerCornerOf(target))
+            }
+
             poseStack.translate(xO, 0.0, zO)
             TransformStack.of(poseStack).rotateYDegrees(rot)
             poseStack.translate(-xO, 0.0, -zO)
@@ -232,14 +248,42 @@ object SchematicHoverPreview {
             poseStack.popPose()
         }
 
-        // Always render AABB outline (available immediately, lightweight)
+        // Always render AABB outline (available immediately, lightweight).
+        // Match the same local projection path as the ghost blocks.
         val aabbOutline = outline
         if (aabbOutline != null) {
-            val aabb = computeTransformedAABB(target)
-            aabbOutline.setBounds(aabb)
-            poseStack.pushPose()
-            aabbOutline.render(poseStack, superBuffer, camera, event.partialTick.getGameTimeDeltaPartialTick(false))
-            poseStack.popPose()
+            if (usesSableProjection) {
+                val localBounds = localAabb.move(
+                    -anchor.x.toDouble(),
+                    -anchor.y.toDouble(),
+                    -anchor.z.toDouble()
+                )
+                aabbOutline.setBounds(localBounds)
+
+                poseStack.pushPose()
+                poseStack.translate(-camera.x, -camera.y, -camera.z)
+                val projected = SableRenderSupport.applyProjectedLocalTransform(
+                    poseStack,
+                    level,
+                    anchor
+                )
+                if (projected) {
+                    aabbOutline.render(poseStack, superBuffer, Vec3.ZERO, partialTicks)
+                }
+                poseStack.popPose()
+
+                if (!projected) {
+                    aabbOutline.setBounds(localAabb)
+                    poseStack.pushPose()
+                    aabbOutline.render(poseStack, superBuffer, camera, partialTicks)
+                    poseStack.popPose()
+                }
+            } else {
+                aabbOutline.setBounds(localAabb)
+                poseStack.pushPose()
+                aabbOutline.render(poseStack, superBuffer, camera, partialTicks)
+                poseStack.popPose()
+            }
         }
 
         superBuffer.draw()

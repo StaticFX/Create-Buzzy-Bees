@@ -1,16 +1,19 @@
 package de.devin.cbbees.content.domain
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
+import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -256,11 +259,15 @@ object GlobalJobPool : JobPool {
                 }
                 if (inWorldNetworks.isEmpty()) { noWorld++; continue }
 
-                val inRangeNetworks = inWorldNetworks.filter { it.isInRange(batch.targetPosition) }
+                val inRangeNetworks = inWorldNetworks.filter { it.isBatchInRange(batch) }
                 if (inRangeNetworks.isEmpty()) { noRange++; continue }
 
                 val withBees = inRangeNetworks.filter { network ->
-                    network.hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }
+                    network.hives.any { hive ->
+                        hive.hasBeeOfType(batch.beeType) &&
+                                hive.getAvailableBeeCount() > 0 &&
+                                hive.getActiveBeeCount() < hive.getBeeContext().maxActiveBees
+                    }
                 }
                 if (withBees.isEmpty()) { noBees++; continue }
 
@@ -269,8 +276,33 @@ object GlobalJobPool : JobPool {
                 } else withBees
                 if (withPorts.isEmpty()) continue
 
-                val targetNetwork = withPorts.minByOrNull { network ->
-                    network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
+                val targetNetwork = if (batch.job.jobType == JobType.Pickup) {
+                    // Prefer a network with a currently eligible hive in the exact
+                    // same logical coordinate space as the loose item entities.
+                    withPorts.minWithOrNull(
+                        compareBy<BeeNetwork>(
+                            { network ->
+                                if (network.hives.any { hive ->
+                                        isEligibleSameSpacePickupHive(hive, batch)
+                                    }
+                                ) 0 else 1
+                            },
+                            { network ->
+                                network.hives.minOfOrNull { hive ->
+                                    SableRenderSupport.dispatchDistanceSquared(
+                                        hive.world,
+                                        hive.pos,
+                                        batch.targetPosition
+                                    )
+                                } ?: Double.MAX_VALUE
+                            }
+                        )
+                    )
+                } else {
+                    withPorts.minByOrNull { network ->
+                        network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) }
+                            ?: Double.MAX_VALUE
+                    }
                 } ?: continue
 
                 if (!hasMaterialsAvailable(batch, targetNetwork)) { noMaterials++; continue }
@@ -304,6 +336,18 @@ object GlobalJobPool : JobPool {
         fun isDispatchable(batch: TaskBatch): Boolean =
             batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
                     && batch.job.isPhaseReady(batch.phase)
+                    && !shouldDeferPickupToSameSpaceHive(batch, beeHive)
+
+        fun distanceToBatch(batch: TaskBatch): Double =
+            if (batch.job.jobType == JobType.Pickup) {
+                SableRenderSupport.dispatchDistanceSquared(
+                    beeHive.world,
+                    beeHive.pos,
+                    batch.targetPosition
+                )
+            } else {
+                batch.targetPosition.distSqr(hivePos)
+            }
 
         var bestAssigned: TaskBatch? = null
         var bestAssignedDist = Double.MAX_VALUE
@@ -312,7 +356,7 @@ object GlobalJobPool : JobPool {
             for (batch in job.batches) {
                 if (!isDispatchable(batch)) continue
                 if (batch.assignedNetworkId != networkId) continue
-                val dist = batch.targetPosition.distSqr(hivePos)
+                val dist = distanceToBatch(batch)
                 if (dist < bestAssignedDist) {
                     bestAssignedDist = dist
                     bestAssigned = batch
@@ -329,10 +373,19 @@ object GlobalJobPool : JobPool {
         var bestJobDist = Double.MAX_VALUE
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
-            if (!network.isInRange(job.centerPos)) continue
-            val hasDispatchable = job.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
-            if (!hasDispatchable) continue
-            val dist = job.centerPos.distSqr(hivePos)
+
+            val reachableBatches = job.batches.filter {
+                isDispatchable(it) &&
+                        (it.assignedNetworkId == null || it.assignedNetworkId == networkId) &&
+                        network.isBatchInRange(it)
+            }
+            if (reachableBatches.isEmpty()) continue
+
+            val dist = if (job.jobType == JobType.Pickup) {
+                reachableBatches.minOf { distanceToBatch(it) }
+            } else {
+                job.centerPos.distSqr(hivePos)
+            }
             if (dist < bestJobDist) {
                 bestJobDist = dist
                 bestJob = job
@@ -340,15 +393,64 @@ object GlobalJobPool : JobPool {
         }
 
         val job = bestJob ?: return null
-        val batch = job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
-            ?: return null
+        val batch = job.batches.firstOrNull {
+            isDispatchable(it) &&
+                    (it.assignedNetworkId == null || it.assignedNetworkId == networkId) &&
+                    network.isBatchInRange(it)
+        } ?: return null
 
-        if (!network.isInRange(batch.targetPosition)) return null
+        if (!network.isBatchInRange(batch)) return null
         if (!hasMaterialsAvailable(batch, network)) return null
 
         batch.assignedNetworkId = networkId
         batch.status = TaskStatus.PICKED
         return batch
+    }
+
+    /**
+     * Coordinate-space anchor used only for pickup hive preference. A deployer
+     * job uses the deployer's logical position; direct planner jobs fall back
+     * to the item target position.
+     */
+    private fun pickupRoutingAnchor(batch: TaskBatch): BlockPos =
+        batch.job.dispatchOrigin ?: batch.targetPosition
+
+    /** A currently usable pickup hive in the preferred world/Sable coordinate space. */
+    private fun isEligibleSameSpacePickupHive(hive: BeeHive, batch: TaskBatch): Boolean {
+        return hive.world == batch.job.level &&
+                SableRenderSupport.isSameCoordinateSpace(
+                    hive.world,
+                    hive.pos,
+                    pickupRoutingAnchor(batch)
+                ) &&
+                SableRenderSupport.isWithinHorizontalWorkRange(
+                    hive.world,
+                    hive.pos,
+                    batch.targetPosition,
+                    hive.getWorkRange()
+                ) &&
+                hive.hasBeeOfType(batch.beeType) &&
+                hive.getAvailableBeeCount() > 0 &&
+                hive.getActiveBeeCount() < hive.getBeeContext().maxActiveBees
+    }
+
+    /**
+     * Do not let a world hive steal a Sable pickup while a usable hive inside the
+     * target sub-level is available. Cross-space pickup remains the fallback.
+     */
+    private fun shouldDeferPickupToSameSpaceHive(batch: TaskBatch, currentHive: BeeHive): Boolean {
+        if (batch.job.jobType != JobType.Pickup) return false
+        if (SableRenderSupport.isSameCoordinateSpace(
+                currentHive.world,
+                currentHive.pos,
+                pickupRoutingAnchor(batch)
+            )
+        ) return false
+
+        return ServerBeeNetworkManager.getNetworks()
+            .asSequence()
+            .flatMap { it.hives.asSequence() }
+            .any { hive -> isEligibleSameSpacePickupHive(hive, batch) }
     }
 
     private fun hasMaterialsAvailable(batch: TaskBatch, network: BeeNetwork): Boolean {

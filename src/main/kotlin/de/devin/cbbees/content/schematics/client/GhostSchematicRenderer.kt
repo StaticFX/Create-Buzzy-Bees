@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.vertex.PoseStack
@@ -101,8 +103,8 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
             buffer.renderInto(ms, buffers.getBuffer(layer))
         }
 
-        if (CBBeesClientConfig.renderGhostBlockEntities.get()) {
-            val max = CBBeesClientConfig.maxGhostBlockEntities.get()
+        if (CBBeesClientConfig.renderGhostBlockEntitiesSafe()) {
+            val max = CBBeesClientConfig.maxGhostBlockEntitiesSafe()
             val allBEs = schematic.renderedBlockEntities.toList()
             val capped = if (allBEs.size > max) allBEs.subList(0, max) else allBEs
             val shouldRender = BitSet(capped.size)

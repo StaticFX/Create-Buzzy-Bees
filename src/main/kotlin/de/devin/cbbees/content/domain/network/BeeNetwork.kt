@@ -1,11 +1,13 @@
 package de.devin.cbbees.content.domain.network
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservablePort
 import de.devin.cbbees.content.domain.logistics.TransportPort
+import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -146,6 +148,28 @@ class BeeNetwork(
     }
 
     /**
+     * Pickup jobs compare the visible/global positions of hives and item piles.
+     * Other job types keep the original raw-coordinate range behavior.
+     */
+    fun isBatchInRange(batch: TaskBatch): Boolean {
+        if (batch.job.jobType != JobType.Pickup) return isInRange(batch.targetPosition)
+        return components.any { anchor ->
+            topology.isAnchor(anchor) && isPickupAnchorInRange(anchor, batch.targetPosition)
+        }
+    }
+
+    private fun isPickupAnchorInRange(anchor: INetworkComponent, target: BlockPos): Boolean {
+        val hive = anchor as? BeeHive
+            ?: return topology.isOperationalRange(anchor, target)
+        return SableRenderSupport.isWithinHorizontalWorkRange(
+            hive.world,
+            hive.pos,
+            target,
+            hive.getWorkRange()
+        )
+    }
+
+    /**
      * Checks if any anchor is within range for logistics attachment.
      * Considers both block-based anchors (mechanical beehives) and portable beehives.
      */
@@ -195,12 +219,50 @@ class BeeNetwork(
     }
 
     fun dispatchBatch(batch: TaskBatch): Boolean {
-        val candidates = hives.filter {
-            topology.isOperationalRange(it, batch.targetPosition) &&
-                    it.getAvailableBeeCount() > 0
-        }.sortedBy { it.pos.distSqr(batch.targetPosition) }
+        val candidates = hives.filter { hive ->
+            val inRange = if (batch.job.jobType == JobType.Pickup) {
+                SableRenderSupport.isWithinHorizontalWorkRange(
+                    hive.world,
+                    hive.pos,
+                    batch.targetPosition,
+                    hive.getWorkRange()
+                )
+            } else {
+                topology.isOperationalRange(hive, batch.targetPosition)
+            }
 
-        for (hive in candidates) {
+            inRange &&
+                    hive.getAvailableBeeCount() > 0 &&
+                    hive.hasBeeOfType(batch.beeType) &&
+                    hive.getActiveBeeCount() < hive.getBeeContext().maxActiveBees
+        }
+
+        val orderedCandidates = if (batch.job.jobType == JobType.Pickup) {
+            val routingAnchor = batch.job.dispatchOrigin ?: batch.targetPosition
+            candidates.sortedWith(
+                compareBy<BeeHive>(
+                    { hive ->
+                        if (SableRenderSupport.isSameCoordinateSpace(
+                                hive.world,
+                                hive.pos,
+                                routingAnchor
+                            )
+                        ) 0 else 1
+                    },
+                    { hive ->
+                        SableRenderSupport.dispatchDistanceSquared(
+                            hive.world,
+                            hive.pos,
+                            batch.targetPosition
+                        )
+                    }
+                )
+            )
+        } else {
+            candidates.sortedBy { it.pos.distSqr(batch.targetPosition) }
+        }
+
+        for (hive in orderedCandidates) {
             if (hive.acceptBatch(batch)) {
                 CreateBuzzyBeez.LOGGER.debug("[DispatchBatch] Accepted by ${hive.javaClass.simpleName} at ${hive.pos}")
                 return true

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.SableRenderSupport
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
@@ -63,11 +64,15 @@ object BeeWorldRenderer {
         val time = System.nanoTime() / 1_000_000_000.0f
 
         flightBees.forEach { bee ->
-            val pos = bee.lerpPos(partialTick)
-            val dx = pos.x - camPos.x
-            val dy = pos.y - camPos.y
-            val dz = pos.z - camPos.z
-            if (dx * dx + dy * dy + dz * dz > maxDistSq) return@forEach
+            val rawPos = bee.lerpPos(partialTick)
+            val renderPos = SableRenderSupport.projectOutOfSubLevel(level, rawPos) ?: rawPos
+            val distSq = SableRenderSupport.distanceSquaredWithSubLevels(level, rawPos, camPos)
+                ?: renderPos.distanceToSqr(camPos)
+            if (distSq > maxDistSq) return@forEach
+
+            val dx = renderPos.x - camPos.x
+            val dy = renderPos.y - camPos.y
+            val dz = renderPos.z - camPos.z
 
             val (modelRes, textureRes) = when (bee.type) {
                 BeeType.CONSTRUCTION -> BEE_MODEL to BEE_TEXTURE

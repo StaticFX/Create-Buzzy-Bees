@@ -2,12 +2,14 @@ package de.devin.cbbees.mixin;
 
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.CreateClient;
+import com.simibubi.create.content.schematics.SchematicInstances;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import de.devin.cbbees.content.drone.client.DroneViewClientState;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.content.deployer.SchematicProgram;
+import de.devin.cbbees.network.PlannerTransformSyncPacket;
 import de.devin.cbbees.network.ProgramSchematicPacket;
 import de.devin.cbbees.network.StartConstructionPacket;
 import de.devin.cbbees.network.StopTasksPacket;
@@ -44,6 +46,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class SchematicHandlerHudMixin {
 
     @Shadow private boolean active;
+    @Shadow private int activeHotbarSlot;
+    @Shadow private int syncCooldown;
+    @Shadow private ItemStack activeSchematicItem;
     @Shadow public abstract boolean isDeployed();
 
     /* ------------------------------------------------------------------ */
@@ -51,17 +56,72 @@ public abstract class SchematicHandlerHudMixin {
     /* ------------------------------------------------------------------ */
 
     /**
-     * Reads placement data from the SchematicHandler's transformation and sends a
-     * StartConstructionPacket. Only used in state 3 (deployed).
+     * Copies Create's live transformation into the planner ItemStack and mirrors
+     * it to the server. Create's own SchematicSyncPacket ignores this custom
+     * item, so without this packet a slot change reloads the original anchor.
+     */
+    @Unique
+    private boolean ccr$persistPlannerTransformation() {
+        ItemStack stack = activeSchematicItem;
+        if (stack == null || stack.isEmpty()) return false;
+        if (!AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack)) return false;
+        if (!stack.has(AllDataComponents.SCHEMATIC_FILE)) return false;
+
+        var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+        if (transform == null) return false;
+
+        var settings = transform.toSettings();
+        BlockPos anchor = transform.getAnchor();
+        Rotation rotation = settings.getRotation();
+        Mirror mirror = settings.getMirror();
+        boolean deployed = stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false);
+
+        stack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor);
+        stack.set(AllDataComponents.SCHEMATIC_ROTATION, rotation);
+        stack.set(AllDataComponents.SCHEMATIC_MIRROR, mirror);
+        SchematicInstances.clearHash(stack);
+
+        PacketDistributor.sendToServer(new PlannerTransformSyncPacket(
+            activeHotbarSlot, anchor, rotation, mirror, deployed
+        ));
+        return true;
+    }
+
+    /**
+     * Reads placement data from the live transformation and starts construction.
      */
     @Unique
     private void ccr$sendConstructionPacket(ItemStack stack) {
+        ccr$persistPlannerTransformation();
         var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
         var settings = transform.toSettings();
         BlockPos anchor = transform.getAnchor();
         Rotation rotation = settings.getRotation();
         Mirror mirror = settings.getMirror();
         PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+    }
+
+    /**
+     * Every Move XZ / Move Y / Rotate / Mirror operation ends in markDirty().
+     * Persist immediately instead of waiting for Create's delayed sync packet,
+     * because that packet only accepts Create's own Schematic item server-side.
+     */
+    @Inject(method = "markDirty", at = @At("TAIL"))
+    private void ccr$persistPlannerTransformOnDirty(CallbackInfo ci) {
+        if (ccr$persistPlannerTransformation()) {
+            // Create's delayed SchematicSyncPacket rejects custom planner items.
+            // Cancel that redundant delayed send after our own sync succeeds.
+            syncCooldown = 0;
+        }
+    }
+
+    /**
+     * Creative Print copies the ItemStack itself into SchematicPlacePacket. Make
+     * sure that copy contains the fine-tuned live position first.
+     */
+    @Inject(method = "printInstantly", at = @At("HEAD"))
+    private void ccr$persistPlannerTransformBeforePrint(CallbackInfo ci) {
+        ccr$persistPlannerTransformation();
     }
 
     /* ------------------------------------------------------------------ */
@@ -111,14 +171,22 @@ public abstract class SchematicHandlerHudMixin {
             ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
             cir.setReturnValue(true);
         } else if (tool == ConstructionToolState.CustomTool.PROGRAM) {
-            // Read placement data and send a ProgramSchematicPacket
+            // Read live placement data from Create's SchematicTransformation.
+            // The ItemStack components only store the first deploy anchor and are not
+            // updated immediately by Move XZ / Move Y / Rotate / Mirror tools. Those
+            // tools update the transformation and only sync later via Create's normal
+            // SchematicSyncPacket. Programming from the ItemStack therefore rolled the
+            // schematic back to its first clicked position. This must match Construct.
             String schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE);
             String owner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER);
             if (schematicFile == null || owner == null) return;
 
-            BlockPos anchor = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-            Rotation rotation = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-            Mirror mirror = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
+            ccr$persistPlannerTransformation();
+            var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+            var settings = transform.toSettings();
+            BlockPos anchor = transform.getAnchor();
+            Rotation rotation = settings.getRotation();
+            Mirror mirror = settings.getMirror();
 
             SchematicProgram program = new SchematicProgram.Construction(
                 schematicFile, anchor, rotation, mirror, owner

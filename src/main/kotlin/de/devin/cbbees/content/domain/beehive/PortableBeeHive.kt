@@ -257,7 +257,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (player.isCreative) return true
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack) && slot.count >= stack.count) {
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack) && slot.count >= stack.count) {
                 return true
             }
         }
@@ -278,7 +278,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         var count = 0
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack)) {
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
                 count += slot.count
             }
         }
@@ -296,7 +296,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
                 ?: continue
             for (slot in 0 until handler.slots) {
                 val slotStack = handler.getStackInSlot(slot)
-                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack)) {
+                if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
                     count += slotStack.count
                 }
             }
@@ -325,7 +325,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         var remaining = stack.count
         for (i in 0 until player.inventory.containerSize) {
             val slot = player.inventory.getItem(i)
-            if (!slot.isEmpty && ItemStack.isSameItem(slot, stack)) {
+            if (!slot.isEmpty && ItemStack.isSameItemSameComponents(slot, stack)) {
                 val take = minOf(remaining, slot.count)
                 slot.shrink(take)
                 if (slot.isEmpty) player.inventory.setItem(i, ItemStack.EMPTY)
@@ -347,7 +347,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
                 ?: continue
             for (slot in 0 until handler.slots) {
                 val slotStack = handler.getStackInSlot(slot)
-                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack) && slotStack.count >= stack.count) {
+                if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack) && slotStack.count >= stack.count) {
                     return true
                 }
             }
@@ -366,7 +366,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             for (slot in 0 until handler.slots) {
                 if (remaining <= 0) break
                 val slotStack = handler.getStackInSlot(slot)
-                if (!slotStack.isEmpty && ItemStack.isSameItem(slotStack, stack)) {
+                if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
                     val extracted = handler.extractItem(slot, remaining, false)
                     remaining -= extracted.count
                 }
