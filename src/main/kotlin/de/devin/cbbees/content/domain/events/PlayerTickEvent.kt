@@ -77,6 +77,7 @@ class PlayerTickEvent {
         profiler.pop()
     }
 
+    @Suppress("DEPRECATION")
     private fun handleFlightUpgrade(player: net.minecraft.world.entity.player.Player) {
         if (player.isCreative || player.isSpectator) return
         // Mechanical Wings upgrade was removed in 1.3.0. Gracefully disable flight

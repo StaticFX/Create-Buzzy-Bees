@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.blocks.AllBlocks
 import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.compat.NeoForgeCapabilityInterop
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.bee.brain.BeeMemoryModules
@@ -39,7 +40,6 @@ import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.registry.AllKeys
 import de.devin.cbbees.registry.AllMenuTypes
 import de.devin.cbbees.tabs.AllCreativeModeTabs
-import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent
 import net.createmod.catnip.lang.FontHelper
 import net.createmod.ponder.foundation.PonderIndex
@@ -153,26 +153,25 @@ object CreateBuzzyBeez {
         MOD_BUS.addListener<FMLCommonSetupEvent> { onCommonSetup(it) }
 
         MOD_BUS.addListener<RegisterCapabilitiesEvent> { event ->
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.MECHANICAL_BEEHIVE.get(),
-                { be, side -> be.inventory }
-            )
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.LOGISTICS_PORT.get(),
-                { be, side -> be.getItemHandler(be.world) }
-            )
-            event.registerBlockEntity(
-                Capabilities.ItemHandler.BLOCK,
-                AllBlockEntityTypes.SCHEMATIC_DEPLOYER.get(),
-                { be, _ -> de.devin.cbbees.content.deployer.SchematicDeployerItemHandler(be) }
-            )
-            event.registerItem(
-                Capabilities.FluidHandler.ITEM,
-                { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },
-                de.devin.cbbees.items.AllItems.PORTABLE_BEEHIVE.get()
-            )
+            NeoForgeCapabilityInterop.registerUnsidedBlockItemHandler(
+                event,
+                AllBlockEntityTypes.MECHANICAL_BEEHIVE.get()
+            ) { be -> be.inventory }
+
+            NeoForgeCapabilityInterop.registerUnsidedBlockItemHandler(
+                event,
+                AllBlockEntityTypes.LOGISTICS_PORT.get()
+            ) { be -> be.getItemHandler(be.world) }
+
+            NeoForgeCapabilityInterop.registerUnsidedBlockItemHandler(
+                event,
+                AllBlockEntityTypes.SCHEMATIC_DEPLOYER.get()
+            ) { be -> de.devin.cbbees.content.deployer.SchematicDeployerItemHandler(be) }
+
+            NeoForgeCapabilityInterop.registerFluidItemHandler(
+                event,
+                AllItems.PORTABLE_BEEHIVE.get()
+            ) { stack -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) }
         }
 
         NeoForge.EVENT_BUS.addListener<RegisterCommandsEvent> {
