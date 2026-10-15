@@ -180,14 +180,6 @@ object ServerBeeManager {
         bee.nextCheckpointArrivalTick = gameTime + travel + from.clientPauseTicks
     }
 
-    private fun tickConstructionBee(bee: ServerBeeData, level: ServerLevel, gameTime: Long) {
-        ConstructionBeeStateMachine.tickData(bee, level, gameTime)
-    }
-
-    private fun tickTransportBee(bee: ServerBeeData, level: ServerLevel, gameTime: Long) {
-        TransportBeeStateMachine.tickData(bee, level, gameTime)
-    }
-
     /**
      * Spawns a construction bee from a hive with the given task batch.
      */
@@ -262,13 +254,17 @@ object ServerBeeManager {
 
     /**
      * Spawns a transport (bumble) bee with a transport task.
+     *
+     * @return the spawned bee, or null if the hive is not in a server level
      */
     fun spawnTransportBee(
         hive: BeeHive,
         task: TransportTask,
         networkId: UUID,
         spawnPos: Vec3,
-    ): ServerBeeData {
+    ): ServerBeeData? {
+        val beeWorld = hive.world as? ServerLevel ?: return null
+
         val bee = ServerBeeData(
             id = UUID.randomUUID(),
             type = BeeType.TRANSPORT,
@@ -281,22 +277,21 @@ object ServerBeeManager {
             hivePos = hive.pos
             transportTask = task
             transportState = TransportBeeState.FLYING_TO_SOURCE
+            _level = beeWorld
         }
 
-        if (level != null) {
-            FlightPlanComputer.computeTransportAsync(bee, task, level!!) { plan ->
-                bee.flightPlan = plan
-                bee.planStartTick = level!!.gameTime
-                bee.currentCheckpointIndex = 0
-                if (plan.checkpoints.size > 1) {
-                    val travel = FlightPlan.travelTicks(
-                        plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
-                    )
-                    bee.currentCheckpointIndex = 1
-                    bee.nextCheckpointArrivalTick = level!!.gameTime + travel
-                }
-                broadcastFlightPlan(bee, plan, clientStartIndex = 0)
+        FlightPlanComputer.computeTransportAsync(bee, task, beeWorld) { plan ->
+            bee.flightPlan = plan
+            bee.planStartTick = beeWorld.gameTime
+            bee.currentCheckpointIndex = 0
+            if (plan.checkpoints.size > 1) {
+                val travel = FlightPlan.travelTicks(
+                    plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
+                )
+                bee.currentCheckpointIndex = 1
+                bee.nextCheckpointArrivalTick = beeWorld.gameTime + travel
             }
+            broadcastFlightPlan(bee, plan, clientStartIndex = 0)
         }
 
         bees[bee.id] = bee

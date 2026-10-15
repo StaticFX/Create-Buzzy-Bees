@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollVa
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
+import de.devin.cbbees.util.extractExactly
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
@@ -188,20 +189,10 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         if (hasCreativeCrate()) return true
 
         val handler = getItemHandler(level) ?: return false
+        if (!handler.extractExactly(stack)) return false
 
-        for (i in 0 until handler.slots) {
-            val inSlot = handler.getStackInSlot(i)
-
-            if (!inSlot.isEmpty && ItemStack.isSameItemSameComponents(inSlot, stack)) {
-                val extracted = handler.extractItem(i, stack.count, false)
-
-                if (!extracted.isEmpty) {
-                    pulseBusy()
-                    return true
-                }
-            }
-        }
-        return false
+        pulseBusy()
+        return true
     }
 
     override fun addItemStack(stack: ItemStack): ItemStack {

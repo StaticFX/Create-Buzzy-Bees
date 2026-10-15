@@ -10,6 +10,7 @@ import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
+import de.devin.cbbees.util.extractExactly
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
@@ -171,14 +172,7 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         if (hasCreativeCrate()) return true
 
         val handler = getItemHandler(level) ?: return false
-        for (i in 0 until handler.slots) {
-            val inSlot = handler.getStackInSlot(i)
-            if (!inSlot.isEmpty && ItemStack.isSameItemSameComponents(inSlot, stack)) {
-                val extracted = handler.extractItem(i, stack.count, false)
-                if (!extracted.isEmpty) return true
-            }
-        }
-        return false
+        return handler.extractExactly(stack)
     }
 
     override fun addItemStack(stack: ItemStack): ItemStack {

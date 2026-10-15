@@ -158,6 +158,20 @@ object FlightPlanComputer {
         return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
     }
 
+    /**
+     * Builds a flight plan that takes the bee straight from its current position back into its hive.
+     * Used when a bee has nothing left to do on its current plan (e.g., transport source ran dry).
+     */
+    fun forReturnHome(bee: ServerBeeData, level: ServerLevel? = null): FlightPlan {
+        val hiveApproach = bee.hiveInstance?.approachPos() ?: (bee.hivePos ?: bee.blockPosition()).above()
+        val raw = listOf(
+            Checkpoint(bee.blockPosition(), FlyThrough),
+            Checkpoint(hiveApproach, EnterHive()),
+        )
+        val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
+        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
+    }
+
     private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         val missing = computeMissingItems(bee, batch)

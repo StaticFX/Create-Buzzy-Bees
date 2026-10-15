@@ -37,6 +37,11 @@ import kotlin.math.abs
 class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockState) :
     KineticBlockEntity(type, pos, state), IHaveGoggleInformation, BeeHive {
 
+    companion object {
+        /** Sentinel job ID used to track transport bees in [activeBeesByJob]. */
+        val TRANSPORT_JOB_ID: UUID = UUID(0L, 1L)
+    }
+
     override val id: UUID get() = homeId
     override val world: Level get() = getLevel()!!
     override val pos: BlockPos get() = blockPos
@@ -112,6 +117,20 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
         return spawnBee(beeItem, batch)
+    }
+
+    /**
+     * Whether this hive can spawn another bee without exceeding [BeeContext.maxActiveBees].
+     */
+    fun canSpawnBee(): Boolean =
+        getActiveBeeCount() < getBeeContext().maxActiveBees
+
+    /**
+     * Registers a transport bee in [activeBeesByJob] so it counts toward [getActiveBeeCount].
+     */
+    fun trackTransportBee(beeId: UUID) {
+        activeBeesByJob.getOrPut(TRANSPORT_JOB_ID) { mutableSetOf() }.add(beeId)
+        sync()
     }
 
     override fun notifyTaskCompleted(task: BeeTask, beeId: UUID): TaskBatch? {
