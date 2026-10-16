@@ -63,6 +63,7 @@
   "gui.cbbees.instruction.deconstruct": "Deconstruct Area",
   "cbbees.gui.goggles.beehive_stats": "Beehive Swarm Statistics",
   "cbbees.gui.goggles.beehive.network": "Network: ",
+  "cbbees.gui.goggles.network.none": "None",
   "cbbees.gui.goggles.beehive.flying": "Bees currently flying: ",
   "cbbees.gui.goggles.beehive.stored": "Bees currently stored: ",
   "cbbees.gui.goggles.beehive.capacity": "Max workforce capacity: ",

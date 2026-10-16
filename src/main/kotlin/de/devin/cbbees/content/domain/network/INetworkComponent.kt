@@ -9,28 +9,35 @@ interface INetworkComponent {
     val id: UUID
     val world: Level
     val pos: BlockPos
-    var networkId: UUID
+    var networkId: UUID?
+
+    val isOrphaned: Boolean get() = networkId == null
+
+    fun orphan() {
+        networkId = null
+        sync()
+    }
 
     fun network(): BeeNetwork {
         return if (world.isClientSide) {
-            ClientBeeNetworkManager.getNetwork(networkId)
+            networkId?.let(ClientBeeNetworkManager::getNetwork) ?: BeeNetwork()
         } else {
             ServerBeeNetworkManager.getNetworkFor(this)
                 ?: run {
                     ServerBeeNetworkManager.registerComponent(this)
                     ServerBeeNetworkManager.getNetworkFor(this)
-                } ?: BeeNetwork(networkId)
+                } ?: networkId?.let(::BeeNetwork) ?: BeeNetwork()
         }
     }
 
     /**
      * Helper method to handle re-grouping on the client when the networkId changes.
      */
-    fun onNetworkIdChanged(old: UUID, new: UUID) {
+    fun onNetworkIdChanged(old: UUID?, new: UUID?) {
         val level = (this as? SmartBlockEntity)?.level ?: return
         if (level.isClientSide) {
-            ClientBeeNetworkManager.getNetwork(old).removeComponent(this)
-            ClientBeeNetworkManager.getNetwork(new).addComponentClient(this)
+            old?.let { ClientBeeNetworkManager.getNetwork(it).removeComponent(this) }
+            new?.let { ClientBeeNetworkManager.getNetwork(it).addComponentClient(this) }
         }
     }
 
@@ -53,7 +60,7 @@ interface INetworkComponent {
         if (!level.isClientSide) {
             ServerBeeNetworkManager.registerComponent(this)
         } else {
-            ClientBeeNetworkManager.getNetwork(networkId).addComponentClient(this)
+            networkId?.let { ClientBeeNetworkManager.getNetwork(it).addComponentClient(this) }
         }
     }
 

@@ -6,12 +6,11 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
+import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
 import de.devin.cbbees.util.extractExactly
-import net.createmod.catnip.lang.Lang
-import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -36,7 +35,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     override val world: Level get() = getLevel()!!
     override val pos: BlockPos get() = blockPos
 
-    override var networkId: UUID = UUID.randomUUID()
+    override var networkId: UUID? = null
         set(value) {
             if (field == value) return
             val old = field
@@ -108,9 +107,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         if (tag.hasUUID("lp_id")) {
             id = tag.getUUID("lp_id")
         }
-        if (tag.hasUUID("NetworkId")) {
-            networkId = tag.getUUID("NetworkId")
-        }
+        networkId = if (tag.hasUUID("NetworkId")) tag.getUUID("NetworkId") else null
         if (tag.contains("Filter")) {
             filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
         }
@@ -119,7 +116,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("lp_id", id)
-        tag.putUUID("NetworkId", networkId)
+        networkId?.let { tag.putUUID("NetworkId", it) }
         if (!filterStack.isEmpty) {
             tag.put("Filter", filterStack.save(registries))
         }
@@ -284,11 +281,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        val network = network()
-        Lang.builder("cbbees").translate("gui.goggles.beehive.network")
-            .style(ChatFormatting.GRAY)
-            .add(Lang.builder("cbbees").text(network.name).style(ChatFormatting.GOLD))
-            .forGoggles(tooltip)
+        addNetworkTooltip(tooltip)
         return true
     }
 }

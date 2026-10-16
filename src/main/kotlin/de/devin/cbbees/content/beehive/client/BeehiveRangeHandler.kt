@@ -80,10 +80,9 @@ object BeehiveRangeHandler {
 
 
     private fun renderRange(be: MechanicalBeehiveBlockEntity, slotKeys: MutableSet<String>) {
-        val networkId = be.networkId
-        val network = ClientBeeNetworkManager.getNetwork(networkId)
+        val network = be.networkId?.let(ClientBeeNetworkManager::getNetwork)
         val y = be.blockPos.y.toDouble()
-        if (network.hives.isEmpty()) {
+        if (network == null || network.hives.isEmpty()) {
             renderSingleHiveRange(be, slotKeys)
         } else {
             renderNetworkRange(network, y, slotKeys)

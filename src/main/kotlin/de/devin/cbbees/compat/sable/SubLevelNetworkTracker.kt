@@ -5,6 +5,7 @@ import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.util.ServerSide
+import net.minecraft.core.BlockPos
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.event.tick.ServerTickEvent
 
@@ -19,7 +20,8 @@ object SubLevelNetworkTracker {
         if (event.server.tickCount % INTERVAL_TICKS != 0) return
         val split = splitDisconnected()
         val merged = mergeReconnected()
-        if (split || merged) ServerBeeNetworkManager.rebuildIndexes()
+        val adopted = adoptOrphans()
+        if (split || merged || adopted) ServerBeeNetworkManager.rebuildIndexes()
     }
 
     private fun splitDisconnected(): Boolean =
@@ -44,6 +46,14 @@ object SubLevelNetworkTracker {
         }
         return merged
     }
+
+    private fun adoptOrphans(): Boolean =
+        movingNetworks().flatMap { network ->
+            network.components.filter { it.isAnchor() }.map { anchor ->
+                val center = BlockPos.containing(anchor.world.toWorld(anchor.pos))
+                ServerBeeNetworkManager.adoptOrphans(network, anchor.world, center, anchor.getNetworkingRange())
+            }
+        }.any { it }
 
     private fun movingNetworks() = ServerBeeNetworkManager.getNetworks().filter { network ->
         !network.isPortable() && network.components.any { it.world.subLevelId(it.pos) != null }

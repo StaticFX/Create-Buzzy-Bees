@@ -118,7 +118,7 @@ class MechanicalBeehiveScreen(
             })
             hiliteBtn.withCallback<IconButton>(Runnable {
                 val beeIds = job.batches.flatMap { it.assignedBeeIds }.distinct()
-                JobHighlightHandler.toggle(menu.content.networkId, job.jobId, beeIds, true)
+                menu.content.networkId?.let { JobHighlightHandler.toggle(it, job.jobId, beeIds, true) }
             })
             addRenderableWidget(cancelBtn)
             addRenderableWidget(hiliteBtn)

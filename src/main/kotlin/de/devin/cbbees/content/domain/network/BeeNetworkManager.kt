@@ -92,7 +92,7 @@ object ServerBeeNetworkManager {
         // always pass the spatial range check — they get picked up by
         // scanAndJoinNearbyComponents when a beehive registers.
         if (component.isAnchor()) {
-            val idNetwork = networkById[component.networkId]
+            val idNetwork = component.networkId?.let { networkById[it] }
             if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
                 if (idNetwork.level == null || idNetwork.level == component.world) {
                     nearbyNetworks.add(idNetwork)
@@ -104,10 +104,7 @@ object ServerBeeNetworkManager {
         // Non-anchor components (logistics ports) cannot create their own network.
         // They must join an existing network that has an anchor (mechanical beehive).
         if (nearbyNetworks.isEmpty() && !component.isAnchor()) {
-            // Assign a unique networkId so orphaned ports with stale saved IDs
-            // don't accidentally appear grouped on the client.
-            component.networkId = UUID.randomUUID()
-            component.sync()
+            component.orphan()
             CreateBuzzyBeez.LOGGER.info("[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}")
             return
         }
@@ -115,7 +112,7 @@ object ServerBeeNetworkManager {
         val targetNetwork: BeeNetwork
 
         if (nearbyNetworks.isEmpty()) {
-            targetNetwork = BeeNetwork(component.networkId, topology)
+            targetNetwork = BeeNetwork(component.networkId ?: UUID.randomUUID(), topology)
             networks.add(targetNetwork)
             CreateBuzzyBeez.LOGGER.info("[NET]   CREATED new network ${targetNetwork.id}")
         } else {
@@ -199,6 +196,24 @@ object ServerBeeNetworkManager {
         rebuildIndexes()
     }
 
+    fun adoptOrphans(network: BeeNetwork, level: Level, center: BlockPos, range: Double): Boolean {
+        val r = range.toInt()
+        var adopted = false
+        for (cx in ((center.x - r) shr 4)..((center.x + r) shr 4)) {
+            for (cz in ((center.z - r) shr 4)..((center.z + r) shr 4)) {
+                val chunk = level.chunkSource.getChunk(cx, cz, false) ?: continue
+                chunk.blockEntities.values
+                    .filterIsInstance<INetworkComponent>()
+                    .filter { it.isOrphaned && !it.isAnchor() && network.isInLogisticsRange(it.pos) }
+                    .forEach {
+                        network.addComponent(it)
+                        adopted = true
+                    }
+            }
+        }
+        return adopted
+    }
+
     fun mergeNetworks(target: BeeNetwork, other: BeeNetwork) {
         target.merge(other)
         networks.remove(other)
@@ -207,10 +222,7 @@ object ServerBeeNetworkManager {
     fun splitIfDisconnected(network: BeeNetwork): Boolean {
         val splitResults = network.split()
         if (splitResults.isEmpty()) {
-            network.components.toList().forEach {
-                it.networkId = UUID.randomUUID()
-                it.sync()
-            }
+            network.components.toList().forEach { it.orphan() }
             networks.remove(network)
             return true
         }
@@ -408,6 +420,7 @@ object ClientBeeNetworkManager {
             if (correctNetworkId == null) {
                 val net = networks.find { it.components.contains(component) }
                 net?.removeComponent(component)
+                if (!component.isAnchor()) component.networkId = null
             } else if (correctNetworkId != component.networkId) {
                 val oldNet = networks.find { it.components.contains(component) }
                 oldNet?.removeComponent(component)
