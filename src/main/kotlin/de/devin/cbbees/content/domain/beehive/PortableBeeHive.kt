@@ -83,6 +83,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             spawnPos = spawnPos,
             context = ctx,
             ownerId = player.uuid,
+            beeType = batch.beeType,
         )
 
         activeBeesByJob.getOrPut(batch.job.jobId) { mutableSetOf() }.add(bee.id)

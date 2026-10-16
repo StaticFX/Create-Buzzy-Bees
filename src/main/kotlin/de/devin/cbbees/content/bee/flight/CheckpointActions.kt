@@ -10,6 +10,7 @@ import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
+import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.items.AllItems as CBeesItems
@@ -321,17 +322,29 @@ class RechargeSpring : CheckpointAction {
 /**
  * Bumble bee: pick up items from the source transport port.
  *
+ * Never stalls: if nothing could be picked up (source emptied, port removed, network gone),
+ * the bee skips the deposit and is re-planned straight back to its hive, freeing its hive slot.
+ *
  * @param task the transport task defining source position and items
  * @see CheckpointAction
  */
 class PickupTransport(private val task: TransportTask) : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val network = bee.network() ?: return false
-        val port = network.transportPortsByPos[task.sourcePos]?.takeIf { it.isValidProvider() } ?: return false
+        val port = bee.network()?.transportPortsByPos?.get(task.sourcePos)?.takeIf { it.isValidProvider() }
+        port?.releaseReservation(bee.id)
 
-        port.releaseReservation(bee.id)
+        if (port == null || !pickUp(bee, port)) {
+            val homePlan = FlightPlanComputer.forReturnHome(bee, level)
+            bee.flightPlan = homePlan
+            bee.planStartTick = gameTime
+            bee.currentCheckpointIndex = 0
+            ServerBeeManager.broadcastFlightPlan(bee, homePlan, clientStartIndex = 0)
+        }
+        return true
+    }
 
+    private fun pickUp(bee: ServerBeeData, port: TransportPort): Boolean {
         var pickedUp = false
         task.items.forEach { item ->
             if (bee.isInventoryFull()) return@forEach

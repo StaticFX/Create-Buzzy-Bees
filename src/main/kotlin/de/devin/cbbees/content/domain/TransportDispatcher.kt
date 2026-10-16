@@ -54,7 +54,7 @@ object TransportDispatcher : SavedData() {
 
             val hivesWithBumbles = network.hives
                 .filterIsInstance<MechanicalBeehiveBlockEntity>()
-                .filter { it.hasBeeOfType(BeeType.TRANSPORT) }
+                .filter { it.hasBeeOfType(BeeType.TRANSPORT) && it.canSpawnBee() }
 
             if (hivesWithBumbles.isEmpty()) continue
 
@@ -100,7 +100,7 @@ object TransportDispatcher : SavedData() {
 
                 // Use minByOrNull instead of sortedBy.firstOrNull to avoid full sort
                 val hive = hivesWithBumbles
-                    .filter { it.hasBeeOfType(BeeType.TRANSPORT) }
+                    .filter { it.hasBeeOfType(BeeType.TRANSPORT) && it.canSpawnBee() }
                     .minByOrNull { it.pos.distSqr(provider.pos) }
                     ?: break // no more bumble bees available in any hive
 
@@ -108,9 +108,12 @@ object TransportDispatcher : SavedData() {
                 if (beeItem.isEmpty) continue
 
                 val bee = spawnMechanicalBumbleBee(hive, task)
-                if (bee != null) {
-                    provider.reserve(bee.id, task.items, hive.world.gameTime)
+                if (bee == null) {
+                    hive.returnBee(beeItem)
+                    continue
                 }
+                hive.trackTransportBee(bee.id)
+                provider.reserve(bee.id, task.items, hive.world.gameTime)
             }
         }
     }

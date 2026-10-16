@@ -19,6 +19,7 @@ object CBBeesGameTests {
     private val testHolders = arrayOf(
         de.devin.cbbees.gametest.flight.FlightPlanTests::class.java,
         de.devin.cbbees.gametest.inventory.BeeInventoryTests::class.java,
+        de.devin.cbbees.gametest.inventory.ItemHandlerExtensionTests::class.java,
         de.devin.cbbees.gametest.deconstruction.DeconstructionTests::class.java,
         de.devin.cbbees.gametest.logistics.LogisticsPortTests::class.java,
         de.devin.cbbees.gametest.construction.ConstructionTests::class.java,
