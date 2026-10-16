@@ -43,6 +43,11 @@ object AllPackets {
             CancelJobPacket.STREAM_CODEC,
             CancelJobPacket.Companion::handle
         )
+        registrar.playToServer(
+            WriteMissingToClipboardPacket.TYPE,
+            WriteMissingToClipboardPacket.STREAM_CODEC,
+            WriteMissingToClipboardPacket.Companion::handle
+        )
         registrar.playToClient(
             BeeDebugSyncPacket.TYPE,
             BeeDebugSyncPacket.STREAM_CODEC,

@@ -133,6 +133,8 @@
   "cbbees.job_type.construction": "Construction",
   "cbbees.job_type.deconstruction": "Deconstruction",
   "cbbees.job_type.pickup": "Item Pickup",
+  "cbbees.clipboard.written": "Wrote %s missing items to clipboard",
+  "cbbees.clipboard.nothing_missing": "This construction needs no more items",
   "cbbees.stall.no_network": "Swarm stalled: No bee network found!",
   "cbbees.stall.out_of_range": "Swarm stalled: Target area is out of range!",
   "cbbees.stall.no_bees": "Swarm stalled: No bees available in hives!",

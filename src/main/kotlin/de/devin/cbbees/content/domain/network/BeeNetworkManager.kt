@@ -3,6 +3,7 @@ package de.devin.cbbees.content.domain.network
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
+import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
@@ -264,6 +265,13 @@ object ServerBeeNetworkManager {
     fun findPortableHive(playerId: UUID): PortableBeeHive? {
         return hiveById.values.filterIsInstance<PortableBeeHive>().find { it.player.uuid == playerId }
     }
+
+    fun findNetworkForJob(job: BeeJob): BeeNetwork? =
+        job.ownerId?.let(::findPortableHive)?.let(::getNetworkFor)
+            ?: job.batches.firstNotNullOfOrNull { it.assignedNetworkId }?.let { networkById[it] }
+            ?: networks.firstOrNull { network ->
+                network.components.firstOrNull()?.world == job.level && network.isInRange(job.centerPos)
+            }
 
     /**
      * Ensures the portable beehive always has its own isolated network.

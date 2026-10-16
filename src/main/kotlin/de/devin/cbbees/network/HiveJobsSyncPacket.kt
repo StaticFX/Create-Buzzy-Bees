@@ -261,17 +261,7 @@ class HiveJobsSyncPacket(
                             ghostBlocks = emptyMap()
                         )
                     }
-                    val network = playerNetwork ?: run {
-                        val networkId = job.batches.firstNotNullOfOrNull { it.assignedNetworkId }
-                        if (networkId != null) {
-                            ServerBeeNetworkManager.getNetwork(networkId)
-                        } else {
-                            ServerBeeNetworkManager.getNetworks().firstOrNull {
-                                val comp = it.components.firstOrNull()
-                                comp != null && comp.world == job.level && it.isInRange(job.centerPos)
-                            }
-                        }
-                    }
+                    val network = playerNetwork ?: ServerBeeNetworkManager.findNetworkForJob(job)
                     val reason = if (network != null) {
                         StuckReasonResolver.firstReasonOrNull(network, job)
                     } else {

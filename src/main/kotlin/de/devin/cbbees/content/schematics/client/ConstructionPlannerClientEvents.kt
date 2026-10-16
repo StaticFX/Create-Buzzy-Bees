@@ -1,15 +1,19 @@
 package de.devin.cbbees.content.schematics.client
 
+import com.simibubi.create.AllBlocks
 import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.network.WriteMissingToClipboardPacket
 import de.devin.cbbees.registry.AllKeys
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.network.chat.Component
+import net.minecraft.world.InteractionHand
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import net.neoforged.neoforge.client.event.InputEvent
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
+import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
 
 /**
@@ -77,7 +81,8 @@ object ConstructionPlannerClientEvents {
 
     /**
      * Handles right-click on construction job bounding boxes.
-     * Opens a [JobDetailScreen] when the player right-clicks while looking at a job AABB.
+     * Opens a [JobDetailScreen] when the player right-clicks while looking at a job AABB,
+     * or writes the job's missing materials onto a held Clipboard.
      * If a real block is closer than the AABB, the click passes through to normal handling.
      */
     @SubscribeEvent
@@ -102,7 +107,12 @@ object ConstructionPlannerClientEvents {
         }
 
         ConstructionRenderer.getJobInfo(jobId) ?: return
-        mc.setScreen(JobDetailScreen(jobId))
+        val clipboardHand = InteractionHand.entries.firstOrNull { AllBlocks.CLIPBOARD.isIn(player.getItemInHand(it)) }
+        if (clipboardHand != null) {
+            PacketDistributor.sendToServer(WriteMissingToClipboardPacket(jobId, clipboardHand))
+        } else {
+            mc.setScreen(JobDetailScreen(jobId))
+        }
         event.isCanceled = true
     }
 
