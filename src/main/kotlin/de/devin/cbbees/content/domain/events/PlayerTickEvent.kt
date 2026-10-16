@@ -47,14 +47,9 @@ class PlayerTickEvent {
         val player = event.entity
         if (player.level().isClientSide) return
 
-        val profiler = player.level().profiler
-
-        profiler.push("cbbees_flight")
-        handleFlightUpgrade(player)
-        profiler.pop()
-
         if (player.tickCount % 40 != 0) return
 
+        val profiler = player.level().profiler
         profiler.push("cbbees_portableHive")
         val pool = ServerBeeNetworkManager
 
@@ -75,17 +70,6 @@ class PlayerTickEvent {
             }
         }
         profiler.pop()
-    }
-
-    private fun handleFlightUpgrade(player: net.minecraft.world.entity.player.Player) {
-        if (player.isCreative || player.isSpectator) return
-        // Mechanical Wings upgrade was removed in 1.3.0. Gracefully disable flight
-        // for players who had it active from a previous version.
-        if (player.abilities.mayfly && !player.isCreative && !player.isSpectator) {
-            player.abilities.mayfly = false
-            player.abilities.flying = false
-            player.onUpdateAbilities()
-        }
     }
 
     private fun hasPortableHive(player: net.minecraft.world.entity.player.Player): Boolean {
