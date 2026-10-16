@@ -80,6 +80,13 @@ ordering="NONE"
 side="BOTH"
 
 [[dependencies."${mod_id}"]]
+modId="geckolib"
+type="required"
+versionRange="[4.7.1,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies."${mod_id}"]]
 modId="sable-companion"
 type="optional"
 versionRange="[1.6.0,)"

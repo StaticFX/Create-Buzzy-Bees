@@ -42,7 +42,7 @@ object BeeTargetLineHandler {
             profiler?.pop()
         }
 
-        if (!CBBeesClientConfig.showBeeTargetLines.get()) return
+        if (!CBBeesClientConfig.SPEC.isLoaded || !CBBeesClientConfig.showBeeTargetLines.get()) return
 
         val player = mc.player ?: return
         mc.level ?: return

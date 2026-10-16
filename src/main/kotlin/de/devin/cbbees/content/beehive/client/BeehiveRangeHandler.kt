@@ -28,7 +28,7 @@ object BeehiveRangeHandler {
     @SubscribeEvent
     @JvmStatic
     fun onClientTick(event: ClientTickEvent.Post) {
-        if (!CBBeesClientConfig.showBeehiveRange.get()) {
+        if (!CBBeesClientConfig.SPEC.isLoaded || !CBBeesClientConfig.showBeehiveRange.get()) {
             clearAllSlots()
             return
         }
