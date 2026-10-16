@@ -657,6 +657,10 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         private val listLeft: Int
     ) : ObjectSelectionList<BrowserEntry>(mc, width, height, top, itemHeight) {
 
+        init {
+            x = listLeft
+        }
+
         override fun getRowLeft(): Int = listLeft
         override fun getRowWidth(): Int = this.width - 12
 

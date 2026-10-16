@@ -195,6 +195,10 @@ class GroupPickerScreen(
         private val listLeft: Int
     ) : ObjectSelectionList<GroupEntry>(mc, width, height, top, itemHeight) {
 
+        init {
+            x = listLeft
+        }
+
         override fun getRowLeft(): Int = listLeft
         override fun getRowWidth(): Int = this.width - 12
         override fun isSelectedItem(index: Int): Boolean = false
