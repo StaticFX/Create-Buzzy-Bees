@@ -25,7 +25,7 @@ sealed interface JobType {
     fun collectClientBatches(job: BeeJob): List<ClientBatchInfo>
 
     companion object {
-        val entries: List<JobType> = listOf(Construction, Deconstruction, Pickup)
+        val entries: List<JobType> = listOf(Construction, Deconstruction, Pickup, Shaping)
 
         fun fromOrdinal(ordinal: Int): JobType = entries[ordinal]
 
@@ -59,6 +59,13 @@ sealed interface JobType {
     data object Pickup : JobType {
         override val id = "pickup"
         override val translationKey = "cbbees.job_type.pickup"
+
+        override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
+    }
+
+    data object Shaping : JobType {
+        override val id = "shaping"
+        override val translationKey = "cbbees.job_type.shaping"
 
         override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
     }

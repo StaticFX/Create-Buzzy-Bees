@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:brass_ingot"
+    },
+    "C": {
+      "item": "create:precision_mechanism"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "H": {
+      "item": "minecraft:honeycomb"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "pattern": [
+    " E ",
+    "CPB",
+    " HB"
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:schematic_zapper"
+  }
+}

@@ -24,6 +24,7 @@ import de.devin.cbbees.content.drone.client.DroneViewClientEvents
 import de.devin.cbbees.content.drone.client.DroneViewHUD
 import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
 import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
+import de.devin.cbbees.content.zapper.client.ZapperOutlineRenderer
 import de.devin.cbbees.content.schematics.external.CreateModSchematicSource
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
 import de.devin.cbbees.datagen.CCRDatagen
@@ -121,6 +122,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
             NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
             NeoForge.EVENT_BUS.register(CargoPortLinkRenderer::class.java)
+            NeoForge.EVENT_BUS.register(ZapperOutlineRenderer::class.java)
             NeoForge.EVENT_BUS.register(DroneViewClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DroneRangeRenderer::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.ProgrammedSchematicRenderer::class.java)
