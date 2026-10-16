@@ -14,6 +14,7 @@ import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.schematics.PickupPlannerItem
 import de.devin.cbbees.content.upgrades.*
+import de.devin.cbbees.content.zapper.SchematicZapperItem
 import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
@@ -125,6 +126,25 @@ object AllItems {
                 .pattern("BPB")
                 .pattern(" S ")
                 .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    val SCHEMATIC_ZAPPER: ItemEntry<SchematicZapperItem> = CreateBuzzyBeez.REGISTRATE
+        .item("schematic_zapper") { props -> SchematicZapperItem(props) }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', AllItems.SCHEMATIC.get())
+                .define('H', Items.HONEYCOMB)
+                .define('C', AllItems.PRECISION_MECHANISM)
+                .pattern(" E ")
+                .pattern("CPB")
+                .pattern(" HB")
+                .unlockedBy("has_precision_mechanism", RegistrateRecipeProvider.has(AllItems.PRECISION_MECHANISM))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }

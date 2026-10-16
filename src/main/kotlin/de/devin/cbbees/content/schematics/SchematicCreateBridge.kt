@@ -324,15 +324,7 @@ class SchematicCreateBridge(
         val maxY = maxOf(corner1.y, corner2.y)
         val state = level.getBlockState(pos)
         if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
-            val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
-            val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
-            val tasks = if (CBBeesConfig.beePickupItems.get()) {
-                listOf(removeTask, BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job))
-            } else {
-                listOf(removeTask)
-            }
-            val phase = BlockPlacementClassifier.removalPhase(state)
-            batches.add(TaskBatch(tasks, job, pos, phase))
+            batches.add(removalBatch(pos, state, maxY, job))
         }
     }
 
@@ -506,6 +498,17 @@ class SchematicCreateBridge(
     }
 
     companion object {
+        fun removalBatch(pos: BlockPos, state: BlockState, maxY: Int, job: BeeJob): TaskBatch {
+            val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
+            val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)
+            val tasks = if (CBBeesConfig.beePickupItems.get()) {
+                listOf(removeTask, BeeTask.dropOff(fallbackPos = pos, priority = priority, job = job))
+            } else {
+                listOf(removeTask)
+            }
+            return TaskBatch(tasks, job, pos, BlockPlacementClassifier.removalPhase(state))
+        }
+
         /**
          * Check if an ItemStack is a valid Create schematic
          */
