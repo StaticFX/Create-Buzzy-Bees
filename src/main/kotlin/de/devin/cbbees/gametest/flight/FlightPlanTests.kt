@@ -56,10 +56,8 @@ object FlightPlanTests {
 
     // ── estimatedDurationTicks ──
 
-    private fun plan(vararg checkpoints: Checkpoint) = FlightPlan(
-        beeId = UUID.randomUUID(), type = BeeType.CONSTRUCTION, speed = 1.0f,
-        checkpoints = checkpoints.toList(),
-    )
+    private fun plan(vararg checkpoints: Checkpoint) =
+        FlightPlan.of(UUID.randomUUID(), BeeType.CONSTRUCTION, 1.0f, checkpoints.toList(), null)
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
     @JvmStatic
@@ -116,13 +114,14 @@ object FlightPlanTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 20)
     @JvmStatic
     fun arrivalTicks_matchesDuration(helper: GameTestHelper) = helper.unitTest {
-        val p = FlightPlan(
-            beeId = UUID.randomUUID(), type = BeeType.CONSTRUCTION, speed = 0.5f,
-            checkpoints = listOf(
+        val p = FlightPlan.of(
+            UUID.randomUUID(), BeeType.CONSTRUCTION, 0.5f,
+            listOf(
                 Checkpoint(BlockPos(0, 0, 0), FlyThrough, clientPauseTicks = 2),
                 Checkpoint(BlockPos(5, 0, 0), FlyThrough, clientPauseTicks = 4),
                 Checkpoint(BlockPos(5, 10, 0), FlyThrough),
             ),
+            null
         )
         assertEquals(p.estimatedDurationTicks, p.computeArrivalTicks().last(), "last arrival = duration")
     }

@@ -2,6 +2,7 @@ package de.devin.cbbees.content.beehive
 
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
+import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeManager
@@ -187,7 +188,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     }
 
 
-    override var networkId: UUID = UUID.randomUUID()
+    override var networkId: UUID? = UUID.randomUUID()
         set(value) {
             if (field == value) return
             val old = field
@@ -217,7 +218,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("HomeId", homeId)
-        tag.putUUID("NetworkId", networkId)
+        networkId?.let { tag.putUUID("NetworkId", it) }
 
         val activeBeesList = ListTag()
         activeBeesByJob.forEach { (jobId, bees) ->
@@ -384,13 +385,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         Lang.builder("cbbees").translate("gui.goggles.beehive_stats")
             .forGoggles(tooltip)
 
-        val net = network()
-        net.let { n ->
-            Lang.builder("cbbees").translate("gui.goggles.beehive.network")
-                .style(ChatFormatting.GRAY)
-                .add(Lang.builder("cbbees").text(n.name).style(ChatFormatting.GOLD))
-                .forGoggles(tooltip, 1)
-        }
+        addNetworkTooltip(tooltip, 1)
 
         Lang.builder("cbbees").translate("gui.goggles.beehive.flying")
             .style(ChatFormatting.GRAY)

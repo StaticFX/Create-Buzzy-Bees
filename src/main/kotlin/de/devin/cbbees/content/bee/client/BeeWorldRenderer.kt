@@ -63,7 +63,8 @@ object BeeWorldRenderer {
         val time = System.nanoTime() / 1_000_000_000.0f
 
         flightBees.forEach { bee ->
-            val pos = bee.lerpPos(partialTick)
+            val pose = bee.lerpPose(partialTick)
+            val pos = pose.position
             val dx = pos.x - camPos.x
             val dy = pos.y - camPos.y
             val dz = pos.z - camPos.z
@@ -76,6 +77,7 @@ object BeeWorldRenderer {
 
             poseStack.pushPose()
             poseStack.translate(dx, dy, dz)
+            pose.rotation?.let(poseStack::mulPose)
             poseStack.mulPose(Axis.YP.rotationDegrees(180f - bee.yRot()))
 
             renderModel(poseStack, bufferSource, modelRes, textureRes, time)

@@ -3,6 +3,7 @@ package de.devin.cbbees.content.schematics.client
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.simibubi.create.AllDataComponents
+import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.config.CBBeesClientConfig
 import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.foundation.utility.RaycastHelper
@@ -215,31 +216,35 @@ object SchematicHoverPreview {
         val zO = schematicSize.z / 2.0
         val rot = -(currentRotation.ordinal * 90.0).toFloat()
 
+        val partialTick = event.partialTick.getGameTimeDeltaPartialTick(false)
+
         // Render ghost blocks only if renderer is ready (built asynchronously)
         val renderer = getActiveRenderer()
         if (renderer != null) {
             val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
             val transparentBuffer = TransparentBuffer(superBuffer, opacity)
-            poseStack.pushPose()
+            SableCompat.render.draw(poseStack, anchor, camera, partialTick) { cam ->
+                poseStack.pushPose()
 
-            TransformStack.of(poseStack)
-                .translate(Vec3.atLowerCornerOf(target).subtract(camera))
-            poseStack.translate(xO, 0.0, zO)
-            TransformStack.of(poseStack).rotateYDegrees(rot)
-            poseStack.translate(-xO, 0.0, -zO)
+                TransformStack.of(poseStack)
+                    .translate(Vec3.atLowerCornerOf(target).subtract(cam))
+                poseStack.translate(xO, 0.0, zO)
+                TransformStack.of(poseStack).rotateYDegrees(rot)
+                poseStack.translate(-xO, 0.0, -zO)
 
-            renderer.render(poseStack, transparentBuffer)
-            poseStack.popPose()
+                renderer.render(poseStack, transparentBuffer)
+                poseStack.popPose()
+            }
         }
 
         // Always render AABB outline (available immediately, lightweight)
         val aabbOutline = outline
         if (aabbOutline != null) {
-            val aabb = computeTransformedAABB(target)
-            aabbOutline.setBounds(aabb)
-            poseStack.pushPose()
-            aabbOutline.render(poseStack, superBuffer, camera, event.partialTick.getGameTimeDeltaPartialTick(false))
-            poseStack.popPose()
+            val origin = Vec3.atLowerCornerOf(anchor)
+            aabbOutline.setBounds(computeTransformedAABB(target).move(origin.scale(-1.0)))
+            SableCompat.render.draw(poseStack, anchor, camera, partialTick) { cam ->
+                aabbOutline.render(poseStack, superBuffer, cam.subtract(origin), partialTick)
+            }
         }
 
         superBuffer.draw()

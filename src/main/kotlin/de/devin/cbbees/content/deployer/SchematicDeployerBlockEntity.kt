@@ -1,5 +1,7 @@
 package de.devin.cbbees.content.deployer
 
+import de.devin.cbbees.compat.sable.worldDistanceSqr
+import net.minecraft.world.phys.Vec3
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import de.devin.cbbees.content.bee.debug.BeeDebug
@@ -343,7 +345,7 @@ class SchematicDeployerBlockEntity(
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(clientJob))
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
+            if (player.level() == level && level.worldDistanceSqr(player.position(), Vec3.atCenterOf(blockPos)) < SYNC_RANGE_SQR) {
                 PacketDistributor.sendToPlayer(player, packet)
             }
         }
@@ -358,7 +360,7 @@ class SchematicDeployerBlockEntity(
         val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), emptyList())
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
-            if (player.level() == level && player.blockPosition().closerThan(blockPos, 128.0)) {
+            if (player.level() == level && level.worldDistanceSqr(player.position(), Vec3.atCenterOf(blockPos)) < SYNC_RANGE_SQR) {
                 PacketDistributor.sendToPlayer(player, packet)
             }
         }
@@ -411,5 +413,9 @@ class SchematicDeployerBlockEntity(
             val ord = tag.getInt("DeployResult")
             deployResult = DeployResult.entries.getOrElse(ord) { DeployResult.NONE }
         }
+    }
+
+    companion object {
+        private const val SYNC_RANGE_SQR = 128.0 * 128.0
     }
 }

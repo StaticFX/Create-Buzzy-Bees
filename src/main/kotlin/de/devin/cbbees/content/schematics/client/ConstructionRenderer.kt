@@ -8,6 +8,7 @@ import com.simibubi.create.content.schematics.client.SchematicRenderer
 import net.minecraft.client.renderer.RenderType.chunkBufferLayers
 import com.simibubi.create.foundation.blockEntity.IMultiBlockEntityContainer
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
+import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.beehive.client.ClientJobCache
@@ -142,19 +143,26 @@ object ConstructionRenderer {
         val opacity = CBBeesClientConfig.ghostBlockOpacity.get().toFloat()
         val transparentBuffer = TransparentBuffer(superBuffer, opacity)
 
+        val pt = AnimationTickHolder.getPartialTicks()
+
         profiler.push("renderGhosts")
         for ((_, jobRenderer) in rendererCache) {
-            poseStack.pushPose()
-            poseStack.translate(-camera.x, -camera.y, -camera.z)
-            jobRenderer.renderer.render(poseStack, transparentBuffer)
-            poseStack.popPose()
+            val anchor = jobRenderer.anchor
+            SableCompat.render.draw(poseStack, anchor, camera, pt) { cam ->
+                poseStack.pushPose()
+                poseStack.translate(anchor.x - cam.x, anchor.y - cam.y, anchor.z - cam.z)
+                jobRenderer.renderer.render(poseStack, transparentBuffer)
+                poseStack.popPose()
+            }
         }
         profiler.pop()
 
         profiler.push("renderOutlines")
-        val pt = AnimationTickHolder.getPartialTicks()
-        for ((_, outline) in outlineCache) {
-            outline.render(poseStack, superBuffer, camera, pt)
+        for ((jobId, outline) in outlineCache) {
+            val anchor = jobAnchor(jobId) ?: continue
+            SableCompat.render.draw(poseStack, anchor, camera, pt) { cam ->
+                outline.render(poseStack, superBuffer, cam.subtract(Vec3.atLowerCornerOf(anchor)), pt)
+            }
         }
         profiler.pop()
 
@@ -197,7 +205,8 @@ object ConstructionRenderer {
                             (positions.maxOf { it.z } + 1).toDouble()
                         )
                         outlineBoundsCache[job.jobId] = bounds
-                        val outline = AABBOutline(bounds)
+                        val anchor = renderer?.anchor ?: BlockPos.containing(bounds.minX, bounds.minY, bounds.minZ)
+                        val outline = AABBOutline(bounds.move(Vec3.atLowerCornerOf(anchor).scale(-1.0)))
                         val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
                         outline.params
                             .colored(color)
@@ -277,7 +286,7 @@ object ConstructionRenderer {
 
             removePlacedBlocks(schematicLevel, clientLevel)
 
-            return JobRenderer(GhostSchematicRenderer(schematicLevel), schematicLevel, anchor)
+            return JobRenderer(GhostSchematicRenderer(schematicLevel, anchor), schematicLevel, anchor)
         } catch (e: Exception) {
             CreateBuzzyBeez.LOGGER.error("Failed to load schematic for rendering: $schematicFile", e)
             return buildFallbackRenderer(job, clientLevel)
@@ -301,7 +310,8 @@ object ConstructionRenderer {
 
         val ghostLevel = GhostBlockLevel(clientLevel)
         ghostLevel.populate(allGhosts)
-        return JobRenderer(GhostSchematicRenderer(ghostLevel), ghostLevel, BlockPos.ZERO)
+        val origin = BlockPos(allGhosts.keys.minOf { it.x }, allGhosts.keys.minOf { it.y }, allGhosts.keys.minOf { it.z })
+        return JobRenderer(GhostSchematicRenderer(ghostLevel, origin), ghostLevel, origin)
     }
 
     /**
@@ -318,10 +328,14 @@ object ConstructionRenderer {
         var bestDist = maxRange
         var bestJob: UUID? = null
 
+        val pt = AnimationTickHolder.getPartialTicks()
         for ((jobId, bounds) in outlineBoundsCache) {
-            val hit = bounds.clip(start, start.add(dir.scale(maxRange)))
+            val anchor = jobAnchor(jobId) ?: continue
+            val localStart = SableCompat.render.toLocal(anchor, start, pt)
+            val localEnd = SableCompat.render.toLocal(anchor, start.add(dir.scale(maxRange)), pt)
+            val hit = bounds.clip(localStart, localEnd)
             if (hit.isPresent) {
-                val dist = hit.get().distanceTo(start)
+                val dist = hit.get().distanceTo(localStart)
                 if (dist < bestDist) {
                     bestDist = dist
                     bestJob = jobId
@@ -330,6 +344,9 @@ object ConstructionRenderer {
         }
         return bestJob?.let { it to bestDist }
     }
+
+    private fun jobAnchor(jobId: UUID): BlockPos? =
+        rendererCache[jobId]?.anchor ?: outlineBoundsCache[jobId]?.let { BlockPos.containing(it.minX, it.minY, it.minZ) }
 
     /**
      * Returns the cached [ClientJobInfo] for a given job ID, or null.

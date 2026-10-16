@@ -6,6 +6,7 @@ import com.simibubi.create.content.redstone.link.LinkBehaviour
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
+import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
@@ -37,7 +38,7 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
     override val world: Level get() = getLevel()!!
     override val pos: BlockPos get() = blockPos
 
-    override var networkId: UUID = UUID.randomUUID()
+    override var networkId: UUID? = null
         set(value) {
             if (field == value) return
             val old = field
@@ -105,15 +106,13 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         if (tag.hasUUID("tp_id")) {
             id = tag.getUUID("tp_id")
         }
-        if (tag.hasUUID("NetworkId")) {
-            networkId = tag.getUUID("NetworkId")
-        }
+        networkId = if (tag.hasUUID("NetworkId")) tag.getUUID("NetworkId") else null
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
         super.write(tag, registries, clientPacket)
         tag.putUUID("tp_id", id)
-        tag.putUUID("NetworkId", networkId)
+        networkId?.let { tag.putUUID("NetworkId", it) }
     }
 
     override fun getItemHandler(level: Level): IItemHandler? = getInventory(level)
@@ -216,17 +215,13 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        val network = network()
         val typeKey = if (isProvider()) "gui.goggles.transport.provider" else "gui.goggles.transport.requester"
 
         Lang.builder("cbbees").translate(typeKey)
             .style(ChatFormatting.GOLD)
             .forGoggles(tooltip)
 
-        Lang.builder("cbbees").translate("gui.goggles.beehive.network")
-            .style(ChatFormatting.GRAY)
-            .add(Lang.builder("cbbees").text(network.name).style(ChatFormatting.GOLD))
-            .forGoggles(tooltip, 1)
+        addNetworkTooltip(tooltip, 1)
 
         return true
     }

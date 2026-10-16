@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.bee.flight
 
+import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeAsync
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer.computeTransportAsync
@@ -67,12 +68,12 @@ object FlightPlanComputer {
             return
         }
 
-        val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, level)
+        val crossings = spaceCrossings(rawCheckpoints, level)
+        val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, crossings, level)
 
         executor.submit {
-            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, level)
-            val plan = FlightPlan(bee.id, bee.type, DEFAULT_SPEED, finalCheckpoints)
-            level.server.execute { onComplete(plan) }
+            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, crossings)
+            level.server.execute { onComplete(FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, finalCheckpoints, level)) }
         }
     }
 
@@ -86,12 +87,12 @@ object FlightPlanComputer {
         onComplete: (FlightPlan) -> Unit,
     ) {
         val rawCheckpoints = buildRawTransportCheckpoints(bee, task)
-        val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, level)
+        val crossings = spaceCrossings(rawCheckpoints, level)
+        val collisionSnapshot = snapshotCollisions(rawCheckpoints.map { it.pos }, crossings, level)
 
         executor.submit {
-            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, level)
-            val plan = FlightPlan(bee.id, BeeType.TRANSPORT, DEFAULT_SPEED, finalCheckpoints)
-            level.server.execute { onComplete(plan) }
+            val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, crossings)
+            level.server.execute { onComplete(FlightPlan.of(bee.id, BeeType.TRANSPORT, DEFAULT_SPEED, finalCheckpoints, level)) }
         }
     }
 
@@ -99,10 +100,11 @@ object FlightPlanComputer {
      * Snapshots block collision state along all straight-line segments between positions.
      * Called on the server thread. Returns an immutable map safe to read from any thread.
      */
-    private fun snapshotCollisions(positions: List<BlockPos>, level: ServerLevel): Map<BlockPos, Boolean> {
+    private fun snapshotCollisions(positions: List<BlockPos>, crossings: Set<Int>, level: ServerLevel): Map<BlockPos, Boolean> {
         val snapshot = mutableMapOf<BlockPos, Boolean>()
 
-        positions.zipWithNext().forEach { (from, to) ->
+        positions.zipWithNext().forEachIndexed { segment, (from, to) ->
+            if (segment in crossings) return@forEachIndexed
             val dx = to.x - from.x
             val dy = to.y - from.y
             val dz = to.z - from.z
@@ -145,7 +147,7 @@ object FlightPlanComputer {
     ): FlightPlan? {
         val raw = buildRawConstructionCheckpoints(bee, batch, network) ?: return null
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
+        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
     }
 
     /**
@@ -155,7 +157,7 @@ object FlightPlanComputer {
     fun forTransport(bee: ServerBeeData, task: TransportTask, level: ServerLevel? = null): FlightPlan {
         val raw = buildRawTransportCheckpoints(bee, task)
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
+        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
     }
 
     /**
@@ -169,7 +171,7 @@ object FlightPlanComputer {
             Checkpoint(hiveApproach, EnterHive()),
         )
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan(bee.id, bee.type, DEFAULT_SPEED, checkpoints)
+        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
     }
 
     private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {
@@ -241,15 +243,15 @@ object FlightPlanComputer {
     /**
      * Inserts waypoints using a pre-snapshotted collision map. Safe to call from any thread.
      */
-    @Suppress("UNUSED_PARAMETER")
     private fun insertObstacleWaypointsFromSnapshot(
         checkpoints: List<Checkpoint>,
         collisionSnapshot: Map<BlockPos, Boolean>,
-        level: ServerLevel, // unused but kept for signature compat
+        crossings: Set<Int>,
     ): List<Checkpoint> = buildList {
         checkpoints.forEachIndexed { index, checkpoint ->
             add(checkpoint)
             val next = checkpoints.getOrNull(index + 1) ?: return@forEachIndexed
+            if (index in crossings) return@forEachIndexed
             findObstacleWaypointFromSnapshot(checkpoint.pos, next.pos, collisionSnapshot)?.let {
                 add(Checkpoint(it, FlyThrough))
             }
@@ -288,6 +290,9 @@ object FlightPlanComputer {
 
     private const val MAX_FLY_OVER_HEIGHT = 10
 
+    private fun spaceCrossings(checkpoints: List<Checkpoint>, level: ServerLevel): Set<Int> =
+        SableCompat.flight.crossings(level, checkpoints.map { it.pos })
+
     /**
      * Inserts [FlyThrough] waypoints between checkpoints to route around solid blocks.
      *
@@ -297,9 +302,11 @@ object FlightPlanComputer {
      */
     private fun insertObstacleWaypoints(checkpoints: List<Checkpoint>, level: ServerLevel): List<Checkpoint> =
         buildList {
+            val crossings = spaceCrossings(checkpoints, level)
             checkpoints.forEachIndexed { index, checkpoint ->
                 add(checkpoint)
                 val next = checkpoints.getOrNull(index + 1) ?: return@forEachIndexed
+                if (index in crossings) return@forEachIndexed
 
                 val waypoint = findObstacleWaypoint(checkpoint.pos, next.pos, level)
                 if (waypoint != null) {

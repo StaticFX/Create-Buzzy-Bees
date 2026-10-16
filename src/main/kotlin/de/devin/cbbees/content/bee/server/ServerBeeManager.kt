@@ -174,10 +174,7 @@ object ServerBeeManager {
         if (bee.currentCheckpointIndex >= plan.checkpoints.size) return
 
         val from = plan.checkpoints[prevIndex]
-        val to = plan.checkpoints[bee.currentCheckpointIndex]
-
-        val travel = FlightPlan.travelTicks(from.pos, to.pos, plan.speed)
-        bee.nextCheckpointArrivalTick = gameTime + travel + from.clientPauseTicks
+        bee.nextCheckpointArrivalTick = gameTime + plan.segmentTicks[bee.currentCheckpointIndex] + from.clientPauseTicks
     }
 
     /**
@@ -234,11 +231,8 @@ object ServerBeeManager {
                 bee.planStartTick = beeWorld.gameTime
                 bee.currentCheckpointIndex = 0
                 if (plan.checkpoints.size > 1) {
-                    val travel = FlightPlan.travelTicks(
-                        plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
-                    )
                     bee.currentCheckpointIndex = 1
-                    bee.nextCheckpointArrivalTick = beeWorld.gameTime + travel
+                    bee.nextCheckpointArrivalTick = beeWorld.gameTime + plan.segmentTicks[1]
                 }
                 broadcastFlightPlan(bee, plan, clientStartIndex = 0)
             }
@@ -285,11 +279,8 @@ object ServerBeeManager {
             bee.planStartTick = beeWorld.gameTime
             bee.currentCheckpointIndex = 0
             if (plan.checkpoints.size > 1) {
-                val travel = FlightPlan.travelTicks(
-                    plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
-                )
                 bee.currentCheckpointIndex = 1
-                bee.nextCheckpointArrivalTick = beeWorld.gameTime + travel
+                bee.nextCheckpointArrivalTick = beeWorld.gameTime + plan.segmentTicks[1]
             }
             broadcastFlightPlan(bee, plan, clientStartIndex = 0)
         }
@@ -315,8 +306,13 @@ object ServerBeeManager {
             beeId = plan.beeId,
             type = plan.type,
             speed = plan.speed,
-            checkpoints = plan.checkpoints.map {
-                ClientCheckpoint(it.pos, it.clientPauseTicks, awaitConfirm = it.action is ExecuteBeeAction)
+            checkpoints = plan.checkpoints.mapIndexed { i, checkpoint ->
+                ClientCheckpoint(
+                    checkpoint.pos,
+                    checkpoint.clientPauseTicks,
+                    awaitConfirm = checkpoint.action is ExecuteBeeAction,
+                    travelTicks = plan.segmentTicks[i]
+                )
             },
             startIndex = clientStartIndex ?: bee.currentCheckpointIndex,
             elapsedTicks = elapsedTicks,

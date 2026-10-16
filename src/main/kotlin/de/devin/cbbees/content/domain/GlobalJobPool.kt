@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
@@ -270,7 +271,7 @@ object GlobalJobPool : JobPool {
                 if (withPorts.isEmpty()) continue
 
                 val targetNetwork = withPorts.minByOrNull { network ->
-                    network.hives.minOfOrNull { it.pos.distSqr(batch.targetPosition) } ?: Double.MAX_VALUE
+                    network.hives.minOfOrNull { job.level.worldDistanceSqr(it.pos, batch.targetPosition) } ?: Double.MAX_VALUE
                 } ?: continue
 
                 if (!hasMaterialsAvailable(batch, targetNetwork)) { noMaterials++; continue }
@@ -312,7 +313,7 @@ object GlobalJobPool : JobPool {
             for (batch in job.batches) {
                 if (!isDispatchable(batch)) continue
                 if (batch.assignedNetworkId != networkId) continue
-                val dist = batch.targetPosition.distSqr(hivePos)
+                val dist = beeHive.world.worldDistanceSqr(batch.targetPosition, hivePos)
                 if (dist < bestAssignedDist) {
                     bestAssignedDist = dist
                     bestAssigned = batch
@@ -332,7 +333,7 @@ object GlobalJobPool : JobPool {
             if (!network.isInRange(job.centerPos)) continue
             val hasDispatchable = job.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
             if (!hasDispatchable) continue
-            val dist = job.centerPos.distSqr(hivePos)
+            val dist = beeHive.world.worldDistanceSqr(job.centerPos, hivePos)
             if (dist < bestJobDist) {
                 bestJobDist = dist
                 bestJob = job

@@ -132,7 +132,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override val id: UUID get() = player.uuid
     override val world: Level get() = player.level()
     override val pos: BlockPos get() = player.blockPosition()
-    override var networkId: UUID = UUID.randomUUID()
+    override var networkId: UUID? = UUID.randomUUID()
         set(value) {
             if (field == value) return
             val old = field

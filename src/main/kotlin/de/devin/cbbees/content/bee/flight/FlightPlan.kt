@@ -1,11 +1,14 @@
 package de.devin.cbbees.content.bee.flight
 
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import kotlin.math.sqrt
 
 /**
  * A bee's full mission represented as an ordered list of [Checkpoint] waypoints.
@@ -32,36 +35,40 @@ data class FlightPlan(
     val type: BeeType,
     val speed: Float,
     val checkpoints: List<Checkpoint>,
+    val segmentTicks: List<Long>,
 ) {
     /** Estimated total flight ticks (sum of distances / speed + pause ticks). */
     val estimatedDurationTicks: Long
-        get() = checkpoints.zipWithNext().sumOf { (a, b) ->
-            travelTicks(a.pos, b.pos, speed) + a.clientPauseTicks
-        }
+        get() = (1 until checkpoints.size).sumOf { segmentTicks[it] + checkpoints[it - 1].clientPauseTicks }
 
     /**
      * Pre-computes cumulative arrival ticks for each checkpoint.
-     * Used by both server (for checkpoint advancement) and client (for position interpolation).
-     * Guarantees identical timing on both sides.
+     * Used by the server for checkpoint advancement; the client receives [segmentTicks]
+     * directly, which guarantees identical timing on both sides.
      */
     fun computeArrivalTicks(): LongArray = LongArray(checkpoints.size).also { arr ->
         var cumulative = 0L
-        arr[0] = 0
         for (i in 1 until checkpoints.size) {
-            val travel = travelTicks(checkpoints[i - 1].pos, checkpoints[i].pos, speed)
-            cumulative += travel + checkpoints[i - 1].clientPauseTicks
+            cumulative += segmentTicks[i] + checkpoints[i - 1].clientPauseTicks
             arr[i] = cumulative
         }
     }
 
     companion object {
+        fun of(beeId: UUID, type: BeeType, speed: Float, checkpoints: List<Checkpoint>, level: Level?) = FlightPlan(
+            beeId, type, speed, checkpoints,
+            checkpoints.indices.map { i ->
+                if (i == 0) 0L else travelTicks(checkpoints[i - 1].pos, checkpoints[i].pos, speed, level)
+            }
+        )
+
         /**
          * Euclidean travel time between two block positions at the given speed.
          * Single source of truth — used by server, client, and duration estimates.
          */
-        fun travelTicks(from: BlockPos, to: BlockPos, speed: Float): Long {
-            val dist = Vec3.atCenterOf(from).distanceTo(Vec3.atCenterOf(to))
-            return (dist / speed).toLong().coerceAtLeast(1)
+        fun travelTicks(from: BlockPos, to: BlockPos, speed: Float, level: Level? = null): Long {
+            val distSqr = level?.worldDistanceSqr(from, to) ?: Vec3.atCenterOf(from).distanceToSqr(Vec3.atCenterOf(to))
+            return (sqrt(distSqr) / speed).toLong().coerceAtLeast(1)
         }
     }
 }

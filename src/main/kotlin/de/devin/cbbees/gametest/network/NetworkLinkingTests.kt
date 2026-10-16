@@ -39,7 +39,7 @@ object NetworkLinkingTests {
     ) : BeeHive {
         override val id: UUID = UUID.randomUUID()
         override val world: Level get() = level
-        override var networkId: UUID = UUID.randomUUID()
+        override var networkId: UUID? = UUID.randomUUID()
         override fun getAvailableBeeCount(): Int = 0
         override fun hasBeeOfType(beeType: BeeType): Boolean = false
         override fun getBeeContext(): BeeContext = BeeContext()
@@ -61,7 +61,7 @@ object NetworkLinkingTests {
     ) : LogisticsPort {
         override val id: UUID = UUID.randomUUID()
         override val world: Level get() = level
-        override var networkId: UUID = UUID.randomUUID()
+        override var networkId: UUID? = UUID.randomUUID()
         override fun getPortType(): PortType = PortType.INSERT
         override fun getFilter(): ItemStack = ItemStack.EMPTY
         override fun isValidForPickup(): Boolean = true

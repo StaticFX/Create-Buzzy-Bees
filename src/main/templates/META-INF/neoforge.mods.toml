@@ -75,8 +75,15 @@ side = "BOTH"
 [[dependencies."${mod_id}"]]
 modId="create"
 type="required"
-versionRange="[6.0.9,6.1.0)"
+versionRange="[6.0.10,6.1.0)"
 ordering="NONE"
+side="BOTH"
+
+[[dependencies."${mod_id}"]]
+modId="sable-companion"
+type="optional"
+versionRange="[1.6.0,)"
+ordering="AFTER"
 side="BOTH"
 
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares

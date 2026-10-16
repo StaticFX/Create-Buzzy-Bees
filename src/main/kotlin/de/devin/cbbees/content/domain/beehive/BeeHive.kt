@@ -1,5 +1,7 @@
 package de.devin.cbbees.content.domain.beehive
 
+import kotlin.math.abs
+import de.devin.cbbees.compat.sable.toWorld
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.BeeType
@@ -78,10 +80,10 @@ interface BeeHive : INetworkComponent {
      * Checks if a position is within the work range of this source.
      */
     fun isInRange(pos: BlockPos): Boolean {
-        val dx = Math.abs(pos.x - this.pos.x)
-        val dz = Math.abs(pos.z - this.pos.z)
+        val target = world.toWorld(pos)
+        val origin = world.toWorld(this.pos)
         val range = getWorkRange().toInt()
-        return dx <= range && dz <= range
+        return abs(target.x - origin.x) <= range && abs(target.z - origin.z) <= range
     }
 
     /**

@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.network
 
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
@@ -81,7 +82,10 @@ class BeeNetwork(
                 val inRange = _components.any { other ->
                     topology.isAnchor(other) && topology.isLogisticsRange(other, comp.pos)
                 }
-                if (!inRange) return@removeAll true
+                if (!inRange) {
+                    comp.orphan()
+                    return@removeAll true
+                }
             }
             false
         }
@@ -198,7 +202,7 @@ class BeeNetwork(
         val candidates = hives.filter {
             topology.isOperationalRange(it, batch.targetPosition) &&
                     it.getAvailableBeeCount() > 0
-        }.sortedBy { it.pos.distSqr(batch.targetPosition) }
+        }.sortedBy { it.world.worldDistanceSqr(it.pos, batch.targetPosition) }
 
         for (hive in candidates) {
             if (hive.acceptBatch(batch)) {
@@ -292,8 +296,7 @@ class BeeNetwork(
                 for (c in nonAnchors) {
                     if (!group.any { topology.isOperationalRange(it, c.pos) }) {
                         components.remove(c)
-                        c.networkId = UUID.randomUUID()
-                        c.sync()
+                        c.orphan()
                     }
                 }
                 return listOf(this)

@@ -43,8 +43,7 @@ object NetworkHighlightHandler {
     }
 
     private fun renderNetworkBlink(component: INetworkComponent) {
-        val networkId = component.networkId
-        val network = ClientBeeNetworkManager.getNetwork(networkId)
+        val network = component.networkId?.let(ClientBeeNetworkManager::getNetwork) ?: return
 
         if (network.components.isEmpty()) return
 
