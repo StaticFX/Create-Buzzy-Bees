@@ -8,7 +8,6 @@ object CBBeesClientConfig {
     val showConstructionGhosts: ModConfigSpec.BooleanValue
     val showSchematicPreview: ModConfigSpec.BooleanValue
     val showBeehiveRange: ModConfigSpec.BooleanValue
-    val showBeeTargetLines: ModConfigSpec.BooleanValue
     val ghostBlockOpacity: ModConfigSpec.DoubleValue
     val renderGhostBlockEntities: ModConfigSpec.BooleanValue
     val maxGhostBlockEntities: ModConfigSpec.IntValue
@@ -32,10 +31,6 @@ object CBBeesClientConfig {
         showBeehiveRange = builder
             .comment("Show beehive range overlay when looking at a hive")
             .define("showBeehiveRange", true)
-
-        showBeeTargetLines = builder
-            .comment("Show bee target lines when wearing goggles")
-            .define("showBeeTargetLines", true)
 
         ghostBlockOpacity = builder
             .comment("Opacity for all ghost block rendering (0.05 = nearly invisible, 1.0 = fully opaque)")

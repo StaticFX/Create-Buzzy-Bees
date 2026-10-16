@@ -7,7 +7,6 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
 import de.devin.cbbees.util.extractExactly
@@ -150,11 +149,6 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     override fun testFilter(stack: ItemStack): Boolean {
         return filteringBehavior.test(stack)
-    }
-
-    override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean {
-        // TODO implement
-        return true;
     }
 
     override fun walkTarget(): WalkTarget {

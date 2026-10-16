@@ -1,6 +1,5 @@
 package de.devin.cbbees.gametest.network
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
@@ -66,7 +65,6 @@ object NetworkLinkingTests {
         override fun getFilter(): ItemStack = ItemStack.EMPTY
         override fun isValidForPickup(): Boolean = true
         override fun isValidForDropOff(): Boolean = true
-        override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean = true
         override fun getItemHandler(level: Level): IItemHandler? = null
         override fun walkTarget(): WalkTarget = WalkTarget(pos, 1.0f, 0)
         override fun priority(): Int = portPriority

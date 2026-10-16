@@ -1,6 +1,5 @@
 {
-  "entity.cbbees.mechanical_bee": "Mechanical Bee",
-  "entity.cbbees.mechanical_bumble_bee": "Mechanical Bumble Bee",
+  "entity.cbbees.drone": "Drone",
   "itemGroup.cbbees.buzzy_bees": "Buzzy Bees",
   "itemGroup.cbbees": "Create Addon",
   "itemGroup.cbbees.base_creative_tab": "Buzzy Bees",

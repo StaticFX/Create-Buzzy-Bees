@@ -1,7 +1,7 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.drone.DroneEntity
 import de.devin.cbbees.content.drone.DroneViewManager
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -35,19 +35,18 @@ class MoveDronePacket(val dx: Float, val dz: Float) : CustomPacketPayload {
                 val player = ctx.player() as? ServerPlayer ?: return@enqueueWork
 
                 val droneUUID = DroneViewManager.getDroneUUID(player) ?: return@enqueueWork
-                val entity = player.serverLevel().getEntity(droneUUID) as? MechanicalBeeEntity ?: return@enqueueWork
-                if (!entity.isDrone) return@enqueueWork
+                val entity = player.serverLevel().getEntity(droneUUID) as? DroneEntity ?: return@enqueueWork
 
                 // Clamp magnitude to prevent speed hacking
                 var dx = payload.dx.toDouble()
                 var dz = payload.dz.toDouble()
                 val mag = kotlin.math.sqrt(dx * dx + dz * dz)
-                if (mag > MechanicalBeeEntity.DRONE_MAX_SPEED) {
-                    dx = dx / mag * MechanicalBeeEntity.DRONE_MAX_SPEED
-                    dz = dz / mag * MechanicalBeeEntity.DRONE_MAX_SPEED
+                if (mag > DroneEntity.MAX_SPEED) {
+                    dx = dx / mag * DroneEntity.MAX_SPEED
+                    dz = dz / mag * DroneEntity.MAX_SPEED
                 }
 
-                entity.applyDroneMovement(dx, dz)
+                entity.moveBy(dx, dz)
             }
         }
     }

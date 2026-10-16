@@ -1,16 +1,15 @@
 package de.devin.cbbees.content.bee.client
 
-import de.devin.cbbees.content.bee.NetworkedBee
 import de.devin.cbbees.content.bee.flight.ClientBeeFlightData
 import de.devin.cbbees.util.ClientSide
+import net.minecraft.client.Minecraft
+import net.minecraft.world.item.ItemStack
+import net.neoforged.bus.api.SubscribeEvent
+import net.neoforged.neoforge.client.event.ClientTickEvent
 import java.util.UUID
 
 /**
- * Client-side registry of all bees for rendering.
- *
- * Tracks:
- * - Legacy entity bees via [onBeeAdded]/[onBeeRemoved] (migration)
- * - Checkpoint-based bees via [applyFlightPlan]/[removeFlightData]
+ * Client-side registry of all bees for rendering, fed by flight plans from the server.
  *
  * @see ClientBeeFlightData
  * @see de.devin.cbbees.network.BeeFlightPlanPacket
@@ -18,16 +17,21 @@ import java.util.UUID
 @ClientSide
 object BeeClientTracker {
 
-    private val entityBees = mutableSetOf<NetworkedBee>()
     private val flightBees = mutableMapOf<UUID, ClientBeeFlightData>()
 
-    // ── Legacy entity tracking ──
+    @SubscribeEvent
+    @JvmStatic
+    fun onClientTick(event: ClientTickEvent.Post) {
+        val mc = Minecraft.getInstance()
+        val paused = mc.isPaused
+        setPaused(paused)
+        if (paused) return
 
-    fun onBeeAdded(bee: NetworkedBee) { entityBees.add(bee) }
-    fun onBeeRemoved(bee: NetworkedBee) { entityBees.remove(bee) }
-    fun getBees(): Set<NetworkedBee> = entityBees
-
-    // ── Checkpoint flight data ──
+        val profiler = mc.level?.profiler
+        profiler?.push("cbbees_beeClientTick")
+        tickClient()
+        profiler?.pop()
+    }
 
     /** Apply a new or updated flight plan from the server. */
     fun applyFlightPlan(data: ClientBeeFlightData) {
@@ -44,6 +48,10 @@ object BeeClientTracker {
         flightBees[beeId]?.confirmCheckpoint(checkpointIndex)
     }
 
+    fun setCarriedItem(beeId: UUID, item: ItemStack) {
+        flightBees[beeId]?.carriedItem = item
+    }
+
     /** All active checkpoint-based bees. */
     fun getFlightBees(): Collection<ClientBeeFlightData> = flightBees.values
 
@@ -57,11 +65,6 @@ object BeeClientTracker {
         flightBees.values.forEach { it.tickClient() }
         flightBees.values.removeAll { it.isComplete && it.id !in previewIds }
     }
-
-    // ── Legacy position-based data (kept for backward compat during migration) ──
-
-    fun applySync(bees: List<ClientBeeData>) { /* no-op — replaced by flight plans */ }
-    fun getDataBees(): Collection<ClientBeeData> = emptyList()
 
     // ── Preview bees (spawned via /cbbees preview) ──
 
@@ -77,7 +80,6 @@ object BeeClientTracker {
     }
 
     fun clear() {
-        entityBees.clear()
         flightBees.clear()
         previewIds.clear()
     }

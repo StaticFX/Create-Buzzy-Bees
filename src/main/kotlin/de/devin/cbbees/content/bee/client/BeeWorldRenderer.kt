@@ -4,13 +4,15 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.texture.OverlayTexture
-import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.item.ItemDisplayContext
+import net.minecraft.world.item.ItemStack
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import software.bernie.geckolib.cache.GeckoLibCache
@@ -40,6 +42,8 @@ object BeeWorldRenderer {
     private const val WING_FLAP_SPEED = 25f
     private const val WING_FLAP_AMPLITUDE = 0.6f
     private const val GEAR_ROTATION_PERIOD = 4f
+    private const val CARRIED_ITEM_OFFSET_Y = -0.0
+    private const val CARRIED_ITEM_SCALE = 0.35f
 
     @SubscribeEvent
     @JvmStatic
@@ -60,7 +64,8 @@ object BeeWorldRenderer {
 
         profiler.push("cbbees_beeRender")
         val maxDistSq = MAX_RENDER_DIST_SQ
-        val time = System.nanoTime() / 1_000_000_000.0f
+        val itemDist = CBBeesClientConfig.beeItemRenderDistance.get().toDouble()
+        val itemDistSq = itemDist * itemDist
 
         flightBees.forEach { bee ->
             val pose = bee.lerpPose(partialTick)
@@ -70,17 +75,15 @@ object BeeWorldRenderer {
             val dz = pos.z - camPos.z
             if (dx * dx + dy * dy + dz * dz > maxDistSq) return@forEach
 
-            val (modelRes, textureRes) = when (bee.type) {
-                BeeType.CONSTRUCTION -> BEE_MODEL to BEE_TEXTURE
-                BeeType.TRANSPORT -> BUMBLE_MODEL to BUMBLE_TEXTURE
-            }
-
             poseStack.pushPose()
             poseStack.translate(dx, dy, dz)
             pose.rotation?.let(poseStack::mulPose)
             poseStack.mulPose(Axis.YP.rotationDegrees(180f - bee.yRot()))
 
-            renderModel(poseStack, bufferSource, modelRes, textureRes, time)
+            renderBee(poseStack, bufferSource, bee.type, FULL_BRIGHT_LIGHT)
+            if (!bee.carriedItem.isEmpty && dx * dx + dy * dy + dz * dz <= itemDistSq) {
+                renderCarriedItem(poseStack, bufferSource, bee.carriedItem, bee.id.hashCode())
+            }
 
             poseStack.popPose()
         }
@@ -89,17 +92,32 @@ object BeeWorldRenderer {
         profiler.pop()
     }
 
-    private fun renderModel(
-        poseStack: PoseStack,
-        bufferSource: MultiBufferSource,
-        modelRes: ResourceLocation,
-        textureRes: ResourceLocation,
-        time: Float,
-    ) {
+    private fun renderCarriedItem(poseStack: PoseStack, bufferSource: MultiBufferSource, item: ItemStack, seed: Int) {
+        val mc = Minecraft.getInstance()
+        poseStack.pushPose()
+        poseStack.translate(0.0, CARRIED_ITEM_OFFSET_Y + 0.1, 0.0)
+        poseStack.scale(CARRIED_ITEM_SCALE, CARRIED_ITEM_SCALE, CARRIED_ITEM_SCALE)
+        mc.itemRenderer.renderStatic(
+            item,
+            ItemDisplayContext.FIXED,
+            FULL_BRIGHT_LIGHT,
+            OverlayTexture.NO_OVERLAY,
+            poseStack,
+            bufferSource,
+            mc.level,
+            seed
+        )
+        poseStack.popPose()
+    }
+
+    fun renderBee(poseStack: PoseStack, bufferSource: MultiBufferSource, type: BeeType, packedLight: Int) {
+        val (modelRes, textureRes) = when (type) {
+            BeeType.CONSTRUCTION -> BEE_MODEL to BEE_TEXTURE
+            BeeType.TRANSPORT -> BUMBLE_MODEL to BUMBLE_TEXTURE
+        }
         val bakedModel: BakedGeoModel = GeckoLibCache.getBakedModels()[modelRes] ?: return
-        val renderType = RenderType.entityCutoutNoCull(textureRes)
-        val buffer = bufferSource.getBuffer(renderType)
-        val packedLight = FULL_BRIGHT_LIGHT
+        val buffer = bufferSource.getBuffer(RenderType.entityCutoutNoCull(textureRes))
+        val time = System.nanoTime() / 1_000_000_000.0f
 
         val wingAngle = sin(time * WING_FLAP_SPEED) * WING_FLAP_AMPLITUDE
         val gearAngle = (time % GEAR_ROTATION_PERIOD) / GEAR_ROTATION_PERIOD * Math.PI.toFloat() * 2f

@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.network.BeeCarriedItemPacket
 import de.devin.cbbees.network.BeeCheckpointConfirmPacket
 import de.devin.cbbees.network.BeeFlightPlanPacket
 import de.devin.cbbees.network.BeeRemovePacket
@@ -24,6 +25,7 @@ import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.phys.Vec3
@@ -114,6 +116,7 @@ object ServerBeeManager {
         val snapshot = bees.values.toTypedArray()
         var checkpointsThisTick = 0
         val confirmBatch = mutableListOf<BeeCheckpointConfirmPacket.Entry>()
+        val carriedItemBatch = mutableListOf<BeeCarriedItemPacket.Entry>()
 
         profiler.push("checkpoints")
         for (bee in snapshot) {
@@ -132,6 +135,11 @@ object ServerBeeManager {
 
             val beeLevel = bee._level as? ServerLevel ?: serverLevel
             val completed = checkpoint.action.onArrival(bee, beeLevel, gameTime)
+            val carried = bee.carriedItem()
+            if (!ItemStack.isSameItemSameComponents(carried, bee.syncedCarriedItem)) {
+                bee.syncedCarriedItem = carried.copyWithCount(1)
+                carriedItemBatch.add(BeeCarriedItemPacket.Entry(bee.id, bee.syncedCarriedItem))
+            }
             if (completed) {
                 if (checkpoint.action is ExecuteBeeAction) {
                     confirmBatch.add(BeeCheckpointConfirmPacket.Entry(bee.id, bee.currentCheckpointIndex))
@@ -151,6 +159,10 @@ object ServerBeeManager {
             profiler.push("broadcastConfirm")
             broadcastCheckpointConfirmBatch(confirmBatch)
             profiler.pop()
+        }
+
+        if (carriedItemBatch.isNotEmpty()) {
+            broadcastToAll(BeeCarriedItemPacket(carriedItemBatch))
         }
 
         isTicking = false
@@ -301,6 +313,7 @@ object ServerBeeManager {
         val gameTime = level?.gameTime ?: 0L
         val planStartTick = bee.planStartTick
         val elapsedTicks = if (planStartTick > 0) (gameTime - planStartTick) else 0L
+        bee.syncedCarriedItem = bee.carriedItem().copyWithCount(1)
 
         val packet = BeeFlightPlanPacket(
             beeId = plan.beeId,
@@ -316,7 +329,12 @@ object ServerBeeManager {
             },
             startIndex = clientStartIndex ?: bee.currentCheckpointIndex,
             elapsedTicks = elapsedTicks,
+            carriedItem = bee.syncedCarriedItem,
         )
+        broadcastToAll(packet)
+    }
+
+    private fun broadcastToAll(packet: CustomPacketPayload) {
         val server = level?.server ?: return
         server.playerList.players.forEach { player ->
             PacketDistributor.sendToPlayer(player, packet)
@@ -324,18 +342,11 @@ object ServerBeeManager {
     }
 
     private fun broadcastCheckpointConfirmBatch(entries: List<BeeCheckpointConfirmPacket.Entry>) {
-        val server = level?.server ?: return
-        val packet = BeeCheckpointConfirmPacket(entries)
-        server.playerList.players.forEach { player ->
-            PacketDistributor.sendToPlayer(player, packet)
-        }
+        broadcastToAll(BeeCheckpointConfirmPacket(entries))
     }
 
     fun broadcastRemoval(beeId: UUID) {
-        val server = level?.server ?: return
-        server.playerList.players.forEach { player ->
-            PacketDistributor.sendToPlayer(player, BeeRemovePacket(beeId))
-        }
+        broadcastToAll(BeeRemovePacket(beeId))
     }
 
     /**

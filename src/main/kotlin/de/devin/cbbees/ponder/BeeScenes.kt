@@ -2,14 +2,16 @@ package de.devin.cbbees.ponder
 
 import com.simibubi.create.AllItems
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
+import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.PortType
 import de.devin.cbbees.content.logistics.transport.TransportMode
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
-import de.devin.cbbees.registry.AllEntityTypes
 import net.createmod.catnip.math.Pointing
 import net.createmod.ponder.api.PonderPalette
+import net.createmod.ponder.api.element.ElementLink
+import net.createmod.ponder.foundation.element.ElementLinkImpl
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
 import net.minecraft.core.Direction
@@ -222,28 +224,28 @@ object BeeScenes {
         scene.markAsFinished()
     }
 
-    private fun flyEntity(
+    private fun createBee(scene: CreateSceneBuilder, type: BeeType, position: Vec3, yRot: Float = 0f): ElementLink<PonderBeeElement> {
+        val link = ElementLinkImpl(PonderBeeElement::class.java)
+        scene.addInstruction { ponderScene ->
+            val bee = PonderBeeElement(type, position, yRot)
+            ponderScene.addElement(bee)
+            ponderScene.linkElement(bee, link)
+        }
+        return link
+    }
+
+    private fun flyBee(
         scene: CreateSceneBuilder,
-        bee: net.createmod.ponder.api.element.ElementLink<net.createmod.ponder.api.element.EntityElement>,
+        bee: ElementLink<PonderBeeElement>,
         from: Vec3,
         to: Vec3,
         ticks: Int
     ) {
         val yaw = (Math.toDegrees(Math.atan2(to.z - from.z, to.x - from.x)) - 90.0).toFloat()
-        scene.world().modifyEntity(bee) { entity ->
-            entity.yRot = yaw
-            entity.yRotO = yaw
-            entity.yHeadRot = yaw
-            entity.yHeadRot = yaw
-        }
+        scene.addInstruction { it.resolve(bee)?.yRot = yaw }
         for (i in 1..ticks) {
-            val t = i.toDouble() / ticks
-            scene.world().modifyEntity(bee) { entity ->
-                val x = from.x + (to.x - from.x) * t
-                val y = from.y + (to.y - from.y) * t
-                val z = from.z + (to.z - from.z) * t
-                entity.setPos(x, y, z)
-            }
+            val position = from.lerp(to, i.toDouble() / ticks)
+            scene.addInstruction { it.resolve(bee)?.position = position }
             scene.idle(1)
         }
     }
@@ -271,13 +273,7 @@ object BeeScenes {
         scene.idle(150)
 
         val beeSpawn = util.vector().centerOf(hivePos).add(0.0, 1.0, 0.0)
-        val bee = scene.world().createEntity { level ->
-            val entity = AllEntityTypes.MECHANICAL_BEE.create(level)!!
-            entity.setPos(beeSpawn.x, beeSpawn.y, beeSpawn.z)
-            entity.setNoAi(true)
-            entity.noPhysics = true
-            entity
-        }
+        val bee = createBee(scene, BeeType.CONSTRUCTION, beeSpawn)
 
         scene.overlay().showOutlineWithText(util.select().position(portPos), 120)
             .text("When a bee focuses on a port, it will start moving towards it, the port will signal this with a glowing bulb.")
@@ -297,7 +293,7 @@ object BeeScenes {
 
         // Fly bee from hive to port
         val portTarget = util.vector().centerOf(portPos).add(0.0, 0.5, 0.0)
-        flyEntity(scene, bee, beeSpawn, portTarget, 60)
+        flyBee(scene, bee, beeSpawn, portTarget, 60)
 
         scene.idle(80)
 
@@ -311,7 +307,7 @@ object BeeScenes {
         // Fly bee from port to wood placement
         val woodPos = util.grid().at(3, 1, 3)
         val woodTarget = util.vector().centerOf(woodPos).add(0.0, 1.0, 0.0)
-        flyEntity(scene, bee, portTarget, woodTarget, 50)
+        flyBee(scene, bee, portTarget, woodTarget, 50)
 
         scene.idle(50)
 
@@ -328,12 +324,12 @@ object BeeScenes {
         scene.idle(50)
 
         // Fly bee back to hive
-        flyEntity(scene, bee, woodTarget, beeSpawn, 50)
+        flyBee(scene, bee, woodTarget, beeSpawn, 50)
 
         scene.idle(70)
 
         // Remove the bee when it arrives home
-        scene.world().modifyEntity(bee) { it.discard() }
+        scene.addInstruction { it.resolve(bee)?.isVisible = false }
 
         scene.markAsFinished()
     }
@@ -456,13 +452,7 @@ object BeeScenes {
         scene.idle(110)
 
         val beeSpawn = util.vector().centerOf(port1Pos).add(0.0, 1.0, 0.0)
-        val bee = scene.world().createEntity { level ->
-            val entity = AllEntityTypes.MECHANICAL_BUMBLE_BEE.create(level)!!
-            entity.setPos(beeSpawn.x, beeSpawn.y, beeSpawn.z)
-            entity.isNoAi = true
-            entity.noPhysics = true
-            entity
-        }
+        val bee = createBee(scene, BeeType.TRANSPORT, beeSpawn)
 
         scene.idle(30)
 
@@ -474,7 +464,7 @@ object BeeScenes {
 
         scene.idle(30)
 
-        flyEntity(scene, bee, beeSpawn, util.vector().centerOf(port2Pos).add(0.0, 1.0, 0.0), 50)
+        flyBee(scene, bee, beeSpawn, util.vector().centerOf(port2Pos).add(0.0, 1.0, 0.0), 50)
 
         scene.idle(70)
 
@@ -493,33 +483,9 @@ object BeeScenes {
         val mechanicalBumbleBeePos = util.grid().at(1,2,2)
         val mechanicalBumbleBeeSpawnPos = util.vector().centerOf(mechanicalBumbleBeePos)
 
-        scene.world().createEntity { level ->
-            val entity = AllEntityTypes.MECHANICAL_BEE.create(level)!!
-            entity.setPos(mechanicalBeeSpawnPos.x, mechanicalBeeSpawnPos.y, mechanicalBeeSpawnPos.z)
-            entity.yRot = 180f
-            entity.yRotO = 180f
-            entity.yHeadRot = 180f
-            entity.yHeadRotO = 180f
-            entity.yBodyRot = 180f
-            entity.yBodyRotO = 180f
-            entity.isNoAi = true
-            entity.noPhysics = true
-            entity
-        }
+        createBee(scene, BeeType.CONSTRUCTION, mechanicalBeeSpawnPos, 180f)
 
-        scene.world().createEntity { level ->
-            val entity = AllEntityTypes.MECHANICAL_BUMBLE_BEE.create(level)!!
-            entity.setPos(mechanicalBumbleBeeSpawnPos.x, mechanicalBumbleBeeSpawnPos.y, mechanicalBumbleBeeSpawnPos.z)
-            entity.yRot = 180f
-            entity.yRotO = 180f
-            entity.yHeadRot = 180f
-            entity.yHeadRotO = 180f
-            entity.yBodyRot = 180f
-            entity.yBodyRotO = 180f
-            entity.isNoAi = true
-            entity.noPhysics = true
-            entity
-        }
+        createBee(scene, BeeType.TRANSPORT, mechanicalBumbleBeeSpawnPos, 180f)
 
         scene.idle(20)
 

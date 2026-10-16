@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.bee.state
 
 /**
- * States for construction bees (MechanicalBeeEntity).
+ * States for construction bees.
  * Replaces the Brain/Behavior system with O(1) state dispatch.
  */
 enum class ConstructionBeeState {
@@ -26,7 +26,7 @@ enum class ConstructionBeeState {
 }
 
 /**
- * States for transport bees (MechanicalBumbleBeeEntity).
+ * States for transport bees (bumble bees).
  */
 enum class TransportBeeState {
     /** Flying to the source port to pick up items. */

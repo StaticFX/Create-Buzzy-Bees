@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.drone.client
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.drone.DroneEntity
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -28,7 +28,7 @@ object DroneViewHUD {
 
         // Range indicator
         val player = mc.player ?: return
-        val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId) as? MechanicalBeeEntity ?: return
+        val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId) as? DroneEntity ?: return
 
         val dx = drone.x - player.x
         val dz = drone.z - player.z

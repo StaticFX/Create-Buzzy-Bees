@@ -2,7 +2,6 @@ package de.devin.cbbees.content.domain.beehive
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
@@ -246,8 +245,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override fun isValidForDropOff(): Boolean = true
 
     override fun testFilter(stack: ItemStack): Boolean = true
-
-    override fun canBeeDropOffItem(bee: MechanicalBeeEntity): Boolean = true
 
     override fun getItemHandler(level: Level): IItemHandler? = null
 

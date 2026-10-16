@@ -3,7 +3,7 @@ package de.devin.cbbees.content.domain.logistics
 import com.simibubi.create.content.redstone.link.LinkBehaviour
 
 /**
- * Port used by bumble bees (MechanicalBumbleBeeEntity) for item transport.
+ * Port used by bumble bees for item transport.
  *
  * Provider ports supply items from attached inventories.
  * Requester ports accept items into attached inventories.

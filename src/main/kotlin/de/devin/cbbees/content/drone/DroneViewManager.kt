@@ -1,7 +1,6 @@
 package de.devin.cbbees.content.drone
 
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.upgrades.UpgradeType
 import de.devin.cbbees.network.DroneViewSyncPacket
 import de.devin.cbbees.registry.AllEntityTypes
@@ -48,13 +47,11 @@ object DroneViewManager {
 
         // Spawn drone entity
         val level = player.serverLevel()
-        val drone = MechanicalBeeEntity(AllEntityTypes.MECHANICAL_BEE.get(), level)
-        val targetY = (player.y + MechanicalBeeEntity.DRONE_ALTITUDE).coerceAtMost(level.maxBuildHeight.toDouble() - 1.0)
+        val drone = DroneEntity(AllEntityTypes.DRONE.get(), level)
+        val targetY = (player.y + DroneEntity.ALTITUDE).coerceAtMost(level.maxBuildHeight.toDouble() - 1.0)
         drone.moveTo(player.x, targetY, player.z, 0f, 90f)
-        drone.setOwner(player.uuid)
-        drone.isDrone = true
-        drone.droneMaxRange = beeContext.droneRange
-        drone.setNoGravity(true)
+        drone.ownerId = player.uuid
+        drone.maxRange = beeContext.droneRange
         level.addFreshEntity(drone)
 
         activeDrones[player.uuid] = drone.uuid
@@ -71,7 +68,7 @@ object DroneViewManager {
         val level = player.serverLevel()
         val entity = level.getEntity(droneUUID)
 
-        if (entity is MechanicalBeeEntity) {
+        if (entity is DroneEntity) {
             entity.discard()
         }
 
@@ -94,7 +91,7 @@ object DroneViewManager {
         val level = player.serverLevel()
         val entity = level.getEntity(droneUUID)
 
-        if (entity is MechanicalBeeEntity) {
+        if (entity is DroneEntity) {
             entity.discard()
         }
 
@@ -130,7 +127,7 @@ object DroneViewManager {
                 despawnDrone(player)
             } else {
                 val entity = server.overworld().getEntity(droneUUID)
-                (entity as? MechanicalBeeEntity)?.discard()
+                (entity as? DroneEntity)?.discard()
             }
         }
         activeDrones.clear()

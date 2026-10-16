@@ -10,8 +10,7 @@ import java.util.UUID
 /**
  * Minimal interface for bee-world interaction, used by [de.devin.cbbees.content.domain.action.BeeAction].
  *
- * Implemented by both [ServerBeeData] (non-entity system) and [de.devin.cbbees.content.bee.MechanicalBeeEntity]
- * (legacy migration). Actions only need inventory access, position, and spring management.
+ * Implemented by [ServerBeeData]. Actions only need inventory access, position, and spring management.
  */
 interface BeeWorker {
     val uuid: UUID

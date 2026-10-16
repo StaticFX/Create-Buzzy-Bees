@@ -2,7 +2,6 @@ package de.devin.cbbees.content.domain
 
 import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.content.bee.BeeSeparation
-import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.bee.server.ServerBeeManager
@@ -76,7 +75,7 @@ object TransportDispatcher : SavedData() {
                 val requesterHandler = requester.getItemHandler(requester.world)
                 val itemsToTransport = mutableListOf<ItemStack>()
                 for (slot in 0 until handler.slots) {
-                    if (itemsToTransport.size >= MechanicalBumbleBeeEntity.INVENTORY_SIZE) break
+                    if (itemsToTransport.size >= ServerBeeData.TRANSPORT_INVENTORY_SIZE) break
 
                     val stack = handler.getStackInSlot(slot)
                     if (stack.isEmpty) continue

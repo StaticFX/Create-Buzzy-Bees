@@ -49,11 +49,6 @@ object AllPackets {
             WriteMissingToClipboardPacket.Companion::handle
         )
         registrar.playToClient(
-            BeeDebugSyncPacket.TYPE,
-            BeeDebugSyncPacket.STREAM_CODEC,
-            BeeDebugSyncPacket.Companion::handle
-        )
-        registrar.playToClient(
             NetworkSyncPacket.TYPE,
             NetworkSyncPacket.STREAM_CODEC,
             NetworkSyncPacket.Companion::handle
@@ -137,6 +132,11 @@ object AllPackets {
             BeeCheckpointConfirmPacket.TYPE,
             BeeCheckpointConfirmPacket.STREAM_CODEC,
             BeeCheckpointConfirmPacket.Companion::handle
+        )
+        registrar.playToClient(
+            BeeCarriedItemPacket.TYPE,
+            BeeCarriedItemPacket.STREAM_CODEC,
+            BeeCarriedItemPacket.Companion::handle
         )
 
         // Drone view packets

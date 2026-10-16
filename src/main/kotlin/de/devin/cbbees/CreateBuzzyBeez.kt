@@ -11,9 +11,7 @@ import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
-import de.devin.cbbees.content.bee.brain.BeeMemoryModules
-import de.devin.cbbees.content.bee.brain.BeeSensors
-import de.devin.cbbees.content.bee.client.BeeTargetLineHandler
+import de.devin.cbbees.content.bee.client.BeeClientTracker
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
 import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
@@ -101,8 +99,6 @@ object CreateBuzzyBeez {
         AllEffects.register()
         de.devin.cbbees.registry.AllCBeesRecipeTypes.register(MOD_BUS)
         AllCBeesFanProcessingTypes.register(MOD_BUS)
-        BeeMemoryModules.register()
-        BeeSensors.register()
 
         MOD_BUS.addListener<RegisterPayloadHandlersEvent> {
             AllPackets.register(it)
@@ -118,7 +114,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
             NeoForge.EVENT_BUS.register(ConstructionPlannerClientEvents::class.java)
-            NeoForge.EVENT_BUS.register(BeeTargetLineHandler::class.java)
+            NeoForge.EVENT_BUS.register(BeeClientTracker::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.bee.client.BeeWorldRenderer::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)

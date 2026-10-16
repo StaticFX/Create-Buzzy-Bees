@@ -4,6 +4,7 @@ import de.devin.cbbees.compat.sable.FlightPose
 import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.content.bee.server.BeeType
 import net.minecraft.core.BlockPos
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
 import kotlin.math.atan2
@@ -27,6 +28,7 @@ class ClientBeeFlightData(
     startIndex: Int = 0,
     /** Unused — kept for packet compat. Sync uses startIndex instead. */
     elapsedNanoOffset: Long = 0,
+    var carriedItem: ItemStack = ItemStack.EMPTY,
 ) {
     private val arrivalNanos: LongArray = LongArray(checkpoints.size).also { arr ->
         var cumulative = 0L

@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.drone.client
 
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
+import de.devin.cbbees.content.drone.DroneEntity
 import de.devin.cbbees.util.ClientSide
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
@@ -31,7 +31,7 @@ object DroneRangeRenderer {
 
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
-        val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId) as? MechanicalBeeEntity ?: return
+        val drone = mc.level?.getEntity(DroneViewClientState.droneEntityId) as? DroneEntity ?: return
 
         val maxRange = DroneViewClientState.maxRange.toDouble()
         if (maxRange <= 0) {
@@ -42,7 +42,7 @@ object DroneRangeRenderer {
         val centerX = player.x
         val centerZ = player.z
         // Draw the circle at the drone's Y level (slightly above ground so it's visible from above)
-        val y = drone.y - MechanicalBeeEntity.DRONE_ALTITUDE + 1.0
+        val y = drone.y - DroneEntity.ALTITUDE + 1.0
 
         val outliner = Outliner.getInstance()
         val angleStep = 2.0 * Math.PI / SEGMENTS

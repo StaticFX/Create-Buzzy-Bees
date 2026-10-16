@@ -3,7 +3,6 @@ package de.devin.cbbees.content.domain.beehive
 import kotlin.math.abs
 import de.devin.cbbees.compat.sable.toWorld
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.bee.MechanicalBeeEntity
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.task.BeeTask

@@ -33,10 +33,7 @@ enum class BeeType(val itemClass: Class<*>) {
 }
 
 /**
- * Lightweight bee data object — replaces the full [de.devin.cbbees.content.bee.MechanicalBeeEntity].
- *
- * No entity overhead: no PathfinderMob, no Brain, no SynchedEntityData, no vanilla tick chain.
- * Ticked directly by [ServerBeeManager] with pure Kotlin logic.
+ * Server-side bee. Bees are plain data objects, not entities, ticked directly by [ServerBeeManager].
  */
 class ServerBeeData(
     val id: UUID,
@@ -83,7 +80,13 @@ class ServerBeeData(
     var returningToOwner: Player? = null
 
     // ── Inventory ──
-    val inventory: SimpleContainer = SimpleContainer(if (type == BeeType.CONSTRUCTION) 4 else 3)
+    val inventory: SimpleContainer =
+        SimpleContainer(if (type == BeeType.CONSTRUCTION) CONSTRUCTION_INVENTORY_SIZE else TRANSPORT_INVENTORY_SIZE)
+
+    /** Carried item as last sent to clients. */
+    var syncedCarriedItem: ItemStack = ItemStack.EMPTY
+
+    fun carriedItem(): ItemStack = getInventoryContents().firstOrNull() ?: ItemStack.EMPTY
 
     // ── Context cache ──
     var cachedBeeContext: BeeContext? = null
@@ -228,6 +231,9 @@ class ServerBeeData(
     }
 
     companion object {
+        const val CONSTRUCTION_INVENTORY_SIZE = 4
+        const val TRANSPORT_INVENTORY_SIZE = 3
+
         fun load(tag: CompoundTag, registries: HolderLookup.Provider): ServerBeeData {
             val id = tag.getUUID("Id")
             val type = BeeType.valueOf(tag.getString("Type"))

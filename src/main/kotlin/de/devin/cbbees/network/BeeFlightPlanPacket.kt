@@ -8,6 +8,7 @@ import de.devin.cbbees.content.bee.server.BeeType
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
 
@@ -29,6 +30,7 @@ class BeeFlightPlanPacket(
     val startIndex: Int,
     /** How many ticks the server has been running this plan. Client fast-forwards by this amount. */
     val elapsedTicks: Long = 0,
+    val carriedItem: ItemStack = ItemStack.EMPTY,
 ) : CustomPacketPayload {
 
     companion object {
@@ -50,6 +52,7 @@ class BeeFlightPlanPacket(
                     },
                     startIndex = buf.readVarInt(),
                     elapsedTicks = buf.readVarLong(),
+                    carriedItem = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf),
                 )
 
                 override fun encode(buf: RegistryFriendlyByteBuf, packet: BeeFlightPlanPacket) {
@@ -65,6 +68,7 @@ class BeeFlightPlanPacket(
                     }
                     buf.writeVarInt(packet.startIndex)
                     buf.writeVarLong(packet.elapsedTicks)
+                    ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, packet.carriedItem)
                 }
             }
 
@@ -78,6 +82,7 @@ class BeeFlightPlanPacket(
                         checkpoints = packet.checkpoints,
                         startIndex = packet.startIndex,
                         elapsedNanoOffset = packet.elapsedTicks * 50_000_000L, // ticks → nanos
+                        carriedItem = packet.carriedItem,
                     )
                 )
             }
