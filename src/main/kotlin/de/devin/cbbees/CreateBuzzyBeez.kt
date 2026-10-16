@@ -4,6 +4,8 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
+import de.devin.cbbees.compat.sable.SableCompat
+import de.devin.cbbees.compat.sable.SubLevelNetworkTracker
 import de.devin.cbbees.blocks.AllBlocks
 import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.config.CBBeesConfig
@@ -182,6 +184,7 @@ object CreateBuzzyBeez {
         // Register server-side event handlers on the NeoForge event bus
         NeoForge.EVENT_BUS.register(CCRServerEvents::class.java)
         NeoForge.EVENT_BUS.register(PlayerTickEvent())
+        if (SableCompat.isLoaded) NeoForge.EVENT_BUS.register(SubLevelNetworkTracker::class.java)
     }
 
     fun asResource(path: String): ResourceLocation {

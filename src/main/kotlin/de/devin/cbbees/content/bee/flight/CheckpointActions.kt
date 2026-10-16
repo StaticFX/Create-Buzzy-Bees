@@ -223,11 +223,8 @@ class CheckForNextWork : CheckpointAction {
                     bee.planStartTick = level.gameTime
                     bee.currentCheckpointIndex = 0
                     if (plan.checkpoints.size > 1) {
-                        val travel = FlightPlan.travelTicks(
-                            plan.checkpoints[0].pos, plan.checkpoints[1].pos, plan.speed
-                        )
                         bee.currentCheckpointIndex = 1
-                        bee.nextCheckpointArrivalTick = level.gameTime + travel
+                        bee.nextCheckpointArrivalTick = level.gameTime + plan.segmentTicks[1]
                     }
                     ServerBeeManager.broadcastFlightPlan(bee, plan, clientStartIndex = 0)
                 }

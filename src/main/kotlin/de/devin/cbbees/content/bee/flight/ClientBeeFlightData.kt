@@ -1,5 +1,7 @@
 package de.devin.cbbees.content.bee.flight
 
+import de.devin.cbbees.compat.sable.FlightPose
+import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.content.bee.server.BeeType
 import net.minecraft.core.BlockPos
 import net.minecraft.world.phys.Vec3
@@ -26,13 +28,12 @@ class ClientBeeFlightData(
     /** Unused — kept for packet compat. Sync uses startIndex instead. */
     elapsedNanoOffset: Long = 0,
 ) {
-    private val positions: List<Vec3> = checkpoints.map { Vec3.atCenterOf(it.pos) }
-
     private val arrivalNanos: LongArray = LongArray(checkpoints.size).also { arr ->
         var cumulative = 0L
         arr[0] = 0
         for (i in 1 until checkpoints.size) {
-            val travelTicks = FlightPlan.travelTicks(checkpoints[i - 1].pos, checkpoints[i].pos, speed)
+            val travelTicks = checkpoints[i].travelTicks.takeIf { it > 0 }
+                ?: FlightPlan.travelTicks(checkpoints[i - 1].pos, checkpoints[i].pos, speed)
             cumulative += (travelTicks + checkpoints[i - 1].pauseTicks) * NANOS_PER_TICK
             arr[i] = cumulative
         }
@@ -145,21 +146,23 @@ class ClientBeeFlightData(
     }
 
     /**
-     * Exact position at this instant. Called every render frame.
+     * Exact pose at this instant. Called every render frame.
      * Reads [System.nanoTime] directly — smooth at any FPS/TPS.
      */
-    fun lerpPos(@Suppress("UNUSED_PARAMETER") partialTick: Float): Vec3 {
-        if (checkpoints.size < 2) return positions.firstOrNull() ?: Vec3.ZERO
-        return computePositionAtNano(elapsedNano())
+    fun lerpPose(partialTick: Float): FlightPose {
+        if (checkpoints.isEmpty()) return FlightPose(Vec3.ZERO, null)
+        if (checkpoints.size < 2) return resolve(0, 0, 0.0, Vec3.ZERO, partialTick)
+        return computePoseAtNano(elapsedNano(), partialTick)
     }
 
     fun yRot(): Float = currentYRot
 
     // ── Position computation ──
 
-    private fun computePositionAtNano(nano: Long): Vec3 {
+    private fun computePoseAtNano(nano: Long, partialTick: Float): FlightPose {
         val (segIndex, segStartNano, segEndNano) = findSegment(nano)
-        if (segIndex >= positions.size - 1) return positions.last().add(flightOffset(nano)).add(separationOffset())
+        val offset = flightOffset(nano).add(separationOffset())
+        if (segIndex >= checkpoints.size - 1) return resolve(checkpoints.size - 1, checkpoints.size - 1, 0.0, offset, partialTick)
 
         val pauseNano = checkpoints[segIndex].pauseTicks.toLong() * NANOS_PER_TICK
         val travelStartNano = segStartNano + pauseNano
@@ -170,10 +173,11 @@ class ClientBeeFlightData(
 
         val t = easeIn(rawT).toDouble()
 
-        return positions[segIndex].lerp(positions[segIndex + 1], t)
-            .add(flightOffset(nano))
-            .add(separationOffset())
+        return resolve(segIndex, segIndex + 1, t, offset, partialTick)
     }
+
+    private fun resolve(from: Int, to: Int, t: Double, offset: Vec3, partialTick: Float): FlightPose =
+        SableCompat.flight.pose(checkpoints[from].pos, checkpoints[to].pos, t, offset, partialTick)
 
     private fun findSegment(nano: Long): Triple<Int, Long, Long> {
         for (i in 1 until arrivalNanos.size) {
@@ -185,10 +189,10 @@ class ClientBeeFlightData(
 
     private fun computeSegmentYRot(): Float {
         val (segIndex, _, _) = findSegment(elapsedNano())
-        val from = positions.getOrNull(segIndex) ?: return currentYRot
-        val to = positions.getOrNull(segIndex + 1) ?: return currentYRot
-        val dx = to.x - from.x
-        val dz = to.z - from.z
+        if (segIndex + 1 >= checkpoints.size) return currentYRot
+        val heading = SableCompat.flight.heading(checkpoints[segIndex].pos, checkpoints[segIndex + 1].pos)
+        val dx = heading.x
+        val dz = heading.z
         return if (dx * dx + dz * dz < 0.01) currentYRot
         else (atan2(-dx, dz) * (180.0 / Math.PI)).toFloat()
     }
@@ -229,4 +233,5 @@ data class ClientCheckpoint(
     val pauseTicks: Int = 0,
     /** If true, the client holds the bee at this checkpoint until the server confirms completion. */
     val awaitConfirm: Boolean = false,
+    val travelTicks: Long = 0,
 )

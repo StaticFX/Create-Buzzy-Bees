@@ -33,7 +33,10 @@ import java.util.BitSet
  * Geometry can be pre-built on a background thread via [prebuildGeometry],
  * eliminating the frame stutter that would otherwise occur on first render.
  */
-class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
+class GhostSchematicRenderer(
+    world: SchematicLevel,
+    private val origin: BlockPos = BlockPos.ZERO
+) : SchematicRenderer(world) {
 
     private val anchor: BlockPos = world.anchor
 
@@ -108,11 +111,14 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
             val shouldRender = BitSet(capped.size)
             shouldRender.set(0, capped.size)
             val errored = BitSet(capped.size)
+            ms.pushPose()
+            ms.translate(-origin.x.toDouble(), -origin.y.toDouble(), -origin.z.toDouble())
             BlockEntityRenderHelper.renderBlockEntities(
                 capped, shouldRender, errored,
                 null, mc.level, ms, null, buffers,
                 AnimationTickHolder.getPartialTicks()
             )
+            ms.popPose()
         }
     }
 
@@ -146,7 +152,11 @@ class GhostSchematicRenderer(world: SchematicLevel) : SchematicRenderer(world) {
             random.setSeed(seed)
             if (model.getRenderTypes(state, random, finalModelData).contains(layer)) {
                 poseStack.pushPose()
-                poseStack.translate(localPos.x.toDouble(), localPos.y.toDouble(), localPos.z.toDouble())
+                poseStack.translate(
+                    (localPos.x - origin.x).toDouble(),
+                    (localPos.y - origin.y).toDouble(),
+                    (localPos.z - origin.z).toDouble()
+                )
 
                 renderer.tesselateBlock(
                     renderWorld, model, state, pos, poseStack, sbbBuilder, true,

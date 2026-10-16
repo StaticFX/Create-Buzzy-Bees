@@ -195,23 +195,30 @@ object ServerBeeNetworkManager {
             return
         }
 
+        splitIfDisconnected(network)
+        rebuildIndexes()
+    }
+
+    fun mergeNetworks(target: BeeNetwork, other: BeeNetwork) {
+        target.merge(other)
+        networks.remove(other)
+    }
+
+    fun splitIfDisconnected(network: BeeNetwork): Boolean {
         val splitResults = network.split()
         if (splitResults.isEmpty()) {
-            val remaining = network.components.toList()
-            remaining.forEach {
+            network.components.toList().forEach {
                 it.networkId = UUID.randomUUID()
                 it.sync()
             }
             networks.remove(network)
-        } else if (splitResults.size > 1) {
-            splitResults.forEach { result ->
-                if (!networks.contains(result)) {
-                    networks.add(result)
-                }
-            }
+            return true
         }
-
-        rebuildIndexes()
+        if (splitResults.size > 1) {
+            splitResults.filterNot(networks::contains).forEach(networks::add)
+            return true
+        }
+        return false
     }
 
     fun registerWorker(worker: BeeHive) = registerComponent(worker)

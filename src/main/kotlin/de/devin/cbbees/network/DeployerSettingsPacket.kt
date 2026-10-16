@@ -1,5 +1,7 @@
 package de.devin.cbbees.network
 
+import net.minecraft.world.phys.Vec3
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.deployer.DeployMode
 import de.devin.cbbees.content.deployer.SchematicDeployerBlockEntity
@@ -53,7 +55,7 @@ class DeployerSettingsPacket(
                 val player = context.player() as? ServerPlayer ?: return@enqueueWork
                 val level = player.serverLevel()
 
-                if (player.blockPosition().distSqr(payload.deployerPos) > 64.0) return@enqueueWork
+                if (level.worldDistanceSqr(player.position(), Vec3.atCenterOf(payload.deployerPos)) > 64.0) return@enqueueWork
 
                 val be = level.getBlockEntity(payload.deployerPos) as? SchematicDeployerBlockEntity
                     ?: return@enqueueWork

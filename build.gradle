@@ -29,6 +29,11 @@ repositories {
     }
     maven { url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/' }
     maven { url = "https://maven.blamejared.com/" } // JEI
+    maven {
+        name = "Sable"
+        url = uri("https://maven.ryanhcode.dev/releases")
+        content { includeGroup "dev.ryanhcode.sable-companion" }
+    }
 }
 
 base {
@@ -132,6 +137,8 @@ dependencies {
 
     implementation("software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.1")
 
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}")
+
     // WebP thumbnail support (pure Java ImageIO plugin)
     // implementation = compile classpath, jarJar = bundled in prod, additionalRuntimeClasspath = dev runtime
     implementation "com.twelvemonkeys.imageio:imageio-webp:3.12.0"
@@ -234,6 +241,7 @@ if (System.getenv("CURSEFORGE_TOKEN")) {
         mainFile.addRequirement('geckolib')
         mainFile.addOptional('curios')
         mainFile.addOptional('jei')
+        mainFile.addOptional('sable')
     }
 }
 
@@ -253,6 +261,7 @@ if (System.getenv("MODRINTH_TOKEN")) {
             required.project 'geckolib'
             optional.project 'curios'
             optional.project 'jei'
+            optional.project 'sable'
         }
     }
 }

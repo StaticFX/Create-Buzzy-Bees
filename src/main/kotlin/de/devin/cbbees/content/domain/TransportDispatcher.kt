@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain
 
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.content.bee.BeeSeparation
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeEntity
 import de.devin.cbbees.content.bee.server.BeeType
@@ -101,7 +102,7 @@ object TransportDispatcher : SavedData() {
                 // Use minByOrNull instead of sortedBy.firstOrNull to avoid full sort
                 val hive = hivesWithBumbles
                     .filter { it.hasBeeOfType(BeeType.TRANSPORT) && it.canSpawnBee() }
-                    .minByOrNull { it.pos.distSqr(provider.pos) }
+                    .minByOrNull { it.world.worldDistanceSqr(it.pos, provider.pos) }
                     ?: break // no more bumble bees available in any hive
 
                 val beeItem = hive.consumeBeeOfType(BeeType.TRANSPORT)
