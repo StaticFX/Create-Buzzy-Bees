@@ -1,8 +1,8 @@
 package de.devin.cbbees.content.schematics
 
 import com.simibubi.create.AllDataComponents
+import de.devin.cbbees.content.planner.AllPlanners
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler
-import de.devin.cbbees.items.AllItems
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
@@ -84,11 +84,11 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
          */
         fun findPlanner(player: Player): ItemStack {
             val mainHand = player.mainHandItem
-            if (AllItems.CONSTRUCTION_PLANNER.isIn(mainHand)) return mainHand
+            if (AllPlanners.CONSTRUCTION.isIn(mainHand)) return mainHand
             val inv = player.inventory
             for (i in 0 until inv.containerSize) {
                 val stack = inv.getItem(i)
-                if (AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return stack
+                if (AllPlanners.CONSTRUCTION.isIn(stack)) return stack
             }
             return ItemStack.EMPTY
         }

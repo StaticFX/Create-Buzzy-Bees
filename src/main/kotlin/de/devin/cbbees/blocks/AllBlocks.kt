@@ -9,8 +9,11 @@ import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlock
 import de.devin.cbbees.content.deployer.SchematicDeployerBlock
+import de.devin.cbbees.content.logistics.dock.DockPortBlock
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
+import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
+import de.devin.cbbees.datagen.PortBlockStates
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
 import net.minecraft.tags.BlockTags
@@ -41,7 +44,7 @@ object AllBlocks {
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() } // Important: so it doesn't "cull" the chest behind it
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
+        .blockstate { c, p -> PortBlockStates.generate(c, p, PortBlock.PORT_TYPE) }
         .item()
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
@@ -84,7 +87,7 @@ object AllBlocks {
         .initialProperties(SharedProperties::softMetal)
         .properties { it.noOcclusion() }
         .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
-        .blockstate { _, _ -> } // Hand-written multipart blockstate in resources
+        .blockstate { c, p -> PortBlockStates.generate(c, p, TransportPortBlock.TRANSPORT_MODE) }
         .item()
         .recipe { c, p ->
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
@@ -95,6 +98,27 @@ object AllBlocks {
                 .pattern("V")
                 .pattern("B")
                 .unlockedBy("has_brass_casing", RegistrateRecipeProvider.has(CreateAllBlocks.BRASS_CASING.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .model { _, _ -> } // Hand-written item model in resources
+        .build()
+        .register()
+
+    val DOCK_PORT = CreateBuzzyBeez.REGISTRATE.block("dock_port", ::DockPortBlock)
+        .initialProperties(SharedProperties::softMetal)
+        .properties { it.noOcclusion() }
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE, BlockTags.NEEDS_STONE_TOOL)
+        .blockstate { c, p -> PortBlockStates.generate(c, p, PortBlock.PORT_TYPE) }
+        .item()
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.TRANSMITTER.get())
+                .define('V', CreateAllBlocks.SMART_FLUID_PIPE.get())
+                .define('B', CreateAllBlocks.COPPER_CASING.get())
+                .pattern("W")
+                .pattern("V")
+                .pattern("B")
+                .unlockedBy("has_copper_casing", RegistrateRecipeProvider.has(CreateAllBlocks.COPPER_CASING.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .model { _, _ -> } // Hand-written item model in resources

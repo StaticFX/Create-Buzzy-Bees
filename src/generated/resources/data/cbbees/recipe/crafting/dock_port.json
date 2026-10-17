@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:copper_casing"
+    },
+    "V": {
+      "item": "create:smart_fluid_pipe"
+    },
+    "W": {
+      "item": "create:transmitter"
+    }
+  },
+  "pattern": [
+    "W",
+    "V",
+    "B"
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:dock_port"
+  }
+}

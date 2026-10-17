@@ -8,6 +8,7 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -353,10 +354,12 @@ object GlobalJobPool : JobPool {
     }
 
     private fun hasMaterialsAvailable(batch: TaskBatch, network: BeeNetwork): Boolean {
-        return batch.tasks.map { it.action }
-            .filterIsInstance<ItemConsumingAction>()
+        val actions = batch.tasks.map { it.action }
+        return actions.filterIsInstance<ItemConsumingAction>()
             .flatMap { it.requiredItems }
             .all { req -> network.findAvailableProvider(req) != null }
+                && actions.filterIsInstance<PlaceFluidAction>()
+            .all { network.findFluidProvider(it.fluid) != null }
     }
 
     /**

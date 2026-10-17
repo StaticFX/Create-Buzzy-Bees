@@ -4,6 +4,7 @@ import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PickupItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -22,6 +23,7 @@ object BeeActionSerializer {
     private const val PLACE_BELT = "place_belt"
     private const val DROP_OFF = "drop_off"
     private const val PICKUP = "pickup"
+    private const val PLACE_FLUID = "place_fluid"
 
     fun save(action: BeeAction, registries: HolderLookup.Provider): CompoundTag {
         val tag = CompoundTag()
@@ -46,6 +48,10 @@ object BeeActionSerializer {
                 tag.putString(TYPE_KEY, PICKUP)
                 tag.put(DATA_KEY, action.save())
             }
+            is PlaceFluidAction -> {
+                tag.putString(TYPE_KEY, PLACE_FLUID)
+                tag.put(DATA_KEY, action.save(registries))
+            }
             else -> throw IllegalArgumentException("Unknown BeeAction type: ${action::class}")
         }
         return tag
@@ -60,6 +66,7 @@ object BeeActionSerializer {
             PLACE_BELT -> PlaceBeltAction.load(data, registries)
             DROP_OFF -> DropOffItemsAction.load(data)
             PICKUP -> PickupItemsAction.load(data)
+            PLACE_FLUID -> PlaceFluidAction.load(data, registries)
             else -> null
         }
     }

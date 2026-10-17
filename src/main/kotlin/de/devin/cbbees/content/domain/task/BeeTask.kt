@@ -6,6 +6,7 @@ import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PickupItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
@@ -16,6 +17,7 @@ import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
+import net.neoforged.neoforge.fluids.FluidStack
 import java.util.UUID
 
 /**
@@ -107,6 +109,10 @@ data class BeeTask(
         ): BeeTask {
             val action = PlaceBlockAction(pos, state, tag, items)
             return BeeTask(action, job, priority)
+        }
+
+        fun placeFluid(pos: BlockPos, fluid: FluidStack, priority: Int = 0, job: BeeJob): BeeTask {
+            return BeeTask(PlaceFluidAction(pos, fluid), job, priority)
         }
 
         /**

@@ -21,6 +21,8 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
+import net.neoforged.neoforge.fluids.FluidStack
+import net.neoforged.neoforge.fluids.FluidType
 import java.util.UUID
 
 /**
@@ -83,10 +85,24 @@ class ServerBeeData(
     val inventory: SimpleContainer =
         SimpleContainer(if (type == BeeType.CONSTRUCTION) CONSTRUCTION_INVENTORY_SIZE else TRANSPORT_INVENTORY_SIZE)
 
+    override var carriedFluid: FluidStack = FluidStack.EMPTY
+
     /** Carried item as last sent to clients. */
     var syncedCarriedItem: ItemStack = ItemStack.EMPTY
 
-    fun carriedItem(): ItemStack = getInventoryContents().firstOrNull() ?: ItemStack.EMPTY
+    /** Pours carried fluid back into a Dock Port, preferring drop-off ports. Fluid with nowhere to go is lost. */
+    fun returnCarriedFluid() {
+        val fluid = carriedFluid.takeIf { !it.isEmpty } ?: return
+        val network = network()
+        val port = network?.findFluidDropOff(fluid)
+            ?: network?.dockPorts?.firstOrNull { it.testFilter(fluid) && it.canFill(fluid) }
+        port?.fillFluid(fluid)
+        carriedFluid = FluidStack.EMPTY
+    }
+
+    fun carriedItem(): ItemStack =
+        if (!carriedFluid.isEmpty) ItemStack(carriedFluid.fluid.bucket)
+        else getInventoryContents().firstOrNull() ?: ItemStack.EMPTY
 
     // ── Context cache ──
     var cachedBeeContext: BeeContext? = null
@@ -226,6 +242,7 @@ class ServerBeeData(
             }
         }
         tag.put("Inventory", itemList)
+        if (!carriedFluid.isEmpty) tag.put("Fluid", carriedFluid.save(registries))
 
         return tag
     }
@@ -233,6 +250,7 @@ class ServerBeeData(
     companion object {
         const val CONSTRUCTION_INVENTORY_SIZE = 4
         const val TRANSPORT_INVENTORY_SIZE = 3
+        const val FLUID_CAPACITY = FluidType.BUCKET_VOLUME
 
         fun load(tag: CompoundTag, registries: HolderLookup.Provider): ServerBeeData {
             val id = tag.getUUID("Id")
@@ -273,6 +291,9 @@ class ServerBeeData(
                 if (slot in 0 until bee.inventory.containerSize) {
                     bee.inventory.setItem(slot, ItemStack.parse(registries, itemTag).orElse(ItemStack.EMPTY))
                 }
+            }
+            if (tag.contains("Fluid")) {
+                bee.carriedFluid = FluidStack.parseOptional(registries, tag.getCompound("Fluid"))
             }
 
             return bee

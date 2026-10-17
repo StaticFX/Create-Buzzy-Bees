@@ -59,6 +59,9 @@ object BlockPlacementClassifier {
      */
     const val REMOVAL_NORMAL_OFFSET = 0
 
+    /** Fluids are placed after every block, so water can't flood parts that aren't built yet. */
+    const val FLUID_PHASE = 1
+
     /**
      * Determines if a block should be deferred to a second pass.
      * Deferred blocks depend on adjacent solid blocks for support.
@@ -102,9 +105,8 @@ object BlockPlacementClassifier {
     fun shouldSkipBlock(state: BlockState): Boolean {
         if (state.block == Blocks.STRUCTURE_VOID) return true
 
-        // Skip fluid blocks (water, lava, modded fluids)
+        // Fluid blocks get their own fluid task; waterlogged blocks are placed dry and filled later
         if (state.block is LiquidBlock) return true
-        if (!state.fluidState.isEmpty) return true
 
         if (AllBlocks.BELT.has(state) && state.hasProperty(BeltBlock.PART)
             && state.getValue(BeltBlock.PART) == BeltPart.MIDDLE
@@ -142,21 +144,28 @@ object BlockPlacementClassifier {
 
     /**
      * Determines the removal phase for deconstruction ordering.
-     * Phase 0 (first): brittle/dependent blocks (tunnels, torches, rails, etc.)
-     * Phase 1: support blocks (belts, gantry carriages, mechanical arms)
-     * Phase 2 (last): normal blocks
+     * Phase 0 (first): fluid sources, so water can't spread once its walls are gone
+     * Phase 1: brittle/dependent blocks (tunnels, torches, rails, etc.)
+     * Phase 2: support blocks (belts, gantry carriages, mechanical arms)
+     * Phase 3 (last): normal blocks
      */
     fun removalPhase(state: BlockState): Int {
+        if (state.block is LiquidBlock) return 0
         if (BlockMovementChecks.isBrittle(state)
             || AllBlocks.ANDESITE_TUNNEL.has(state)
             || AllBlocks.BRASS_TUNNEL.has(state)
-        ) return 0
+        ) return 1
         if (AllBlocks.BELT.has(state)
             || AllBlocks.GANTRY_CARRIAGE.has(state)
             || AllBlocks.MECHANICAL_ARM.has(state)
-        ) return 1
-        return 2
+        ) return 2
+        return 3
     }
+
+    /** The block without its fluid, as Create's placement leaves it. */
+    fun withoutFluid(state: BlockState): BlockState =
+        if (state.hasProperty(BlockStateProperties.WATERLOGGED)) state.setValue(BlockStateProperties.WATERLOGGED, false)
+        else state
 
     fun calculateRemovalPriority(pos: BlockPos, state: BlockState, maxY: Int): Int {
         val yPriority = pos.y - maxY + 256

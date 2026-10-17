@@ -24,6 +24,8 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.logistics.LogisticsPortTests::class.java,
         de.devin.cbbees.gametest.construction.ConstructionTests::class.java,
         de.devin.cbbees.gametest.construction.MissingMaterialsTests::class.java,
+        de.devin.cbbees.gametest.dock.DockPortTests::class.java,
+        de.devin.cbbees.gametest.planner.MasterPlannerTests::class.java,
         de.devin.cbbees.gametest.transport.TransportTests::class.java,
         de.devin.cbbees.gametest.portable.PortableBeehiveTests::class.java,
         de.devin.cbbees.gametest.network.NetworkLinkingTests::class.java,

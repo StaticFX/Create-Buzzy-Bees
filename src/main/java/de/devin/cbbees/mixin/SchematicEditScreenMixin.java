@@ -5,8 +5,8 @@ import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import de.devin.cbbees.content.planner.AllPlanners;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
-import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.network.StartConstructionPacket;
 import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.minecraft.client.Minecraft;
@@ -42,7 +42,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
 
         // Only show for Construction Planner
         ItemStack activeItem = handler.getActiveSchematicItem();
-        if (activeItem == null || !AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(activeItem)) return;
+        if (activeItem == null || !AllPlanners.INSTANCE.getCONSTRUCTION().isIn(activeItem)) return;
 
         int buttonX = guiLeft + 10;
         int buttonY = guiTop + 90;

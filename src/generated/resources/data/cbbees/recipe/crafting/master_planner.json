@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "cbbees:construction_planner"
+    },
+    {
+      "item": "cbbees:deconstruction_planner"
+    },
+    {
+      "item": "cbbees:pickup_planner"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:master_planner"
+  }
+}

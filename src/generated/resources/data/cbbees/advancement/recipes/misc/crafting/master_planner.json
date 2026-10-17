@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_construction_planner": {
+      "conditions": {
+        "items": [
+          {
+            "items": "cbbees:construction_planner"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "cbbees:crafting/master_planner"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_construction_planner"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "cbbees:crafting/master_planner"
+    ]
+  }
+}

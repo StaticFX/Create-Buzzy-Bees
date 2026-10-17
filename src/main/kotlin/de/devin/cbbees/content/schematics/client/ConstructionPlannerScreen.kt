@@ -447,14 +447,14 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             }
 
             // Item icon
-            guiGraphics.renderItem(mat.stack, x, y)
+            guiGraphics.renderItem(mat.icon, x, y)
 
             // Count
-            val countStr = "x${mat.count}"
+            val countStr = mat.amount
             guiGraphics.drawString(font, countStr, x + 20, y + 4, 0xCCCCCC, false)
 
             // Item name (truncated to fit)
-            val name = mat.stack.hoverName
+            val name = mat.name
             val nameX = x + 20 + font.width(countStr) + 4
             val maxNameWidth = materialsLeft + materialsWidth - nameX - 4
             if (maxNameWidth > 10) {

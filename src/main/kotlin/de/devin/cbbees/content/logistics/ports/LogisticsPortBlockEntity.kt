@@ -8,7 +8,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringB
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
-import de.devin.cbbees.content.logistics.ports.LogisticPortBlock.Companion.PORT_STATE
+import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
 import de.devin.cbbees.util.extractExactly
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
@@ -49,13 +49,13 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     // This is what the bees will call
     fun getInventory(level: Level): IItemHandler? {
-        val attachedDir = LogisticPortBlock.getConnectedDirection(blockState).opposite
+        val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
         val attachedPos = blockPos.relative(attachedDir)
         return level.getCapability(Capabilities.ItemHandler.BLOCK, attachedPos, attachedDir.opposite)
     }
 
     private fun getAttachesPos(): BlockPos {
-        val attachedDir = LogisticPortBlock.getConnectedDirection(blockState).opposite
+        val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
         return blockPos.relative(attachedDir)
     }
 
@@ -139,7 +139,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     private fun portState() = blockState.getValue(PORT_STATE)
 
-    private fun portType() = blockState.getValue(LogisticPortBlock.PORT_TYPE)
+    private fun portType() = blockState.getValue(PortBlock.PORT_TYPE)
 
     override fun isValidForPickup(): Boolean {
         if (portType() != PortType.EXTRACT) return false

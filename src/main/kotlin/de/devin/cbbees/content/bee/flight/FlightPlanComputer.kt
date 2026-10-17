@@ -9,7 +9,9 @@ import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
+import de.devin.cbbees.content.domain.logistics.DockPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -18,6 +20,8 @@ import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.LiquidBlock
+import net.neoforged.neoforge.fluids.FluidStack
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -181,14 +185,20 @@ object FlightPlanComputer {
             val provider = findBestProvider(network, missing, bee.id) ?: return null
             add(Checkpoint(provider.gatherPos(), GatherFromPort(missing, provider.id), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
+        val missingFluid = computeMissingFluid(bee, batch)
+        if (!missingFluid.isEmpty) {
+            val dock = network.findFluidProvider(missingFluid) ?: return null
+            add(Checkpoint(dock.gatherPos(), GatherFluidFromDock(missingFluid, dock.id), clientPauseTicks = GATHER_PAUSE_TICKS))
+        }
         val remainingTasks = batch.getRemainingTasks()
         var lastCheckpointPos = bee.blockPosition()
         remainingTasks.forEach { task ->
             val action = task.action
             when (action) {
                 is DropOffItemsAction -> {
-                    val dropPort = network.findDropOff(ItemStack.EMPTY, bee.hiveId)
-                    val dropPos = dropPort?.pos?.above() ?: task.targetPos
+                    val dropPos = findFluidDropOff(batch, network)?.gatherPos()
+                        ?: network.findDropOff(ItemStack.EMPTY, bee.hiveId)?.pos?.above()
+                        ?: task.targetPos
                     add(Checkpoint(dropPos, ExecuteBeeAction(action, task), clientPauseTicks = DROP_OFF_PAUSE_TICKS))
                     lastCheckpointPos = dropPos
                 }
@@ -374,6 +384,24 @@ object FlightPlanComputer {
             }
         }
         return totalRequired.map { (key, count) -> key.stack.copy().also { it.count = count } }
+    }
+
+    private fun computeMissingFluid(bee: ServerBeeData, batch: TaskBatch): FluidStack {
+        val required = batch.getRemainingTasks().firstNotNullOfOrNull { it.action as? PlaceFluidAction }?.fluid
+            ?: return FluidStack.EMPTY
+        val carried = bee.carriedFluid
+        val carriedAmount = if (FluidStack.isSameFluidSameComponents(carried, required)) carried.amount else 0
+        return if (carriedAmount >= required.amount) FluidStack.EMPTY
+        else required.copyWithAmount(required.amount - carriedAmount)
+    }
+
+    /** Dock Port for the fluid a removal batch will pick up, or null if it isn't removing a fluid source. */
+    private fun findFluidDropOff(batch: TaskBatch, network: BeeNetwork): DockPort? {
+        val level = network.level ?: return null
+        val removal = batch.tasks.firstNotNullOfOrNull { it.action as? RemoveBlockAction } ?: return null
+        val state = level.getBlockState(removal.pos)
+        if (state.block !is LiquidBlock || !state.fluidState.isSource) return null
+        return network.findFluidDropOff(FluidStack(state.fluidState.type, ServerBeeData.FLUID_CAPACITY))
     }
 
     private fun findBestProvider(

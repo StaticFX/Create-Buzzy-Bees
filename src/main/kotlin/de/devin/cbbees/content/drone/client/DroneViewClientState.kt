@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.drone.client
 
-import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.content.planner.AllPlanners
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
 import net.minecraft.world.entity.player.Player
@@ -93,12 +93,12 @@ object DroneViewClientState {
     @JvmStatic
     fun findActivePlanner(player: Player): ItemStack {
         val mainHand = player.mainHandItem
-        if (AllItems.CONSTRUCTION_PLANNER.isIn(mainHand)) return mainHand
+        if (AllPlanners.CONSTRUCTION.isIn(mainHand)) return mainHand
         if (active) {
             val inv = player.inventory
             for (i in 0 until inv.containerSize) {
                 val stack = inv.getItem(i)
-                if (AllItems.CONSTRUCTION_PLANNER.isIn(stack)) return stack
+                if (AllPlanners.CONSTRUCTION.isIn(stack)) return stack
             }
         }
         return ItemStack.EMPTY

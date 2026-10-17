@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.neoforged.neoforge.fluids.FluidStack
 import java.util.UUID
 
 /**
@@ -26,6 +27,9 @@ interface BeeWorker {
     fun getInventoryContents(): List<ItemStack>
     fun isInventoryFull(): Boolean
     fun isInventoryEmpty(): Boolean
+
+    /** Fluid the bee is carrying, up to one bucket. */
+    var carriedFluid: FluidStack
 
     fun consumeSpring(baseDrain: Double): Boolean
     fun getBeeContext(): BeeContext

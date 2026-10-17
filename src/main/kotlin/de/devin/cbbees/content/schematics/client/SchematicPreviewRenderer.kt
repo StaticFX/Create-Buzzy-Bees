@@ -15,20 +15,25 @@ import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Vec3i
 import net.minecraft.core.registries.Registries
+import net.minecraft.network.chat.Component
 import net.minecraft.nbt.NbtAccounter
 import net.minecraft.nbt.NbtIo
 import net.minecraft.util.RandomSource
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate
+import net.minecraft.world.level.material.Fluid
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.client.model.data.ModelData
+import net.neoforged.neoforge.fluids.FluidStack
+import net.neoforged.neoforge.fluids.FluidType
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
@@ -47,7 +52,7 @@ import kotlin.math.min
 object SchematicPreviewRenderer {
 
     /** Material entry: an item stack (with count=1 for display) and total count. */
-    data class MaterialEntry(val stack: ItemStack, val count: Int)
+    data class MaterialEntry(val icon: ItemStack, val amount: String, val name: Component)
 
     private var cachedFilename: String? = null
     private var cachedLevel: SchematicLevel? = null
@@ -360,6 +365,7 @@ object SchematicPreviewRenderer {
      */
     private fun buildMaterialList(level: SchematicLevel) {
         val counts = mutableMapOf<Item, Int>()
+        val fluidAmounts = mutableMapOf<Fluid, Int>()
         val bounds = level.bounds
 
         for (blockPos in BlockPos.betweenClosed(
@@ -368,6 +374,8 @@ object SchematicPreviewRenderer {
         )) {
             val state = level.getBlockState(blockPos)
             if (state.isAir) continue
+
+            if (state.fluidState.isSource) fluidAmounts.merge(state.fluidState.type, FluidType.BUCKET_VOLUME, Int::plus)
 
             val blockEntity = level.getBlockEntity(blockPos)
             val requirement = ItemRequirement.of(state, blockEntity)
@@ -382,9 +390,16 @@ object SchematicPreviewRenderer {
             }
         }
 
-        cachedMaterials = counts.entries
+        val items = counts.entries
             .sortedByDescending { it.value }
-            .map { MaterialEntry(ItemStack(it.key), it.value) }
+            .map { (item, count) -> ItemStack(item).let { MaterialEntry(it, "x$count", it.hoverName) } }
+        val fluids = fluidAmounts.entries
+            .sortedByDescending { it.value }
+            .map { (fluid, amount) ->
+                val bucket = fluid.bucket.takeIf { it != Items.AIR } ?: Items.BUCKET
+                MaterialEntry(ItemStack(bucket), "${amount}mB", FluidStack(fluid, amount).hoverName)
+            }
+        cachedMaterials = items + fluids
     }
 
     /** Clears the cache. Call when the screen closes. */

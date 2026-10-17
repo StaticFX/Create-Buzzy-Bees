@@ -3,7 +3,7 @@ package de.devin.cbbees.mixin;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import de.devin.cbbees.content.drone.client.DroneViewClientState;
-import de.devin.cbbees.items.AllItems;
+import de.devin.cbbees.content.planner.AllPlanners;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -63,7 +63,7 @@ public abstract class SchematicHandlerFindMixin {
     }
 
     private static boolean ccr$isDeployedPlanner(ItemStack stack) {
-        return AllItems.INSTANCE.getCONSTRUCTION_PLANNER().isIn(stack)
+        return AllPlanners.INSTANCE.getCONSTRUCTION().isIn(stack)
                 && stack.has(AllDataComponents.SCHEMATIC_FILE)
                 && stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false);
     }

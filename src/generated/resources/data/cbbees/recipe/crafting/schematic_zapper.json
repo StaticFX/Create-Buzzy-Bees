@@ -15,7 +15,7 @@
       "item": "minecraft:honeycomb"
     },
     "P": {
-      "item": "minecraft:paper"
+      "item": "create:schematic"
     }
   },
   "pattern": [

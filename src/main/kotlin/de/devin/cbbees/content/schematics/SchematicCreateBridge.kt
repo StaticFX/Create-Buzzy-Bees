@@ -12,6 +12,7 @@ import com.simibubi.create.content.kinetics.belt.BeltPart
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
+import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -22,9 +23,11 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.neoforged.neoforge.fluids.FluidStack
 import de.devin.cbbees.util.ServerSide
 
 /**
@@ -196,7 +199,9 @@ class SchematicCreateBridge(
         printer.handleCurrentTarget({ pos, state, blockEntity ->
             if (state == null || state.isAir) return@handleCurrentTarget
             if (handledPositions.contains(pos)) return@handleCurrentTarget
+            if (state.fluidState.isSource) handleFluid(pos, state, job, batches)
             if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
+            if (level.getBlockState(pos) == BlockPlacementClassifier.withoutFluid(state)) return@handleCurrentTarget
 
             if (AllBlocks.BELT.has(state)) {
                 handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
@@ -323,6 +328,7 @@ class SchematicCreateBridge(
     private fun processRemovalBlock(pos: BlockPos, corner1: BlockPos, corner2: BlockPos, job: BeeJob, batches: MutableList<TaskBatch>) {
         val maxY = maxOf(corner1.y, corner2.y)
         val state = level.getBlockState(pos)
+        if (state.block is LiquidBlock && !state.fluidState.isSource) return
         if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {
             batches.add(removalBatch(pos, state, maxY, job))
         }
@@ -373,6 +379,12 @@ class SchematicCreateBridge(
         )
 
         batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos))
+    }
+
+    private fun handleFluid(pos: BlockPos, state: BlockState, job: BeeJob, batches: MutableList<TaskBatch>) {
+        val fluid = FluidStack(state.fluidState.type, ServerBeeData.FLUID_CAPACITY)
+        val task = BeeTask.placeFluid(pos, fluid, BlockPlacementClassifier.calculatePriority(pos, state), job)
+        batches.add(TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.FLUID_PHASE))
     }
 
     private fun handleBeltPlacement(

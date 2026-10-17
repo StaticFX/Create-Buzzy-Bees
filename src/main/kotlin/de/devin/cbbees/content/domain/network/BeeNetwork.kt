@@ -4,6 +4,7 @@ import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
+import de.devin.cbbees.content.domain.logistics.DockPort
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservablePort
 import de.devin.cbbees.content.domain.logistics.TransportPort
@@ -13,6 +14,7 @@ import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntity
+import net.neoforged.neoforge.fluids.FluidStack
 import java.util.*
 
 class BeeNetwork(
@@ -51,6 +53,7 @@ class BeeNetwork(
     private var _ownTransportPorts: List<TransportPort>? = null
     private var _ownReservablePorts: List<ReservablePort>? = null
     private var _ownTransportPortsByPos: Map<BlockPos, TransportPort>? = null
+    private var _ownDockPorts: List<DockPort>? = null
 
     private fun invalidateComponentCaches() {
         _hives = null
@@ -58,6 +61,7 @@ class BeeNetwork(
         _ownTransportPorts = null
         _ownReservablePorts = null
         _ownTransportPortsByPos = null
+        _ownDockPorts = null
     }
 
     /**
@@ -105,6 +109,8 @@ class BeeNetwork(
         get() = _ownTransportPorts ?: components.filterIsInstance<TransportPort>().also { _ownTransportPorts = it }
     val ownReservablePorts: List<ReservablePort>
         get() = _ownReservablePorts ?: components.filterIsInstance<ReservablePort>().also { _ownReservablePorts = it }
+    val ownDockPorts: List<DockPort>
+        get() = _ownDockPorts ?: components.filterIsInstance<DockPort>().also { _ownDockPorts = it }
 
     /**
      * All visible ports: own ports + reachable ports from linked networks.
@@ -132,6 +138,14 @@ class BeeNetwork(
             if (_linkedNetworks.isEmpty()) return _ownTransportPortsByPos ?: ownTransportPorts.associateBy { it.pos }
                 .also { _ownTransportPortsByPos = it }
             return transportPorts.associateBy { it.pos }
+        }
+
+    val dockPorts: List<DockPort>
+        get() {
+            if (_linkedNetworks.isEmpty()) return ownDockPorts
+            return ownDockPorts + _linkedNetworks.flatMap { linked ->
+                linked.ownDockPorts.filter { port -> hives.any { it.isInWorkRange(port.pos) } }
+            }
         }
 
     val reservablePorts: List<ReservablePort>
@@ -184,6 +198,16 @@ class BeeNetwork(
             )
         }
             .sortedByDescending { it.priority() }
+    }
+
+    fun findFluidProvider(fluid: FluidStack): DockPort? {
+        return dockPorts.filter { it.isValidForPickup() && it.testFilter(fluid) && it.hasFluid(fluid) }
+            .maxByOrNull { it.priority() }
+    }
+
+    fun findFluidDropOff(fluid: FluidStack): DockPort? {
+        return dockPorts.filter { it.isValidForDropOff() && it.testFilter(fluid) && it.canFill(fluid) }
+            .maxByOrNull { it.priority() }
     }
 
     fun releaseReservations(beeId: UUID) {

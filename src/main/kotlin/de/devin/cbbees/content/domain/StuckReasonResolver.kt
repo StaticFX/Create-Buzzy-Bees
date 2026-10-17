@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain
 
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -67,20 +68,21 @@ object StuckReasonResolver {
     }
 
     private fun checkMissingItems(network: BeeNetwork, batches: List<TaskBatch>): String? {
-        val allMissing = mutableMapOf<String, Int>()
+        val missingItems = mutableMapOf<String, Int>()
+        val missingFluids = mutableMapOf<String, Int>()
         batches.forEach { b ->
-            b.tasks.map { it.action }
-                .filterIsInstance<ItemConsumingAction>()
+            val actions = b.tasks.map { it.action }
+            actions.filterIsInstance<ItemConsumingAction>()
                 .flatMap { it.requiredItems }
                 .filter { req -> network.findAvailableProvider(req) == null }
-                .forEach { stack ->
-                    val name = stack.hoverName.string
-                    allMissing[name] = (allMissing[name] ?: 0) + stack.count
-                }
+                .forEach { stack -> missingItems.merge(stack.hoverName.string, stack.count, Int::plus) }
+            actions.filterIsInstance<PlaceFluidAction>()
+                .filter { network.findFluidProvider(it.fluid) == null }
+                .forEach { missingFluids.merge(it.fluid.hoverName.string, it.fluid.amount, Int::plus) }
         }
-        if (allMissing.isEmpty()) return null
-        val entries = allMissing.entries.toList()
-        val shown = entries.take(5).joinToString(", ") { "${it.value}x ${it.key}" }
+        val entries = missingItems.map { "${it.value}x ${it.key}" } + missingFluids.map { "${it.value}mB ${it.key}" }
+        if (entries.isEmpty()) return null
+        val shown = entries.take(5).joinToString(", ")
         val suffix = if (entries.size > 5) " +${entries.size - 5} more" else ""
         return "Missing: $shown$suffix"
     }

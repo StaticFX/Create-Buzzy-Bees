@@ -370,15 +370,15 @@ class SchematicDetailScreen(
                 guiGraphics.fill(infoLeft, y, infoLeft + infoWidth, y + itemSize, 0x20FFFFFF)
             }
 
-            guiGraphics.renderItem(mat.stack, startX, y)
+            guiGraphics.renderItem(mat.icon, startX, y)
 
-            val countStr = "x${mat.count}"
+            val countStr = mat.amount
             guiGraphics.drawString(font, countStr, startX + 20, y + 4, 0xCCCCCC, false)
 
             val nameX = startX + 20 + font.width(countStr) + 4
             val maxNameW = infoLeft + infoWidth - nameX - 8
             if (maxNameW > 10) {
-                val fullName = mat.stack.hoverName.string
+                val fullName = mat.name.string
                 val truncated = if (font.width(fullName) > maxNameW) {
                     var s = fullName
                     while (s.isNotEmpty() && font.width("$s..") > maxNameW) s = s.dropLast(1)

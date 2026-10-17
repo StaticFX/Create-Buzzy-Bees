@@ -5,6 +5,7 @@ import com.simibubi.create.content.equipment.wrench.IWrenchable
 import com.simibubi.create.foundation.block.IBE
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
+import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
@@ -35,7 +36,7 @@ class TransportPortBlock(properties: Properties) :
 
     companion object {
         val CODEC: MapCodec<TransportPortBlock> = simpleCodec(::TransportPortBlock)
-        val PORT_STATE = EnumProperty.create("port_state", PortState::class.java)
+        val PORT_STATE = PortBlock.PORT_STATE
         val TRANSPORT_MODE = EnumProperty.create("transport_mode", TransportMode::class.java)
 
         fun getConnectedDirection(state: BlockState): Direction {

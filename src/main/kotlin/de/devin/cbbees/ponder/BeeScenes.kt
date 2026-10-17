@@ -3,7 +3,7 @@ package de.devin.cbbees.ponder
 import com.simibubi.create.AllItems
 import com.simibubi.create.foundation.ponder.CreateSceneBuilder
 import de.devin.cbbees.content.bee.server.BeeType
-import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
+import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.PortType
 import de.devin.cbbees.content.logistics.transport.TransportMode
@@ -214,7 +214,7 @@ object BeeScenes {
 
         scene.world().modifyBlock(portPos, { state ->
             state.setValue(
-                LogisticPortBlock.PORT_TYPE,
+                PortBlock.PORT_TYPE,
                 PortType.INSERT
             ) as BlockState
         }, false)
@@ -284,7 +284,7 @@ object BeeScenes {
 
         scene.world().modifyBlock(portPos, { state ->
             state.setValue(
-                LogisticPortBlock.PORT_STATE,
+                PortBlock.PORT_STATE,
                 PortState.BUSY
             ) as BlockState
         }, false)

@@ -10,6 +10,8 @@ import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.MechanicalBeehiveRenderer
 import de.devin.cbbees.content.deployer.SchematicDeployerBlockEntity
 import de.devin.cbbees.content.deployer.client.SchematicDeployerRenderer
+import de.devin.cbbees.content.logistics.dock.DockPortBlockEntity
+import de.devin.cbbees.content.logistics.dock.DockPortRenderer
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortRenderer
 import de.devin.cbbees.content.logistics.transport.TransportPortBlockEntity
@@ -28,6 +30,12 @@ object AllBlockEntityTypes {
         .blockEntity("logistics_port", ::LogisticPortBlockEntity)
         .validBlocks(AllBlocks.LOGISTICS_PORT)
         .renderer { NonNullFunction { LogisticsPortRenderer(it) } }
+        .register()
+
+    val DOCK_PORT: BlockEntityEntry<DockPortBlockEntity> = CreateBuzzyBeez.REGISTRATE
+        .blockEntity("dock_port", ::DockPortBlockEntity)
+        .validBlocks(AllBlocks.DOCK_PORT)
+        .renderer { NonNullFunction { DockPortRenderer(it) } }
         .register()
 
     val SCHEMATIC_DEPLOYER: BlockEntityEntry<SchematicDeployerBlockEntity> = CreateBuzzyBeez.REGISTRATE

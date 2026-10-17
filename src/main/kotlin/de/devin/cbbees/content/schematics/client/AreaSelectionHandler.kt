@@ -1,7 +1,9 @@
 package de.devin.cbbees.content.schematics.client
 
 import com.simibubi.create.foundation.utility.RaycastHelper
+import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.deployer.SchematicProgram
+import de.devin.cbbees.content.planner.AllPlanners
 import de.devin.cbbees.network.ProgramSchematicPacket
 import de.devin.cbbees.registry.AllKeys
 import com.mojang.blaze3d.platform.InputConstants
@@ -135,9 +137,9 @@ class AreaSelectionHandler(
     fun tick() {
         val active = isActive()
         if (!active) {
-            // Clear selection when the tool is switched away
+            // Clear selection when the tool is switched away, unless another area planner took over
             if (wasActive) {
-                DeconstructionSelection.discard()
+                if (!keepsSelection()) DeconstructionSelection.discard()
                 wasActive = false
             }
             return
@@ -221,6 +223,12 @@ class AreaSelectionHandler(
         }
 
         return false
+    }
+
+    private fun keepsSelection(): Boolean {
+        val mainHand = Minecraft.getInstance().player?.mainHandItem ?: return false
+        return CBBeesClientConfig.keepSelectionBetweenPlanners.get()
+                && AllPlanners.ALL.any { it.selectsArea && it.isIn(mainHand) }
     }
 
     private fun isFreeAimDown(): Boolean {

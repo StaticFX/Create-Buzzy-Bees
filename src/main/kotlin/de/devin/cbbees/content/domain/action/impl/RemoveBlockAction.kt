@@ -4,6 +4,7 @@ import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.bee.server.BeeWorker
+import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
@@ -14,6 +15,9 @@ import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.BucketPickup
+import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction
+import net.neoforged.neoforge.fluids.capability.wrappers.BucketPickupHandlerWrapper
 
 class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
@@ -33,6 +37,9 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
         if (level !is ServerLevel) return false
         if (level.getBlockEntity(pos) is BeeHive) return true
+
+        pickUpFluid(level, worker, context)
+        if (level.getBlockState(pos).isAir) return true
 
         if (context.dropItemsEnabled) {
             level.destroyBlock(pos, true)
@@ -80,6 +87,19 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
             level.destroyBlock(pos, true)
         }
         return true
+    }
+
+    private fun pickUpFluid(level: ServerLevel, worker: BeeWorker, context: BeeContext) {
+        val state = level.getBlockState(pos)
+        val block = state.block as? BucketPickup ?: return
+        if (!state.fluidState.isSource) return
+
+        val fluid = BucketPickupHandlerWrapper(null, block, level, pos)
+            .drain(ServerBeeData.FLUID_CAPACITY, FluidAction.EXECUTE)
+        val keepFluid = !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
+        if (keepFluid && worker.carriedFluid.isEmpty && worker.network()?.findFluidDropOff(fluid) != null) {
+            worker.carriedFluid = fluid
+        }
     }
 
     override fun shouldReturnAfter(context: BeeContext): Boolean =

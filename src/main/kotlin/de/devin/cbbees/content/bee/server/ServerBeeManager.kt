@@ -66,6 +66,7 @@ object ServerBeeManager {
      * task batch is released so it can be re-dispatched on next load.
      */
     private fun returnBeeToHive(bee: ServerBeeData, currentLevel: ServerLevel?) {
+        if (currentLevel != null) bee.returnCarriedFluid()
         val beeItem = ItemStack(
             if (bee.type == BeeType.CONSTRUCTION) AllItems.MECHANICAL_BEE.get()
             else AllItems.MECHANICAL_BUMBLE_BEE.get()

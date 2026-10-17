@@ -1,0 +1,689 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_insert",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_type": "insert"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/base_extract",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_type": "extract"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_valid",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_invalid",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/dock_port/bulb_busy",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    }
+  ]
+}

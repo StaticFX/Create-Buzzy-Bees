@@ -18,6 +18,7 @@ import net.minecraft.core.BlockPos
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
+import net.neoforged.neoforge.fluids.FluidStack
 import java.util.UUID
 
 /**
@@ -109,6 +110,34 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         }
 
         log.debug("[GatherFromPort] Gather FAILED, no alternative provider — releasing batch")
+        bee.currentTask?.releaseWithoutRetry()
+        bee.springTension = -9999f
+        return false
+    }
+}
+
+/**
+ * Pick up fluid from the Dock Port chosen by the flight planner, or any other port that has it.
+ *
+ * @param fluid the fluid this bee needs to pick up
+ * @param portId the UUID of the Dock Port selected by the flight planner
+ * @see CheckpointAction
+ */
+class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointAction {
+
+    override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
+        val network = bee.network() ?: return false
+
+        if (!FluidStack.isSameFluidSameComponents(bee.carriedFluid, fluid)) bee.returnCarriedFluid()
+
+        val port = network.dockPorts.firstOrNull { it.id == portId && it.hasFluid(fluid) }
+            ?: network.findFluidProvider(fluid)
+        if (port != null && port.drainFluid(fluid)) {
+            bee.carriedFluid = fluid.copyWithAmount(bee.carriedFluid.amount + fluid.amount)
+            bee.consumeSpring(CBBeesConfig.springDrainPickup.get())
+            return true
+        }
+
         bee.currentTask?.releaseWithoutRetry()
         bee.springTension = -9999f
         return false
@@ -260,6 +289,7 @@ class EnterHive : CheckpointAction {
 
         val deficit = 1.0f - bee.springTension
         hive.chargeReturnFuel(deficit, bee.getBeeContext())
+        bee.returnCarriedFluid()
 
         val beeItem = ItemStack(
             if (bee.type == BeeType.CONSTRUCTION)

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "cbbees:item/incomplete_mechanical_bee"
+    "layer0": "cbbees:item/incomplete_mechanical_beehive"
   }
 }

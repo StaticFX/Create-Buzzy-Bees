@@ -1,5 +1,6 @@
 package de.devin.cbbees.registry
 
+import com.mojang.serialization.Codec
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.deployer.SchematicProgram
 import de.devin.cbbees.content.upgrades.UpgradeGrid
@@ -33,6 +34,13 @@ object AllDataComponents {
         REGISTER.registerComponentType("schematic_program") { builder ->
             builder.persistent(SchematicProgram.CODEC)
                 .networkSynchronized(SchematicProgram.STREAM_CODEC)
+        }
+
+    /** Id of the planner a Master-Planner currently acts as. */
+    val PLANNER_MODE: DeferredHolder<DataComponentType<*>, DataComponentType<String>> =
+        REGISTER.registerComponentType("planner_mode") { builder ->
+            builder.persistent(Codec.STRING)
+                .networkSynchronized(ByteBufCodecs.STRING_UTF8)
         }
 
     fun register(bus: IEventBus) {

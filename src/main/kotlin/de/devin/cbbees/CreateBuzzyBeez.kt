@@ -12,6 +12,8 @@ import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.bee.client.BeeClientTracker
+import de.devin.cbbees.content.planner.client.MasterPlannerClientEvents
+import de.devin.cbbees.content.planner.client.MasterPlannerDecorator
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
 import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
@@ -52,6 +54,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent
+import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers
 import net.neoforged.neoforge.common.NeoForge
@@ -123,10 +126,12 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(ZapperOutlineRenderer::class.java)
             NeoForge.EVENT_BUS.register(DroneViewClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DroneRangeRenderer::class.java)
+            NeoForge.EVENT_BUS.register(MasterPlannerClientEvents::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.ProgrammedSchematicRenderer::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.DeployerPreviewRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }
             MOD_BUS.addListener<RegisterKeyMappingsEvent> { AllKeys.register(it) }
+            MOD_BUS.addListener<RegisterItemDecorationsEvent> { it.register(AllItems.MASTER_PLANNER, MasterPlannerDecorator) }
             MOD_BUS.addListener<RegisterGuiLayersEvent> { event ->
                 event.registerAbove(
                     VanillaGuiLayers.CHAT,

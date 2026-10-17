@@ -1,0 +1,689 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "y": 180
+      },
+      "when": {
+        "face": "floor",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "y": 270
+      },
+      "when": {
+        "face": "floor",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy"
+      },
+      "when": {
+        "face": "floor",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "y": 90
+      },
+      "when": {
+        "face": "floor",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 270,
+        "y": 180
+      },
+      "when": {
+        "face": "wall",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 270,
+        "y": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 270
+      },
+      "when": {
+        "face": "wall",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 270,
+        "y": 90
+      },
+      "when": {
+        "face": "wall",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 180,
+        "y": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "north",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 180,
+        "y": 270
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "east",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 180
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "south",
+        "port_state": "busy"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_provider",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "transport_mode": "provider"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/base_requester",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "transport_mode": "requester"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_valid",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "valid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_invalid",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "invalid"
+      }
+    },
+    {
+      "apply": {
+        "model": "cbbees:block/cargo_port/bulb_busy",
+        "x": 180,
+        "y": 90
+      },
+      "when": {
+        "face": "ceiling",
+        "facing": "west",
+        "port_state": "busy"
+      }
+    }
+  ]
+}

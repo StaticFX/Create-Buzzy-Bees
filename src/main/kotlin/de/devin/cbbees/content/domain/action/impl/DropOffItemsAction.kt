@@ -8,6 +8,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.neoforged.neoforge.fluids.FluidStack
 
 /**
  * Deposits the bee's inventory at a logistics port or the owner player.
@@ -27,6 +28,12 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
     }
 
     override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
+        val fluid = worker.carriedFluid
+        if (!fluid.isEmpty) {
+            worker.network()?.findFluidDropOff(fluid)?.fillFluid(fluid)
+            worker.carriedFluid = FluidStack.EMPTY
+        }
+
         val contents = worker.getInventoryContents()
         if (contents.isEmpty()) return true
 

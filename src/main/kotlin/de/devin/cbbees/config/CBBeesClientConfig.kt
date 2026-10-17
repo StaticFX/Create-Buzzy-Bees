@@ -13,6 +13,7 @@ object CBBeesClientConfig {
     val maxGhostBlockEntities: ModConfigSpec.IntValue
     val beeShadowDistance: ModConfigSpec.IntValue
     val beeItemRenderDistance: ModConfigSpec.IntValue
+    val keepSelectionBetweenPlanners: ModConfigSpec.BooleanValue
 
     init {
         val builder = ModConfigSpec.Builder()
@@ -51,6 +52,14 @@ object CBBeesClientConfig {
         beeItemRenderDistance = builder
             .comment("Maximum distance (blocks) at which carried items on bumble bees are rendered.")
             .defineInRange("beeItemRenderDistance", 24, 8, 64)
+
+        builder.pop()
+
+        builder.comment("Planners").push("planners")
+
+        keepSelectionBetweenPlanners = builder
+            .comment("Keep the current area selection when switching between planners that select areas (e.g. Deconstruction and Pickup)")
+            .define("keepSelectionBetweenPlanners", true)
 
         builder.pop()
 

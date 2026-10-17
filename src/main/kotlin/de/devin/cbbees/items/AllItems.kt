@@ -10,6 +10,7 @@ import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.MechanicalBeeItem
 import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.deployer.ProgrammedSchematicItem
+import de.devin.cbbees.content.planner.MasterPlannerItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.schematics.PickupPlannerItem
@@ -18,6 +19,7 @@ import de.devin.cbbees.content.zapper.SchematicZapperItem
 import de.devin.cbbees.items.AllItems.UPGRADE_TEMPLATE
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
+import net.minecraft.data.recipes.ShapelessRecipeBuilder
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.Items
 import net.minecraft.world.item.Rarity
@@ -129,6 +131,21 @@ object AllItems {
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
+    // Master-Planner - acts as any of the planners above
+    val MASTER_PLANNER: ItemEntry<MasterPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("master_planner") { props -> MasterPlannerItem(props) }
+        .model { _, _ -> } // Hand-written model in resources
+        .recipe { c, p ->
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, c.get())
+                .requires(CONSTRUCTION_PLANNER.get())
+                .requires(DECONSTRUCTION_PLANNER.get())
+                .requires(PICKUP_PLANNER.get())
+                .unlockedBy("has_construction_planner", RegistrateRecipeProvider.has(CONSTRUCTION_PLANNER.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
     val SCHEMATIC_ZAPPER: ItemEntry<SchematicZapperItem> = CreateBuzzyBeez.REGISTRATE

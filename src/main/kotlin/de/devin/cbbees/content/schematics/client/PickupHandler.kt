@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.schematics.client
 
 import de.devin.cbbees.content.deployer.SchematicProgram
-import de.devin.cbbees.items.AllItems
+import de.devin.cbbees.content.planner.AllPlanners
 import de.devin.cbbees.network.StartPickupPacket
 import net.minecraft.client.Minecraft
 
@@ -26,6 +26,6 @@ object PickupHandler {
 
     fun isActive(): Boolean {
         val player = Minecraft.getInstance().player ?: return false
-        return AllItems.PICKUP_PLANNER.isIn(player.mainHandItem)
+        return AllPlanners.PICKUP.isIn(player.mainHandItem)
     }
 }

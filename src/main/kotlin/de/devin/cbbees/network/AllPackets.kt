@@ -23,6 +23,11 @@ object AllPackets {
 
         // Stop packet - cancels all active bee tasks
         registrar.playToServer(
+            CyclePlannerPacket.TYPE,
+            CyclePlannerPacket.STREAM_CODEC,
+            CyclePlannerPacket.Companion::handle
+        )
+        registrar.playToServer(
             StopTasksPacket.TYPE,
             StopTasksPacket.STREAM_CODEC,
             StopTasksPacket.Companion::handle
