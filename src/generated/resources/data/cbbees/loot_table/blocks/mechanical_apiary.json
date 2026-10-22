@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "cbbees:mechanical_apiary"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "cbbees:blocks/mechanical_apiary"
+}

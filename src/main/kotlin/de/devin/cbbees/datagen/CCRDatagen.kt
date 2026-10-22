@@ -20,5 +20,7 @@ object CCRDatagen {
 
         generator.addProvider(event.includeServer(), CBBSequencedAssemblyGen(output, lookupProvider, CreateBuzzyBeez.ID))
         generator.addProvider(event.includeServer(), CBBGlueingRecipeGen(output, lookupProvider))
+        generator.addProvider(event.includeServer(), CBBPollinatingRecipeGen(output, lookupProvider))
+        generator.addProvider(event.includeServer(), CBBCompactingRecipeGen(output, lookupProvider))
     }
 }

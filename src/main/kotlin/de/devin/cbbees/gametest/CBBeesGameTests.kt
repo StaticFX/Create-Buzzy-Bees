@@ -30,6 +30,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.portable.PortableBeehiveTests::class.java,
         de.devin.cbbees.gametest.network.NetworkLinkingTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperPlanningTests::class.java,
+        de.devin.cbbees.gametest.apiary.MechanicalApiaryTests::class.java,
     )
 
     fun onRegisterGameTests(event: RegisterGameTestsEvent) {

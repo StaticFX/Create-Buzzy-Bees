@@ -1,11 +1,16 @@
 package de.devin.cbbees.registry
 
 import com.simibubi.create.AllPartialModels
+import com.simibubi.create.content.kinetics.base.OrientedRotatingVisual
 import com.simibubi.create.content.kinetics.base.SingleAxisRotatingVisual
 import com.tterrag.registrate.util.entry.BlockEntityEntry
 import com.tterrag.registrate.util.nullness.NonNullFunction
+import dev.engine_room.flywheel.lib.model.Models
+import dev.engine_room.flywheel.lib.visualization.SimpleBlockEntityVisualizer
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.blocks.AllBlocks
+import de.devin.cbbees.content.apiary.MechanicalApiaryBlockEntity
+import de.devin.cbbees.content.apiary.MechanicalApiaryRenderer
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.MechanicalBeehiveRenderer
 import de.devin.cbbees.content.deployer.SchematicDeployerBlockEntity
@@ -16,6 +21,7 @@ import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortRenderer
 import de.devin.cbbees.content.logistics.transport.TransportPortBlockEntity
 import de.devin.cbbees.content.logistics.transport.TransportPortRenderer
+import net.minecraft.core.Direction
 
 object AllBlockEntityTypes {
 
@@ -48,6 +54,17 @@ object AllBlockEntityTypes {
         .blockEntity("transport_port", ::TransportPortBlockEntity)
         .validBlocks(AllBlocks.CARGO_PORT)
         .renderer { NonNullFunction { TransportPortRenderer(it) } }
+        .register()
+
+    val MECHANICAL_APIARY: BlockEntityEntry<MechanicalApiaryBlockEntity> = CreateBuzzyBeez.REGISTRATE
+        .blockEntity("mechanical_apiary", ::MechanicalApiaryBlockEntity)
+        .visual({
+            SimpleBlockEntityVisualizer.Factory { context, be, partialTick ->
+                OrientedRotatingVisual(context, be, partialTick, Direction.SOUTH, Direction.DOWN, Models.partial(AllPartialModels.SHAFT_HALF))
+            }
+        }, false)
+        .validBlocks(AllBlocks.MECHANICAL_APIARY)
+        .renderer { NonNullFunction { MechanicalApiaryRenderer(it) } }
         .register()
 
     fun register() {}

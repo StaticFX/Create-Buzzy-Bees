@@ -173,6 +173,16 @@ object CreateBuzzyBeez {
                 AllBlockEntityTypes.SCHEMATIC_DEPLOYER.get(),
                 { be, _ -> de.devin.cbbees.content.deployer.SchematicDeployerItemHandler(be) }
             )
+            event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                AllBlockEntityTypes.MECHANICAL_APIARY.get(),
+                { be, _ -> be.itemCapability }
+            )
+            event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                AllBlockEntityTypes.MECHANICAL_APIARY.get(),
+                { be, side -> be.getFluidCapability(side) }
+            )
             event.registerItem(
                 Capabilities.FluidHandler.ITEM,
                 { stack, _ -> de.devin.cbbees.content.backpack.PortableBeehiveFluidHandler(stack) },

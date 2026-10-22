@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.recipe.IRecipeTypeInfo;
 
 import de.devin.cbbees.CreateBuzzyBeez;
 import de.devin.cbbees.content.processing.GlueingRecipe;
+import de.devin.cbbees.content.processing.PollinatingRecipe;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -30,6 +31,7 @@ public class AllCBeesRecipeTypes {
 		DeferredRegister.create(Registries.RECIPE_TYPE, CreateBuzzyBeez.ID);
 
 	public static final RecipeTypeEntry GLUEING = registerProcessing("glueing", GlueingRecipe::new);
+	public static final RecipeTypeEntry POLLINATING = registerProcessing("pollinating", PollinatingRecipe::new);
 
 	private static RecipeTypeEntry registerProcessing(String name, StandardProcessingRecipe.Factory<?> factory) {
 		ResourceLocation id = CreateBuzzyBeez.INSTANCE.asResource(name);

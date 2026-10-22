@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.data.SharedProperties
 import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.BlockEntry
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.apiary.MechanicalApiaryBlock
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlock
 import de.devin.cbbees.content.deployer.SchematicDeployerBlock
 import de.devin.cbbees.content.logistics.dock.DockPortBlock
@@ -17,6 +18,7 @@ import de.devin.cbbees.datagen.PortBlockStates
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
 import net.minecraft.tags.BlockTags
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
 
 object AllBlocks {
@@ -125,4 +127,27 @@ object AllBlocks {
         .build()
         .register()
 
+    val MECHANICAL_APIARY: BlockEntry<MechanicalApiaryBlock> = CreateBuzzyBeez.REGISTRATE
+        .block("mechanical_apiary", ::MechanicalApiaryBlock)
+        .initialProperties(SharedProperties::wooden)
+        .properties { it.noOcclusion() }
+        .tag(BlockTags.MINEABLE_WITH_AXE)
+        .blockstate { c, p -> p.horizontalBlock(c.get(), p.models().getExistingFile(p.modLoc("block/mechanical_apiary"))) }
+        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 4.0 } }
+        .item()
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('A', AllItems.ANDESITE_ALLOY.get())
+                .define('H', Items.BEEHIVE)
+                .define('C', CreateAllBlocks.ANDESITE_CASING.get())
+                .define('S', CreateAllBlocks.SHAFT.get())
+                .pattern("AHA")
+                .pattern("ACA")
+                .pattern(" S ")
+                .unlockedBy("has_beehive", RegistrateRecipeProvider.has(Items.BEEHIVE))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/mechanical_apiary")) }
+        .build()
+        .register()
 }
