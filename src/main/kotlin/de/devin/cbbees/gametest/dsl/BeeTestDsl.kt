@@ -114,10 +114,8 @@ class BeeTestScope(
             portableNetwork.linkNetwork(jobPool.network)
         }
 
-        // Only set jobPool if not already initialized (don't overwrite stationary network's pool)
-        if (!::jobPool.isInitialized) {
-            jobPool = TestJobPool(portableNetwork)
-        }
+        if (::jobPool.isInitialized) jobPool.addNetwork(portableNetwork)
+        else jobPool = TestJobPool(portableNetwork)
 
         return portableHive
     }

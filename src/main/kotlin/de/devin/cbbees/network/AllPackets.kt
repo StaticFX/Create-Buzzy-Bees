@@ -21,6 +21,12 @@ object AllPackets {
             StartDeconstructionPacket.Companion::handle
         )
 
+        registrar.playToServer(
+            JobHistoryPacket.TYPE,
+            JobHistoryPacket.STREAM_CODEC,
+            JobHistoryPacket.Companion::handle
+        )
+
         // Stop packet - cancels all active bee tasks
         registrar.playToServer(
             CyclePlannerPacket.TYPE,

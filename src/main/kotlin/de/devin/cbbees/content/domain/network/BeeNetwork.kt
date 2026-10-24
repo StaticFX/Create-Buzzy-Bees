@@ -8,7 +8,6 @@ import de.devin.cbbees.content.domain.logistics.DockPort
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservablePort
 import de.devin.cbbees.content.domain.logistics.TransportPort
-import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
@@ -19,7 +18,7 @@ import java.util.*
 
 class BeeNetwork(
     val id: UUID = UUID.randomUUID(),
-    private val topology: NetworkTopology = DefaultAnchorTopology
+    private val topology: NetworkTopology = ServerBeeNetworkManager.topology
 ) {
     val name: String = id.toString().substring(0, 4).uppercase()
     val color: Int = (id.hashCode() and 0x7F7F7F) or 0x808080
@@ -244,6 +243,7 @@ class BeeNetwork(
         }
         val firstComp = components.first()
         if (component.world != firstComp.world) return false
+        if (!topology.canShareNetwork(component, firstComp)) return false
 
         val isAnchor = topology.isAnchor(component)
         if (isAnchor) {

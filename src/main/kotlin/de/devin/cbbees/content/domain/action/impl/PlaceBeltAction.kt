@@ -6,6 +6,7 @@ import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
 import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.history.BlockSnapshot
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -39,6 +40,8 @@ class PlaceBeltAction(
     private val covers: List<Boolean>,
     override val requiredItems: List<ItemStack> = emptyList()
 ) : BeeAction, ItemConsumingAction {
+
+    override val changedPositions: List<BlockPos> get() = chain
 
     override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
         // Never replace a Mechanical Beehive — abort belt if any position overlaps
@@ -79,6 +82,8 @@ class PlaceBeltAction(
 
         return true
     }
+
+    override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
     override fun getDescription(): String {
         return "Placing belt from (${pos.x}, ${pos.y}, ${pos.z}) to (${end.x}, ${end.y}, ${end.z})"

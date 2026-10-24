@@ -3,6 +3,7 @@ package de.devin.cbbees.content.domain.action.impl
 import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.history.BlockSnapshot
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
@@ -34,6 +35,8 @@ class PlaceFluidAction(
         worker.carriedFluid = tank.fluid
         return true
     }
+
+    override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
     override fun getDescription(): String =
         "Placing ${fluid.hoverName.string} at (${pos.x}, ${pos.y}, ${pos.z})"

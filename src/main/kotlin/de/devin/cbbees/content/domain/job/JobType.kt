@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.state.BlockState
 sealed interface JobType {
     val id: String
     val translationKey: String
+    val changesBlocks: Boolean get() = true
 
     /**
      * Package server-side batches into client DTOs for network sync.
@@ -25,7 +26,7 @@ sealed interface JobType {
     fun collectClientBatches(job: BeeJob): List<ClientBatchInfo>
 
     companion object {
-        val entries: List<JobType> = listOf(Construction, Deconstruction, Pickup, Shaping)
+        val entries: List<JobType> = listOf(Construction, Deconstruction, Pickup, Shaping, Undo, Redo)
 
         fun fromOrdinal(ordinal: Int): JobType = entries[ordinal]
 
@@ -59,6 +60,7 @@ sealed interface JobType {
     data object Pickup : JobType {
         override val id = "pickup"
         override val translationKey = "cbbees.job_type.pickup"
+        override val changesBlocks = false
 
         override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
     }
@@ -66,6 +68,20 @@ sealed interface JobType {
     data object Shaping : JobType {
         override val id = "shaping"
         override val translationKey = "cbbees.job_type.shaping"
+
+        override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
+    }
+
+    data object Undo : JobType {
+        override val id = "undo"
+        override val translationKey = "cbbees.job_type.undo"
+
+        override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
+    }
+
+    data object Redo : JobType {
+        override val id = "redo"
+        override val translationKey = "cbbees.job_type.redo"
 
         override fun collectClientBatches(job: BeeJob) = perBatchSync(job)
     }

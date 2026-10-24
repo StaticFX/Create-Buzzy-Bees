@@ -23,7 +23,8 @@ object ServerBeeNetworkManager {
     private val componentToNetwork = mutableMapOf<INetworkComponent, BeeNetwork>()
     private val hiveById = mutableMapOf<UUID, BeeHive>()
 
-    private var topology: NetworkTopology = DefaultAnchorTopology
+    var topology: NetworkTopology = DefaultAnchorTopology
+        private set
 
     fun setTopology(topology: NetworkTopology) {
         this.topology = topology

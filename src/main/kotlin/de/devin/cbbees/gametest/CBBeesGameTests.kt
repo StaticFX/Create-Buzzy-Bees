@@ -4,6 +4,7 @@ import de.devin.cbbees.CreateBuzzyBeez
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.TestFunction
+import net.neoforged.neoforge.common.NeoForge
 import net.neoforged.neoforge.event.RegisterGameTestsEvent
 import java.lang.reflect.Method
 import java.util.function.Consumer
@@ -31,10 +32,12 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.network.NetworkLinkingTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperPlanningTests::class.java,
         de.devin.cbbees.gametest.apiary.MechanicalApiaryTests::class.java,
+        de.devin.cbbees.gametest.history.JobHistoryTests::class.java,
     )
 
     fun onRegisterGameTests(event: RegisterGameTestsEvent) {
         event.register(CBBeesGameTests::class.java)
+        NeoForge.EVENT_BUS.addListener(GameTestSandbox::onServerAboutToStart)
     }
 
     @net.minecraft.gametest.framework.GameTestGenerator
@@ -68,6 +71,7 @@ object CBBeesGameTests {
             annotation.requiredSuccesses, // requiredSuccesses
             false,                      // skyAccess
             Consumer { helper: GameTestHelper ->
+                GameTestSandbox.enter(helper)
                 method.invoke(null, helper)
             },
         )

@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.action
 
 import de.devin.cbbees.content.bee.server.BeeWorker
+import de.devin.cbbees.content.domain.history.BlockSnapshot
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
@@ -13,6 +14,8 @@ import net.minecraft.world.level.Level
  */
 interface BeeAction {
     val pos: BlockPos
+    val changedPositions: List<BlockPos> get() = listOf(pos)
+    fun inversion(pos: BlockPos, before: BlockSnapshot): BeeAction? = null
     fun getWorkTicks(context: BeeContext): Int = 0
 
     fun onStart(worker: BeeWorker) {}

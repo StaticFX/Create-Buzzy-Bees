@@ -1,5 +1,7 @@
 package de.devin.cbbees.content.domain.job
 
+import de.devin.cbbees.content.domain.history.HistoryEntry
+import de.devin.cbbees.content.domain.history.JobHistory
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
 import net.minecraft.server.MinecraftServer
@@ -34,6 +36,7 @@ abstract class BeeJobRequest {
             uniquenessKey = createUniquenessKey(player)
         }
         configureJob(job, player)
+        startHistory(job, player)
 
         val server = player.server ?: return
         val tracker = JobCalculationProgress.newTracker(
@@ -69,6 +72,11 @@ abstract class BeeJobRequest {
 
     /** Configure the job after creation (e.g. set schematicPlacement). */
     protected open fun configureJob(job: BeeJob, player: ServerPlayer) {}
+
+    protected open fun startHistory(job: BeeJob, player: ServerPlayer) {
+        if (!job.jobType.changesBlocks) return
+        JobHistory.of(player).pushUndo(HistoryEntry(job.jobId, job.jobType, job.dimensionKey), clearRedo = true)
+    }
 
     /** Called after job creation but before task generation (e.g. clear schematic from item). */
     protected open fun beforeGenerate(job: BeeJob, player: ServerPlayer) {}

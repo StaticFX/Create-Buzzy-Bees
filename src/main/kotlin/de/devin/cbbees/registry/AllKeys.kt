@@ -111,6 +111,20 @@ object AllKeys {
         "key.categories.${CreateBuzzyBeez.ID}"
     )
 
+    val UNDO: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.undo",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_Z,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
+    val REDO: KeyMapping = KeyMapping(
+        "key.${CreateBuzzyBeez.ID}.redo",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_Y,
+        "key.categories.${CreateBuzzyBeez.ID}"
+    )
+
     /**
      * Registers all keybindings with the game.
      * Called from RegisterKeyMappingsEvent.
@@ -125,6 +139,8 @@ object AllKeys {
         event.register(PROGRAM_ACTION)
         event.register(SCHEMATIC_MODIFIER)
         event.register(FREE_AIM)
+        event.register(UNDO)
+        event.register(REDO)
     }
 
 }

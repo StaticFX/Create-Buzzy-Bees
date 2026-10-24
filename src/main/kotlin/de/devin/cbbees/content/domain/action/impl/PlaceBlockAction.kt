@@ -5,6 +5,7 @@ import com.simibubi.create.content.kinetics.belt.BeltBlockEntity.CasingType
 import com.simibubi.create.content.kinetics.belt.BeltHelper
 import com.simibubi.create.foundation.utility.BlockHelper
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.history.BlockSnapshot
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.beehive.BeeHive
@@ -75,6 +76,8 @@ class PlaceBlockAction(
 
         return true
     }
+
+    override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
     override fun getDescription(): String {
         val blockName = blockState.block.name.string

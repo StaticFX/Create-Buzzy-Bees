@@ -9,6 +9,7 @@ import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.action.BeeAction
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
+import de.devin.cbbees.content.domain.history.JobHistoryRecorder
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -27,6 +28,12 @@ import java.util.UUID
  *
  * @see CheckpointAction
  */
+private fun ServerBeeData.abandonTask(): Boolean {
+    currentTask?.releaseWithoutRetry()
+    springTension = -9999f
+    return false
+}
+
 object FlyThrough : CheckpointAction {
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long) = true
 }
@@ -46,7 +53,8 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         val log = CreateBuzzyBeez.LOGGER
         val network = bee.network()
         if (network == null) {
-            log.debug("[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network"); return false
+            log.debug("[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network")
+            return bee.abandonTask()
         }
 
         val targetPort = network.ports.firstOrNull { it.id == providerId }
@@ -110,9 +118,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         }
 
         log.debug("[GatherFromPort] Gather FAILED, no alternative provider — releasing batch")
-        bee.currentTask?.releaseWithoutRetry()
-        bee.springTension = -9999f
-        return false
+        return bee.abandonTask()
     }
 }
 
@@ -126,7 +132,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
 class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val network = bee.network() ?: return false
+        val network = bee.network() ?: return bee.abandonTask()
 
         if (!FluidStack.isSameFluidSameComponents(bee.carriedFluid, fluid)) bee.returnCarriedFluid()
 
@@ -138,9 +144,7 @@ class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointA
             return true
         }
 
-        bee.currentTask?.releaseWithoutRetry()
-        bee.springTension = -9999f
-        return false
+        return bee.abandonTask()
     }
 }
 
@@ -172,7 +176,9 @@ class ExecuteBeeAction(
         if (!ActionThrottle.canExecute(gameTime)) return false
 
         ActionThrottle.record()
-        val done = beeAction.execute(level, bee, bee.getBeeContext())
+        val done = JobHistoryRecorder.execute(level, task.job, beeAction) {
+            beeAction.execute(level, bee, bee.getBeeContext())
+        }
 
         if (done) {
             failTicks = 0
@@ -186,10 +192,7 @@ class ExecuteBeeAction(
             failTicks++
             // If the action fails repeatedly (e.g., missing materials at placement),
             // release the batch and return home rather than looping forever.
-            if (failTicks >= MAX_ACTION_FAIL_TICKS) {
-                bee.currentTask?.releaseWithoutRetry()
-                bee.springTension = -9999f
-            }
+            if (failTicks >= MAX_ACTION_FAIL_TICKS) bee.abandonTask()
         }
         return done
     }

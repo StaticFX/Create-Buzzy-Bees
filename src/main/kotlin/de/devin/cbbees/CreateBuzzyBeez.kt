@@ -21,6 +21,7 @@ import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
+import de.devin.cbbees.content.domain.history.client.JobHistoryClientEvents
 import de.devin.cbbees.content.drone.client.DroneRangeRenderer
 import de.devin.cbbees.content.drone.client.DroneViewClientEvents
 import de.devin.cbbees.content.drone.client.DroneViewHUD
@@ -127,6 +128,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(DroneViewClientEvents::class.java)
             NeoForge.EVENT_BUS.register(DroneRangeRenderer::class.java)
             NeoForge.EVENT_BUS.register(MasterPlannerClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(JobHistoryClientEvents::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.ProgrammedSchematicRenderer::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.deployer.client.DeployerPreviewRenderer::class.java)
             MOD_BUS.addListener<FMLClientSetupEvent> { onClientSetup(it) }

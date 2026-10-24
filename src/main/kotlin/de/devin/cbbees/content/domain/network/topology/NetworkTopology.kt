@@ -21,4 +21,7 @@ interface NetworkTopology {
 
     /** Whether the given position is within the logistics attachment range of the anchor. */
     fun isLogisticsRange(anchor: INetworkComponent, pos: BlockPos): Boolean
+
+    /** Whether two components may ever end up in the same network, regardless of range. */
+    fun canShareNetwork(a: INetworkComponent, b: INetworkComponent): Boolean = true
 }

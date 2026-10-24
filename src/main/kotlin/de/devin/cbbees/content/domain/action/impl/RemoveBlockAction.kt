@@ -3,6 +3,7 @@ package de.devin.cbbees.content.domain.action.impl
 import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.action.BeeAction
+import de.devin.cbbees.content.domain.history.BlockSnapshot
 import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.beehive.BeeHive
@@ -104,6 +105,8 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
     override fun shouldReturnAfter(context: BeeContext): Boolean =
         !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
+
+    override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
     override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
 
