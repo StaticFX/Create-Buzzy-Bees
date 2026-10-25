@@ -37,7 +37,7 @@ object ConstructionPlannerClientEvents {
 
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
             val player = Minecraft.getInstance().player
-            if (player == null || DroneViewClientState.findActivePlanner(player).isEmpty) {
+            if (player == null || DroneViewClientState.findSchematicPlanner(player).isEmpty) {
                 ConstructionToolState.activeTool = ConstructionToolState.CustomTool.NONE
             }
         }

@@ -31,6 +31,12 @@ class CBBPonderPlugin : PonderPlugin {
             .addStoryBoard("cargo_port/scene2", { scene, util -> BeeScenes.cargoPortWithBees(scene, util) })
 
 
+        helper.forComponents(AllBlocks.DOCK_PORT.id)
+            .addStoryBoard("dock_port/intro", { scene, util -> PortScenes.dockPort(scene, util) })
+
+        helper.forComponents(AllBlocks.WAGGLE_PORT.id)
+            .addStoryBoard("waggle_port/intro", { scene, util -> PortScenes.wagglePort(scene, util) })
+
         val beeStoryBoard = { scene: SceneBuilder, util: SceneBuildingUtil -> BeeScenes.mechanicalBee(scene, util) }
 
         helper.forComponents(AllItems.MECHANICAL_BEE.id).addStoryBoard("base", beeStoryBoard)
@@ -58,6 +64,8 @@ class CBBPonderPlugin : PonderPlugin {
             .add(AllBlocks.MECHANICAL_BEEHIVE.id)
             .add(AllBlocks.LOGISTICS_PORT.id)
             .add(AllBlocks.CARGO_PORT.id)
+            .add(AllBlocks.DOCK_PORT.id)
+            .add(AllBlocks.WAGGLE_PORT.id)
             .add(AllItems.MECHANICAL_BEE.id)
             .add(AllItems.MECHANICAL_BUMBLE_BEE.id)
     }

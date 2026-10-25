@@ -13,6 +13,7 @@ import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.bee.client.BeeClientTracker
 import de.devin.cbbees.content.planner.client.MasterPlannerClientEvents
+import de.devin.cbbees.content.planner.client.PlannerClientEvents
 import de.devin.cbbees.content.planner.client.MasterPlannerDecorator
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
@@ -25,8 +26,6 @@ import de.devin.cbbees.content.domain.history.client.JobHistoryClientEvents
 import de.devin.cbbees.content.drone.client.DroneRangeRenderer
 import de.devin.cbbees.content.drone.client.DroneViewClientEvents
 import de.devin.cbbees.content.drone.client.DroneViewHUD
-import de.devin.cbbees.content.schematics.client.DeconstructionClientEvents
-import de.devin.cbbees.content.schematics.client.DeconstructionRenderer
 import de.devin.cbbees.content.zapper.client.ZapperOutlineRenderer
 import de.devin.cbbees.content.schematics.external.CreateModSchematicSource
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
@@ -116,7 +115,7 @@ object CreateBuzzyBeez {
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
-            NeoForge.EVENT_BUS.register(DeconstructionClientEvents::class.java)
+            NeoForge.EVENT_BUS.register(PlannerClientEvents::class.java)
             NeoForge.EVENT_BUS.register(ConstructionPlannerClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeClientTracker::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.bee.client.BeeWorldRenderer::class.java)
@@ -143,9 +142,9 @@ object CreateBuzzyBeez {
                 }
                 event.registerAbove(
                     VanillaGuiLayers.CHAT,
-                    asResource("deconstruction_planner_hud")
+                    asResource("planner_hud")
                 ) { guiGraphics, deltaTracker ->
-                    DeconstructionRenderer.renderHUD(guiGraphics, deltaTracker)
+                    PlannerClientEvents.renderHud(guiGraphics, deltaTracker)
                 }
                 event.registerAbove(
                     VanillaGuiLayers.CHAT,

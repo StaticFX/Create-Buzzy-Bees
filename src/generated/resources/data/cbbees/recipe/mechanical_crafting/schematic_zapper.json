@@ -1,0 +1,42 @@
+{
+  "type": "create:mechanical_crafting",
+  "accept_mirrored": false,
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:brass_sheet"
+    },
+    "E": {
+      "item": "create:electron_tube"
+    },
+    "H": {
+      "item": "minecraft:honeycomb"
+    },
+    "L": {
+      "item": "create:analog_lever"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    },
+    "Q": {
+      "item": "create:schematic_and_quill"
+    },
+    "R": {
+      "item": "create:brass_ingot"
+    },
+    "W": {
+      "tag": "c:stripped_woods"
+    }
+  },
+  "pattern": [
+    "   EE ",
+    "RHBPQB",
+    "   BLW",
+    "     W"
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:schematic_zapper"
+  },
+  "show_notification": false
+}

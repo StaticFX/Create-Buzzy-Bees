@@ -35,6 +35,15 @@ object CBBeesConfig {
     val droneRangeBonus: ModConfigSpec.DoubleValue
     val droneMoveSpeed: ModConfigSpec.DoubleValue
 
+    // Schematic Zapper settings
+    val zapperMaxRadius: ModConfigSpec.IntValue
+    val zapperMaxSize: ModConfigSpec.IntValue
+    val zapperMaxBlocksPerShot: ModConfigSpec.IntValue
+
+    // Waggle Port settings
+    val waggleRequestInterval: ModConfigSpec.IntValue
+    val waggleRequestTimeout: ModConfigSpec.IntValue
+
     // Spring (clockwork) settings
     val springDrainPlace: ModConfigSpec.DoubleValue
     val springDrainBreak: ModConfigSpec.DoubleValue
@@ -157,6 +166,36 @@ object CBBeesConfig {
         droneMoveSpeed = builder
             .comment("Drone movement speed in blocks per tick when controlled by WASD")
             .defineInRange("droneMoveSpeed", 1.5, 0.1, 5.0)
+
+        builder.pop()
+
+        builder.comment("Schematic Zapper Settings — limits for zapper shapes")
+            .push("zapper")
+
+        zapperMaxRadius = builder
+            .comment("Largest radius a round zapper shape (ellipsoid, dome, cylinder, capsule, cone, torus) can have")
+            .defineInRange("zapperMaxRadius", 32, 1, 128)
+
+        zapperMaxSize = builder
+            .comment("Largest edge length of a cuboid and largest height or length of other zapper shapes")
+            .defineInRange("zapperMaxSize", 64, 1, 256)
+
+        zapperMaxBlocksPerShot = builder
+            .comment("Most blocks a single zapper shot may change; larger shots are refused")
+            .defineInRange("zapperMaxBlocksPerShot", 50000, 1, 1000000)
+
+        builder.pop()
+
+        builder.comment("Waggle Port Settings — requesting missing materials from Create's logistics network")
+            .push("waggle_port")
+
+        waggleRequestInterval = builder
+            .comment("Ticks between checks for materials that bee jobs are missing")
+            .defineInRange("waggleRequestInterval", 40, 10, 1200)
+
+        waggleRequestTimeout = builder
+            .comment("Ticks a request counts as on its way; after that, anything still missing is requested again")
+            .defineInRange("waggleRequestTimeout", 1200, 100, 24000)
 
         builder.pop()
 

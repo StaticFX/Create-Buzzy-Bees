@@ -6,7 +6,7 @@
       "item": "create:copper_casing"
     },
     "V": {
-      "item": "create:smart_fluid_pipe"
+      "item": "create:fluid_tank"
     },
     "W": {
       "item": "create:transmitter"
@@ -18,7 +18,7 @@
     "B"
   ],
   "result": {
-    "count": 1,
+    "count": 2,
     "id": "cbbees:dock_port"
   }
 }

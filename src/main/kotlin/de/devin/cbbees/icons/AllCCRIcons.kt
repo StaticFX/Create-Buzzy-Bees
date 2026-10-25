@@ -31,7 +31,12 @@ class AllCCRIcons(val iconX: Int, val iconY: Int) : AllIcons(iconX, iconY) {
 
         val LP_FORCE_PICKUP = AllCCRIcons(32, 0)
 
-        val FOLDER = AllCCRIcons(48, 0)
+        val COPY = AllCCRIcons(48, 0)
+
+        val CUT = AllCCRIcons(64, 0)
+
+        @JvmField
+        val PROGRAM = AllCCRIcons(80, 0)
     }
 
     override fun render(graphics: GuiGraphics, x: Int, y: Int) {

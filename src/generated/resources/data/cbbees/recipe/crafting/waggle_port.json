@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:brass_casing"
+    },
+    "H": {
+      "item": "minecraft:honeycomb"
+    },
+    "L": {
+      "item": "create:stock_link"
+    },
+    "W": {
+      "item": "create:transmitter"
+    }
+  },
+  "pattern": [
+    " W ",
+    "HLH",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "cbbees:waggle_port"
+  }
+}

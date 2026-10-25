@@ -20,6 +20,7 @@ import de.devin.cbbees.content.logistics.dock.DockPortRenderer
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlockEntity
 import de.devin.cbbees.content.logistics.ports.LogisticsPortRenderer
 import de.devin.cbbees.content.logistics.transport.TransportPortBlockEntity
+import de.devin.cbbees.content.logistics.waggle.WagglePortBlockEntity
 import de.devin.cbbees.content.logistics.transport.TransportPortRenderer
 import net.minecraft.core.Direction
 
@@ -42,6 +43,11 @@ object AllBlockEntityTypes {
         .blockEntity("dock_port", ::DockPortBlockEntity)
         .validBlocks(AllBlocks.DOCK_PORT)
         .renderer { NonNullFunction { DockPortRenderer(it) } }
+        .register()
+
+    val WAGGLE_PORT: BlockEntityEntry<WagglePortBlockEntity> = CreateBuzzyBeez.REGISTRATE
+        .blockEntity("waggle_port", ::WagglePortBlockEntity)
+        .validBlocks(AllBlocks.WAGGLE_PORT)
         .register()
 
     val SCHEMATIC_DEPLOYER: BlockEntityEntry<SchematicDeployerBlockEntity> = CreateBuzzyBeez.REGISTRATE

@@ -2,8 +2,10 @@ package de.devin.cbbees.content.zapper
 
 import com.simibubi.create.AllDataComponents
 import com.simibubi.create.content.equipment.zapper.terrainzapper.PlacementOptions
-import com.simibubi.create.content.equipment.zapper.terrainzapper.TerrainBrushes
 import com.simibubi.create.content.equipment.zapper.terrainzapper.TerrainTools
+import de.devin.cbbees.content.zapper.shape.ShapeAim
+import de.devin.cbbees.content.zapper.shape.ZapperShapes
+import de.devin.cbbees.registry.AllDataComponents as CBBeesDataComponents
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.entity.player.Player
@@ -33,15 +35,13 @@ object ZapperBrush {
     }
 
     fun aim(stack: ItemStack, level: Level, player: Player, hit: BlockHitResult): BrushShot? {
-        val params = stack.get(AllDataComponents.SHAPER_BRUSH_PARAMS) ?: return null
-        val brush = stack.getOrDefault(AllDataComponents.SHAPER_BRUSH, TerrainBrushes.Cuboid).get()
+        val settings = stack.get(CBBeesDataComponents.ZAPPER_SHAPE.get()) ?: return null
+        val shape = ZapperShapes.byId(settings.shape)
         val placement = stack.getOrDefault(AllDataComponents.SHAPER_PLACEMENT_OPTIONS, PlacementOptions.Merged)
         val tool = stack.getOrDefault(AllDataComponents.SHAPER_TOOL, TerrainTools.Fill)
 
-        brush.set(params.x, params.y, params.z)
-        val origin = hit.blockPos.offset(brush.getOffset(player.lookAngle, hit.direction, placement))
-        val positions = mutableListOf<BlockPos>()
-        brush.addToGlobalPositions(level, origin, hit.direction, positions, tool)
-        return BrushShot(origin, positions, hit.direction, brush.redirectTool(tool))
+        val aim = ShapeAim(hit.blockPos, hit.direction, player.direction, placement, tool)
+        val placed = shape.place(level, aim, settings)
+        return BrushShot(placed.origin, placed.positions.toMutableList(), hit.direction, shape.redirect(tool))
     }
 }

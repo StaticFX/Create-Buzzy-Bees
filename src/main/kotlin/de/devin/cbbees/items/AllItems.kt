@@ -12,6 +12,7 @@ import de.devin.cbbees.content.bee.MechanicalBumbleBeeItem
 import de.devin.cbbees.content.deployer.ProgrammedSchematicItem
 import de.devin.cbbees.content.planner.MasterPlannerItem
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
+import de.devin.cbbees.content.schematics.CopyPlannerItem
 import de.devin.cbbees.content.schematics.DeconstructionPlannerItem
 import de.devin.cbbees.content.schematics.PickupPlannerItem
 import de.devin.cbbees.content.upgrades.*
@@ -133,7 +134,25 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Master-Planner - acts as any of the planners above
+    // Copy Planner - copy or cut an area and paste it elsewhere
+    val COPY_PLANNER: ItemEntry<CopyPlannerItem> = CreateBuzzyBeez.REGISTRATE
+        .item("copy_planner") { props -> CopyPlannerItem(props) }
+        .model { _, _ -> }
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('B', AllItems.BRASS_INGOT.get())
+                .define('E', AllItems.ELECTRON_TUBE.get())
+                .define('P', Items.PAPER)
+                .define('Q', AllItems.SCHEMATIC_AND_QUILL.get())
+                .pattern(" E ")
+                .pattern("BPB")
+                .pattern(" Q ")
+                .unlockedBy("has_electron_tube", RegistrateRecipeProvider.has(AllItems.ELECTRON_TUBE.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
+        .register()
+
     val MASTER_PLANNER: ItemEntry<MasterPlannerItem> = CreateBuzzyBeez.REGISTRATE
         .item("master_planner") { props -> MasterPlannerItem(props) }
         .model { _, _ -> } // Hand-written model in resources
@@ -142,6 +161,8 @@ object AllItems {
                 .requires(CONSTRUCTION_PLANNER.get())
                 .requires(DECONSTRUCTION_PLANNER.get())
                 .requires(PICKUP_PLANNER.get())
+                .requires(COPY_PLANNER.get())
+                .requires(AllItems.SCHEMATIC_AND_QUILL.get())
                 .unlockedBy("has_construction_planner", RegistrateRecipeProvider.has(CONSTRUCTION_PLANNER.get()))
                 .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
         }
@@ -151,23 +172,9 @@ object AllItems {
     val SCHEMATIC_ZAPPER: ItemEntry<SchematicZapperItem> = CreateBuzzyBeez.REGISTRATE
         .item("schematic_zapper") { props -> SchematicZapperItem(props) }
         .model { _, _ -> }
-        .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
-                .define('B', AllItems.BRASS_INGOT.get())
-                .define('E', AllItems.ELECTRON_TUBE.get())
-                .define('P', AllItems.SCHEMATIC.get())
-                .define('H', Items.HONEYCOMB)
-                .define('C', AllItems.PRECISION_MECHANISM)
-                .pattern(" E ")
-                .pattern("CPB")
-                .pattern(" HB")
-                .unlockedBy("has_precision_mechanism", RegistrateRecipeProvider.has(AllItems.PRECISION_MECHANISM))
-                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
-        }
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Programmed Schematic - stores a schematic program for automated deployment
     val PROGRAMMED_SCHEMATIC: ItemEntry<ProgrammedSchematicItem> = CreateBuzzyBeez.REGISTRATE
         .item("programmed_schematic") { props ->
             ProgrammedSchematicItem(props)
@@ -195,7 +202,6 @@ object AllItems {
         }
         .register()
 
-    // Rapid Wings - +25% bee speed (max 4)
     val RAPID_WINGS: ItemEntry<RapidWingsUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("rapid_wings") { props ->
             RapidWingsUpgrade(props)
@@ -215,7 +221,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Swarm Intelligence - +2 concurrent bees (max 3)
     val SWARM_INTELLIGENCE: ItemEntry<SwarmIntelligenceUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("swarm_intelligence") { props ->
             SwarmIntelligenceUpgrade(props)
@@ -234,7 +239,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Honey Efficiency - Higher capacity and break speed
     val HONEY_EFFICIENCY: ItemEntry<HoneyEfficiencyUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("honey_efficiency") { props ->
             HoneyEfficiencyUpgrade(props)
@@ -254,7 +258,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Soft Touch - Deconstruction preserves blocks
     val SOFT_TOUCH: ItemEntry<SoftTouchUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("soft_touch") { props ->
             SoftTouchUpgrade(props)
@@ -274,7 +277,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Drop Items - Deconstruction bees drop items instead of picking them up
     val DROP_ITEMS: ItemEntry<DropItemsUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("drop_items") { props ->
             DropItemsUpgrade(props)
@@ -294,7 +296,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Honey Tank - increases honey capacity
     val HONEY_TANK: ItemEntry<HoneyTankUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("honey_tank") { props ->
             HoneyTankUpgrade(props)
@@ -314,7 +315,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Drone View - enables top-down drone camera
     val DRONE_VIEW: ItemEntry<DroneViewUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("drone_view") { props ->
             DroneViewUpgrade(props)
@@ -334,7 +334,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.RARE) }
         .register()
 
-    // Drone Range - extends drone view radius
     val DRONE_RANGE: ItemEntry<DroneRangeUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("drone_range") { props ->
             DroneRangeUpgrade(props)
@@ -354,7 +353,6 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Inventory Access - allows bees to take items from the player's inventory and shulker boxes
     val INVENTORY_ACCESS: ItemEntry<InventoryAccessUpgrade> = CreateBuzzyBeez.REGISTRATE
         .item("inventory_access") { props -> InventoryAccessUpgrade(props) }
         .model { _, _ -> }
@@ -372,24 +370,20 @@ object AllItems {
         .properties { it.stacksTo(1).rarity(Rarity.UNCOMMON) }
         .register()
 
-    // Mechanical Bee Chassis - output of sequenced assembly, glued into mechanical bee
     val MECHANICAL_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bee_chassis") { props -> Item(props) }
         .model { _, _ -> }
         .register()
 
-    // Transitional item used during sequenced assembly
     val INCOMPLETE_MECHANICAL_BEE = CreateBuzzyBeez.REGISTRATE
         .item("incomplete_mechanical_bee") { props -> SequencedAssemblyItem(props) }
         .register()
 
-    // Mechanical Bumble Bee Chassis - output of sequenced assembly, glued into mechanical bumble bee
     val MECHANICAL_BUMBLE_BEE_CHASSIS: ItemEntry<Item> = CreateBuzzyBeez.REGISTRATE
         .item("mechanical_bumble_bee_chassis") { props -> Item(props) }
         .model { _, _ -> }
         .register()
 
-    // Transitional item used during bumble bee sequenced assembly
     val INCOMPLETE_MECHANICAL_BUMBLE_BEE = CreateBuzzyBeez.REGISTRATE
         .item("incomplete_mechanical_bumble_bee") { props -> SequencedAssemblyItem(props) }
         .register()

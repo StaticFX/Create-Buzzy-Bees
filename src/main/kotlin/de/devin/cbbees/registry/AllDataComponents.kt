@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.deployer.SchematicProgram
 import de.devin.cbbees.content.upgrades.UpgradeGrid
+import de.devin.cbbees.content.zapper.shape.ShapeSettings
 import net.minecraft.core.component.DataComponentType
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.codec.ByteBufCodecs
@@ -41,6 +42,12 @@ object AllDataComponents {
         REGISTER.registerComponentType("planner_mode") { builder ->
             builder.persistent(Codec.STRING)
                 .networkSynchronized(ByteBufCodecs.STRING_UTF8)
+        }
+
+    val ZAPPER_SHAPE: DeferredHolder<DataComponentType<*>, DataComponentType<ShapeSettings>> =
+        REGISTER.registerComponentType("zapper_shape") { builder ->
+            builder.persistent(ShapeSettings.CODEC)
+                .networkSynchronized(ShapeSettings.STREAM_CODEC)
         }
 
     fun register(bus: IEventBus) {

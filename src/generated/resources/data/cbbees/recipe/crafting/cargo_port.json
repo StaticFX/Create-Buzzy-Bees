@@ -3,7 +3,7 @@
   "category": "misc",
   "key": {
     "B": {
-      "item": "create:brass_casing"
+      "item": "create:copper_casing"
     },
     "V": {
       "item": "create:item_vault"
@@ -18,7 +18,7 @@
     "B"
   ],
   "result": {
-    "count": 1,
+    "count": 2,
     "id": "cbbees:cargo_port"
   }
 }

@@ -12,6 +12,8 @@ import de.devin.cbbees.content.logistics.ports.LogisticsPortFilterValueBox
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.PortType
+import net.createmod.catnip.lang.Lang
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -157,7 +159,11 @@ class DockPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockS
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        addNetworkTooltip(tooltip)
+        Lang.builder("cbbees").translate("gui.goggles.dock.${portType().serializedName}")
+            .style(ChatFormatting.GOLD)
+            .forGoggles(tooltip)
+
+        addNetworkTooltip(tooltip, 1)
         return true
     }
 }

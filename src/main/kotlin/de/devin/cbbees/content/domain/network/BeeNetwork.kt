@@ -162,6 +162,12 @@ class BeeNetwork(
         return components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
     }
 
+    fun canWorkOn(batch: TaskBatch): Boolean = when (batch.assignedNetworkId) {
+        id -> true
+        null -> batch.job.level == components.firstOrNull()?.world && isInRange(batch.targetPosition)
+        else -> false
+    }
+
     /**
      * Checks if any anchor is within range for logistics attachment.
      * Considers both block-based anchors (mechanical beehives) and portable beehives.

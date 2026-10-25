@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.deployer.client
 
-import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import com.simibubi.create.foundation.gui.widget.Label
@@ -8,6 +7,7 @@ import com.simibubi.create.foundation.gui.widget.ScrollInput
 import de.devin.cbbees.content.deployer.DeployMode
 import de.devin.cbbees.content.deployer.SchematicDeployerBlockEntity
 import de.devin.cbbees.content.deployer.SchematicProgram
+import de.devin.cbbees.icons.AllCCRGuiTextures
 import de.devin.cbbees.network.DeployerSettingsPacket
 import de.devin.cbbees.registry.AllDataComponents
 import net.createmod.catnip.gui.AbstractSimiScreen
@@ -28,7 +28,15 @@ class SchematicDeployerScreen(
     private val be: SchematicDeployerBlockEntity
 ) : AbstractSimiScreen(Component.translatable("block.cbbees.schematic_deployer")) {
 
-    private val background = AllGuiTextures.SCHEMATIC
+    private companion object {
+        const val LINE = 10
+        const val ROWS_TOP = 110
+        const val ROW_GAP = 16
+        const val DETAIL = 0xE0E0E0
+        const val INACTIVE_TAB = 0x3A3A3A
+    }
+
+    private val background = AllCCRGuiTextures.SCHEMATIC_DEPLOYER
 
     private var currentMode: DeployMode = be.deployMode
     private var offsetX: Int = be.relativeOffset.x
@@ -52,7 +60,7 @@ class SchematicDeployerScreen(
     private var mirrorButton: IconButton? = null
 
     override fun init() {
-        setWindowSize(background.width + 50, background.height + 86)
+        setWindowSize(background.width, background.height)
         super.init()
 
         val x = guiLeft
@@ -69,7 +77,7 @@ class SchematicDeployerScreen(
         }
 
         // Confirm button
-        confirmButton = IconButton(x + windowWidth - 25, y + windowHeight - 25, AllIcons.I_CONFIRM).also {
+        confirmButton = IconButton(x + 217, y + 184, AllIcons.I_CONFIRM).also {
             it.setToolTip(Component.translatable("gui.cbbees.deployer.confirm"))
             addRenderableWidget(it)
         }
@@ -296,16 +304,7 @@ class SchematicDeployerScreen(
         val x = guiLeft
         val y = guiTop
 
-        // Draw dark background panel
-        graphics.fill(x, y, x + windowWidth, y + windowHeight, 0xCC2A2A2A.toInt())
-        // Border
-        graphics.fill(x, y, x + windowWidth, y + 1, 0xFF555555.toInt())
-        graphics.fill(x, y + windowHeight - 1, x + windowWidth, y + windowHeight, 0xFF555555.toInt())
-        graphics.fill(x, y, x + 1, y + windowHeight, 0xFF555555.toInt())
-        graphics.fill(x + windowWidth - 1, y, x + windowWidth, y + windowHeight, 0xFF555555.toInt())
-
-        // Title bar
-        graphics.fill(x + 1, y + 1, x + windowWidth - 1, y + 18, 0xFF3A3A3A.toInt())
+        background.render(graphics, x, y)
         graphics.drawCenteredString(
             font,
             title,
@@ -315,34 +314,31 @@ class SchematicDeployerScreen(
         )
 
         // Tab labels
-        val absColor = if (currentMode == DeployMode.ABSOLUTE) 0xFFFFFF else 0x888888
-        val relColor = if (currentMode == DeployMode.RELATIVE) 0xFFFFFF else 0x888888
-        graphics.drawString(font, "Absolute", x + 48, y + 26, absColor, false)
-        graphics.drawString(font, "Relative", x + 100, y + 26, relColor, false)
+        val absColor = if (currentMode == DeployMode.ABSOLUTE) 0xFFFFFF else INACTIVE_TAB
+        val relColor = if (currentMode == DeployMode.RELATIVE) 0xFFFFFF else INACTIVE_TAB
+        graphics.drawString(font, "Absolute", x + 50, y + 27, absColor, currentMode == DeployMode.ABSOLUTE)
+        graphics.drawString(font, "Relative", x + 102, y + 27, relColor, currentMode == DeployMode.RELATIVE)
 
         // Mode indicator line
-        val lineX = if (currentMode == DeployMode.ABSOLUTE) x + 48 else x + 100
+        val lineX = if (currentMode == DeployMode.ABSOLUTE) x + 50 else x + 102
         val lineW = if (currentMode == DeployMode.ABSOLUTE) font.width("Absolute") else font.width("Relative")
         graphics.fill(lineX, y + 36, lineX + lineW, y + 37, 0xFFD4AA00.toInt())
 
         // Program info section
         val program = be.heldItem.get(AllDataComponents.SCHEMATIC_PROGRAM)
-        val infoY = y + 42
+        val infoY = y + 46
 
         if (program != null) {
-            renderProgramInfo(graphics, x + 10, infoY, program)
+            renderProgramInfo(graphics, x + 14, infoY, program)
         } else {
-            graphics.drawString(font, Component.translatable("cbbees.deployer.empty"), x + 10, infoY, 0xFF6666, false)
+            graphics.drawString(font, Component.translatable("cbbees.deployer.empty"), x + 14, infoY, 0xFF6666, true)
         }
 
-        // Position section
-        val posY = y + 96
-        graphics.fill(x + 5, posY - 4, x + windowWidth - 5, posY - 3, 0xFF555555.toInt())
-
+        drawAxisLabels(graphics)
         if (currentMode == DeployMode.ABSOLUTE) {
-            renderAbsoluteCoords(graphics, x + 10, posY, program)
+            renderAbsoluteCoords(graphics, x + 13, y + 97, program)
         } else {
-            renderRelativeControls(graphics, x + 10, posY, program)
+            renderRelativeControls(graphics, x + 13, y + 97, program)
         }
     }
 
@@ -351,7 +347,7 @@ class SchematicDeployerScreen(
             is SchematicProgram.Construction -> {
                 val typeLabel =
                     Component.translatable("cbbees.program.construction", program.schematicName.removeSuffix(".nbt"))
-                graphics.drawString(font, typeLabel, x, y, 0x8BDB8B, false)
+                graphics.drawString(font, typeLabel, x, y, 0x8BDB8B, true)
 
                 val rotStr = when (program.rotation) {
                     Rotation.NONE -> "None"
@@ -364,12 +360,12 @@ class SchematicDeployerScreen(
                     Mirror.LEFT_RIGHT -> "Left-Right"
                     Mirror.FRONT_BACK -> "Front-Back"
                 }
-                graphics.drawString(font, "Rotation: $rotStr  Mirror: $mirrorStr", x, y + 12, 0x999999, false)
+                graphics.drawString(font, "Rotation: $rotStr  Mirror: $mirrorStr", x, y + LINE, DETAIL, true)
 
                 graphics.drawString(
                     font,
                     Component.literal("Anchor: ${program.anchor.x}, ${program.anchor.y}, ${program.anchor.z}"),
-                    x, y + 24, 0x888888, false
+                    x, y + LINE * 2, DETAIL, true
                 )
             }
 
@@ -385,17 +381,17 @@ class SchematicDeployerScreen(
                 graphics.drawString(
                     font,
                     Component.translatable("cbbees.program.dimensions", sizeX, sizeY, sizeZ),
-                    x, y + 12, 0x999999, false
+                    x, y + LINE, DETAIL, true
                 )
                 graphics.drawString(
                     font,
                     "From: ${program.corner1.x}, ${program.corner1.y}, ${program.corner1.z}",
-                    x, y + 24, 0x888888, false
+                    x, y + LINE * 2, DETAIL, true
                 )
                 graphics.drawString(
                     font,
                     "To: ${program.corner2.x}, ${program.corner2.y}, ${program.corner2.z}",
-                    x, y + 36, 0x888888, false
+                    x, y + LINE * 3, DETAIL, true
                 )
             }
 
@@ -411,45 +407,38 @@ class SchematicDeployerScreen(
                 graphics.drawString(
                     font,
                     Component.translatable("cbbees.program.dimensions", sizeX, sizeY, sizeZ),
-                    x, y + 12, 0x999999, false
+                    x, y + LINE, DETAIL, true
                 )
             }
         }
     }
 
     private fun renderAbsoluteCoords(graphics: GuiGraphics, x: Int, y: Int, program: SchematicProgram?) {
-        graphics.drawString(font, "Deploy Mode: Absolute", x, y, 0xD4AA00, false)
-        graphics.drawString(
-            font,
-            Component.literal("Coordinates are used as-is").withStyle(ChatFormatting.GRAY),
-            x, y + 14, 0x888888, false
-        )
+        graphics.drawString(font, "Deploy Mode: Absolute", x, y, 0xD4AA00, true)
+        if (program == null) return
 
-        if (program != null) {
-            val posText = when (program) {
-                is SchematicProgram.Construction ->
-                    "Build at: ${program.anchor.x}, ${program.anchor.y}, ${program.anchor.z}"
+        val rows = when (program) {
+            is SchematicProgram.Construction -> program.anchor.let { listOf("${it.x}", "${it.y}", "${it.z}") }
+            is SchematicProgram.Deconstruction -> areaRows(program.corner1, program.corner2)
+            is SchematicProgram.Pickup -> areaRows(program.corner1, program.corner2)
+        }
+        rows.forEachIndexed { i, text -> graphics.drawString(font, text, guiLeft + 29, guiTop + ROWS_TOP + i * ROW_GAP + 3, 0xFFFFFF, true) }
+        graphics.drawString(font, "Coordinates are used as-is", x, guiTop + 164, DETAIL, true)
+    }
 
-                is SchematicProgram.Deconstruction ->
-                    "Area: ${program.corner1.x},${program.corner1.y},${program.corner1.z} to ${program.corner2.x},${program.corner2.y},${program.corner2.z}"
+    private fun areaRows(a: BlockPos, b: BlockPos) = listOf("${a.x} \u2192 ${b.x}", "${a.y} \u2192 ${b.y}", "${a.z} \u2192 ${b.z}")
 
-                is SchematicProgram.Pickup ->
-                    "Scan: ${program.corner1.x},${program.corner1.y},${program.corner1.z} to ${program.corner2.x},${program.corner2.y},${program.corner2.z}"
-            }
-            graphics.drawString(font, posText, x, y + 28, 0xAAAAAA, false)
+    private fun drawAxisLabels(graphics: GuiGraphics) {
+        listOf("X" to 0xDD5555, "Y" to 0x55DD55, "Z" to 0x5555DD).forEachIndexed { i, (axis, color) ->
+            graphics.drawString(font, axis, guiLeft + 17, guiTop + ROWS_TOP + i * ROW_GAP + 3, color, true)
         }
     }
 
     private fun renderRelativeControls(graphics: GuiGraphics, x: Int, y: Int, program: SchematicProgram?) {
-        graphics.drawString(font, "Offset from Deployer:", x, y, 0xD4AA00, false)
+        graphics.drawString(font, "Offset from Deployer:", x, y, 0xD4AA00, true)
 
-        // Axis labels left of scroll inputs
-        val labelX = guiLeft + 14
-        val inputTop = guiTop + 110
-        val gap = 16
-        graphics.drawString(font, "X:", labelX, inputTop + 3, 0xDD5555, true)
-        graphics.drawString(font, "Y:", labelX, inputTop + gap + 3, 0x55DD55, true)
-        graphics.drawString(font, "Z:", labelX, inputTop + gap * 2 + 3, 0x5555DD, true)
+        val inputTop = guiTop + ROWS_TOP
+        val gap = ROW_GAP
 
         // Rotation/Mirror display (construction only)
         val isConstruction = program is SchematicProgram.Construction
@@ -477,12 +466,12 @@ class SchematicDeployerScreen(
         graphics.drawString(
             font,
             "Target: ${targetPos.x}, ${targetPos.y}, ${targetPos.z}",
-            x, previewY, 0xAAAAAA, false
+            guiLeft + 13, previewY, DETAIL, true
         )
         graphics.drawString(
             font,
             "Scroll to adjust | Shift: x16",
-            x, previewY + 12, 0x666666, false
+            guiLeft + 13, previewY + 10, DETAIL, true
         )
     }
 }

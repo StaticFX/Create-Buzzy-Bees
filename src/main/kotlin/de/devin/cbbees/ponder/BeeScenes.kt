@@ -14,6 +14,7 @@ import net.createmod.ponder.api.element.ElementLink
 import net.createmod.ponder.foundation.element.ElementLinkImpl
 import net.createmod.ponder.api.scene.SceneBuilder
 import net.createmod.ponder.api.scene.SceneBuildingUtil
+import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.state.BlockState
@@ -41,9 +42,7 @@ object BeeScenes {
         scene.world().showSection(util.select().position(hivePos), Direction.DOWN)
         scene.idle(5)
 
-        // Start rotation
-        scene.world().setKineticSpeed(util.select().position(shaftPos), 64f)
-        scene.world().setKineticSpeed(util.select().position(hivePos), 64f)
+        spinHive(scene, util, hivePos, shaftPos)
         scene.idle(10)
 
         scene.overlay().showText(60)
@@ -98,8 +97,7 @@ object BeeScenes {
         scene.idle(5)
 
         val hive1Pos = util.grid().at(3, 1, 2)
-        scene.world().showSection(util.select().position(hive1Pos), Direction.DOWN)
-        scene.world().setKineticSpeed(util.select().position(hive1Pos), 64f)
+        showPoweredHive(scene, util, hive1Pos, util.grid().at(4, 1, 2))
 
         scene.idle(15)
 
@@ -126,8 +124,7 @@ object BeeScenes {
 
 
         val hive2Pos = util.grid().at(3, 1, 0)
-        scene.world().showSection(util.select().position(hive2Pos), Direction.DOWN)
-        scene.world().setKineticSpeed(util.select().position(hive2Pos), 64f)
+        showPoweredHive(scene, util, hive2Pos, util.grid().at(4, 1, 0))
 
 
         scene.idle(20)
@@ -224,7 +221,20 @@ object BeeScenes {
         scene.markAsFinished()
     }
 
-    private fun createBee(scene: CreateSceneBuilder, type: BeeType, position: Vec3, yRot: Float = 0f): ElementLink<PonderBeeElement> {
+    private const val HIVE_RPM = 64f
+
+    internal fun spinHive(scene: CreateSceneBuilder, util: SceneBuildingUtil, hive: BlockPos, cog: BlockPos) {
+        val motor = BlockPos(cog.x, 0, cog.z)
+        scene.world().setKineticSpeed(util.select().position(cog).add(util.select().position(motor)), HIVE_RPM)
+        scene.world().setKineticSpeed(util.select().position(hive), -HIVE_RPM)
+    }
+
+    internal fun showPoweredHive(scene: CreateSceneBuilder, util: SceneBuildingUtil, hive: BlockPos, cog: BlockPos, from: Direction = Direction.DOWN) {
+        scene.world().showSection(util.select().position(hive).add(util.select().position(cog)), from)
+        spinHive(scene, util, hive, cog)
+    }
+
+    internal fun createBee(scene: CreateSceneBuilder, type: BeeType, position: Vec3, yRot: Float = 0f): ElementLink<PonderBeeElement> {
         val link = ElementLinkImpl(PonderBeeElement::class.java)
         scene.addInstruction { ponderScene ->
             val bee = PonderBeeElement(type, position, yRot)
@@ -234,7 +244,7 @@ object BeeScenes {
         return link
     }
 
-    private fun flyBee(
+    internal fun flyBee(
         scene: CreateSceneBuilder,
         bee: ElementLink<PonderBeeElement>,
         from: Vec3,
@@ -263,7 +273,7 @@ object BeeScenes {
 
         scene.world().showSection(util.select().position(vaultPos), Direction.WEST)
         scene.world().showSection(util.select().position(portPos), Direction.WEST)
-        scene.world().showSection(util.select().position(hivePos), Direction.WEST)
+        showPoweredHive(scene, util, hivePos, util.grid().at(4, 1, 1), Direction.WEST)
 
         scene.overlay().showOutlineWithText(util.select().position(portPos), 140)
             .text("When a bee is spawned to work on a task, it will automatically find a Logistics Port to gather its items. Ports with a higher priority will be preferred.")

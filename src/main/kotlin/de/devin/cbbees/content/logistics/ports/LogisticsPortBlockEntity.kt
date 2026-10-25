@@ -10,6 +10,8 @@ import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
 import de.devin.cbbees.util.extractExactly
+import net.createmod.catnip.lang.Lang
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -275,7 +277,11 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
-        addNetworkTooltip(tooltip)
+        Lang.builder("cbbees").translate("gui.goggles.logistics.${portType().serializedName}")
+            .style(ChatFormatting.GOLD)
+            .forGoggles(tooltip)
+
+        addNetworkTooltip(tooltip, 1)
         return true
     }
 }

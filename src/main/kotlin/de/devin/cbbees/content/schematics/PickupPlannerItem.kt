@@ -11,6 +11,6 @@ import net.minecraft.world.item.Item
  * 3. Right-click again to set the second corner
  * 4. Press the action key to dispatch bumble bees for item collection
  *
- * Client-side logic handled by [de.devin.cbbees.content.schematics.client.PickupHandler].
+ * Client-side logic handled by [de.devin.cbbees.content.planner.client.AreaPlanners].
  */
 class PickupPlannerItem(properties: Properties) : Item(properties)

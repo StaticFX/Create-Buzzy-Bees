@@ -6,8 +6,11 @@ import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehavi
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour
 import com.simibubi.create.foundation.item.ItemHelper
+import com.simibubi.create.foundation.utility.CreateLang
 import de.devin.cbbees.content.processing.PollinatingRecipe
 import de.devin.cbbees.registry.AllCBeesRecipeTypes
+import net.createmod.catnip.lang.Lang
+import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
@@ -170,9 +173,30 @@ class MechanicalApiaryBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state
     }
 
     override fun addToGoggleTooltip(tooltip: MutableList<Component>, isPlayerSneaking: Boolean): Boolean {
+        Lang.builder("cbbees").translate("gui.goggles.apiary")
+            .style(ChatFormatting.GOLD)
+            .forGoggles(tooltip)
+        honeyTooltip(tooltip)
         super<KineticBlockEntity>.addToGoggleTooltip(tooltip, isPlayerSneaking)
-        containedFluidTooltip(tooltip, isPlayerSneaking, tank.capability)
         return true
+    }
+
+    private fun honeyTooltip(tooltip: MutableList<Component>) {
+        val honey = tank.primaryHandler.fluid
+        val capacity = CreateLang.number(tank.primaryHandler.capacity.toDouble()).add(CreateLang.translate("generic.unit.millibuckets"))
+        if (honey.isEmpty) {
+            Lang.builder("cbbees").translate("gui.goggles.apiary.empty")
+                .add(capacity.style(ChatFormatting.GOLD))
+                .style(ChatFormatting.GRAY)
+                .forGoggles(tooltip, 1)
+            return
+        }
+        CreateLang.fluidName(honey).style(ChatFormatting.GRAY).forGoggles(tooltip, 1)
+        CreateLang.builder()
+            .add(CreateLang.number(honey.amount.toDouble()).add(CreateLang.translate("generic.unit.millibuckets")).style(ChatFormatting.GOLD))
+            .text(ChatFormatting.GRAY, " / ")
+            .add(capacity.style(ChatFormatting.DARK_GRAY))
+            .forGoggles(tooltip, 1)
     }
 
     private inner class ApiaryInventoryHandler : IItemHandler by inputInv {

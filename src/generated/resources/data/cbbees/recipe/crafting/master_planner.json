@@ -10,6 +10,12 @@
     },
     {
       "item": "cbbees:pickup_planner"
+    },
+    {
+      "item": "cbbees:copy_planner"
+    },
+    {
+      "item": "create:schematic_and_quill"
     }
   ],
   "result": {

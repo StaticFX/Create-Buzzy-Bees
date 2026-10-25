@@ -3,11 +3,13 @@ package de.devin.cbbees.content.schematics.client
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
 import de.devin.cbbees.content.domain.job.ClientJobInfo
+import de.devin.cbbees.icons.AllCCRGuiTextures
 import de.devin.cbbees.network.CancelJobPacket
 import de.devin.cbbees.network.RequestPlayerJobsPacket
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
+import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.network.PacketDistributor
 import java.util.UUID
 
@@ -22,22 +24,20 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         private const val LINE_H = 11
         private const val MARGIN = 8
         private const val BAR_H = 6
+        private const val SLOT = 18
+        private const val SLOTS_PER_ROW = 10
+        private const val MAX_SLOT_ROWS = 2
 
-        private const val BG_PANEL = 0xCC2A2A2A.toInt()
-        private const val BG_TITLE = 0xFF3A3A3A.toInt()
-        private const val BORDER = 0xFF555555.toInt()
         private const val GOLD = 0xFFD4AA00.toInt()
         private const val WHITE = 0xFFFFFF
         private const val GRAY = 0x999999
         private const val RED = 0xFF5555
-        private const val GREEN_BAR = 0xFF55AA55.toInt()
-        private const val RED_BAR = 0xFFAA3333.toInt()
-        private const val BAR_BG = 0xFF333333.toInt()
     }
 
     private var job: ClientJobInfo? = null
     private var refreshTicks = 0
     private var cancelButton: IconButton? = null
+    private var hoveredMaterial: ItemStack? = null
 
     override fun init() {
         setWindowSize(PANEL_W, computePanelHeight())
@@ -77,33 +77,31 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         val y = guiTop
         val w = windowWidth
         val h = windowHeight
+        hoveredMaterial = null
 
-        graphics.fill(x, y, x + w, y + h, BG_PANEL)
-        graphics.fill(x, y, x + w, y + 1, BORDER)
-        graphics.fill(x, y + h - 1, x + w, y + h, BORDER)
-        graphics.fill(x, y, x + 1, y + h, BORDER)
-        graphics.fill(x + w - 1, y, x + w, y + h, BORDER)
-
-        graphics.fill(x + 1, y + 1, x + w - 1, y + 18, BG_TITLE)
+        AllCCRGuiTextures.renderStretched(
+            graphics, x, y, h,
+            AllCCRGuiTextures.JOB_DETAIL_TOP, AllCCRGuiTextures.JOB_DETAIL_MIDDLE, AllCCRGuiTextures.JOB_DETAIL_BOTTOM
+        )
 
         val j = job
         if (j == null) {
             graphics.drawCenteredString(font, Component.translatable("gui.cbbees.job_detail.not_found"),
-                x + w / 2, y + 5, GRAY)
+                x + w / 2, y + 3, GRAY)
             return
         }
 
         val typeName = Component.translatable(j.jobType.translationKey).string
-        graphics.drawCenteredString(font, "$typeName #${j.name}", x + w / 2, y + 5, GOLD)
+        graphics.drawCenteredString(font, "$typeName #${j.name}", x + w / 2, y + 3, GOLD)
 
         val innerW = w - MARGIN * 2
         var ty = y + 22
 
         val pct = if (j.total == 0) 1f else j.completed.toFloat() / j.total
         val isStuck = j.reason != null
-        graphics.fill(x + MARGIN, ty, x + MARGIN + innerW, ty + BAR_H, BAR_BG)
-        val filled = (innerW * pct).toInt()
-        graphics.fill(x + MARGIN, ty, x + MARGIN + filled, ty + BAR_H, if (isStuck) RED_BAR else GREEN_BAR)
+        AllCCRGuiTextures.JOB_DETAIL_BAR.render(graphics, x + MARGIN, ty, innerW, BAR_H)
+        val bar = if (isStuck) AllCCRGuiTextures.JOB_DETAIL_BAR_STUCK else AllCCRGuiTextures.JOB_DETAIL_BAR_PROGRESS
+        bar.render(graphics, x + MARGIN, ty, (innerW * pct).toInt(), BAR_H)
         ty += BAR_H + 3
 
         graphics.drawString(font, "${j.completed}/${j.total} tasks  ${(pct * 100).toInt()}%",
@@ -136,36 +134,42 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             ty += 2
         }
 
-        val allRequired = j.batches
-            .filter { it.status != "COMPLETED" }
-            .flatMap { it.required }
-            .filter { !it.isEmpty }
-        if (allRequired.isNotEmpty()) {
+        val materials = materials(j)
+        if (materials.isNotEmpty()) {
             graphics.drawString(font, "Materials:", x + MARGIN, ty, GOLD, false)
             ty += LINE_H
-
-            val aggregated = mutableMapOf<String, Int>()
-            for (stack in allRequired) {
-                val name = stack.hoverName.string
-                aggregated[name] = (aggregated[name] ?: 0) + stack.count
+            materials.take(SLOTS_PER_ROW * MAX_SLOT_ROWS).forEachIndexed { i, stack ->
+                val sx = x + MARGIN + (i % SLOTS_PER_ROW) * SLOT
+                val sy = ty + (i / SLOTS_PER_ROW) * SLOT
+                AllCCRGuiTextures.JOB_DETAIL_SLOT.render(graphics, sx, sy)
+                graphics.renderItem(stack, sx + 1, sy + 1)
+                graphics.renderItemDecorations(font, stack, sx + 1, sy + 1, shortCount(stack.count))
+                if (mouseX in sx until sx + SLOT && mouseY in sy until sy + SLOT) hoveredMaterial = stack
             }
-
-            var shown = 0
-            for ((name, count) in aggregated) {
-                if (shown >= 4) {
-                    graphics.drawString(font, "  +${aggregated.size - 4} more...", x + MARGIN, ty, GRAY, false)
-                    break
-                }
-                val text = "  ${count}x $name"
-                val trimmed = if (font.width(text) > innerW)
-                    font.plainSubstrByWidth(text, innerW - font.width("...")) + "..."
-                else text
-                graphics.drawString(font, trimmed, x + MARGIN, ty, WHITE, false)
-                ty += LINE_H
-                shown++
-            }
+            val hidden = materials.size - SLOTS_PER_ROW * MAX_SLOT_ROWS
+            if (hidden > 0) graphics.drawString(font, "+$hidden more", x + MARGIN, ty + MAX_SLOT_ROWS * SLOT + 2, GRAY, false)
         }
     }
+
+    override fun renderWindowForeground(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
+        super.renderWindowForeground(graphics, mouseX, mouseY, partialTicks)
+        hoveredMaterial?.let { graphics.renderTooltip(font, it, mouseX, mouseY) }
+    }
+
+    private fun materials(j: ClientJobInfo): List<ItemStack> {
+        val merged = mutableListOf<ItemStack>()
+        j.batches.asSequence()
+            .filter { it.status != "COMPLETED" }
+            .flatMap { it.required }
+            .filterNot(ItemStack::isEmpty)
+            .forEach { stack ->
+                val existing = merged.firstOrNull { ItemStack.isSameItemSameComponents(it, stack) }
+                if (existing != null) existing.grow(stack.count) else merged += stack.copy()
+            }
+        return merged
+    }
+
+    private fun shortCount(count: Int): String = if (count >= 1000) "${count / 1000}k" else count.toString()
 
     private fun computePanelHeight(): Int {
         val j = job ?: return 60
@@ -183,12 +187,11 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             if (lines.size > 3) h += LINE_H
         }
 
-        val required = j.batches.filter { it.status != "COMPLETED" }.flatMap { it.required }.filter { !it.isEmpty }
-        if (required.isNotEmpty()) {
-            val unique = required.map { it.hoverName.string }.distinct().size
-            h += LINE_H // "Materials:"
-            h += minOf(unique, 4) * LINE_H
-            if (unique > 4) h += LINE_H
+        val materials = materials(j).size
+        if (materials > 0) {
+            h += LINE_H
+            h += minOf((materials + SLOTS_PER_ROW - 1) / SLOTS_PER_ROW, MAX_SLOT_ROWS) * SLOT + 2
+            if (materials > SLOTS_PER_ROW * MAX_SLOT_ROWS) h += LINE_H
         }
 
         h += 28 // cancel button

@@ -3,6 +3,7 @@ package de.devin.cbbees.content.schematics.client
 import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.widget.IconButton
+import de.devin.cbbees.content.planner.client.AreaSelection
 import de.devin.cbbees.network.StartDeconstructionPacket
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.createmod.catnip.platform.CatnipServices
@@ -68,8 +69,8 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
         )
 
         // Render area info
-        val first = DeconstructionSelection.firstPos
-        val second = DeconstructionSelection.secondPos
+        val first = AreaSelection.firstPos
+        val second = AreaSelection.secondPos
 
         if (first != null && second != null) {
             val minX = minOf(first.x, second.x)
@@ -118,7 +119,7 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
         // Check if cancel button was clicked
         cancelButton?.let { btn ->
             if (btn.isMouseOver(mouseX, mouseY)) {
-                DeconstructionSelection.discard()
+                AreaSelection.discard()
                 onClose()
                 return true
             }
@@ -155,15 +156,15 @@ class DeconstructionPromptScreen : AbstractSimiScreen(
      * Starts the deconstruction process by sending a packet to the server.
      */
     private fun startDeconstruction() {
-        val first = DeconstructionSelection.firstPos
-        val second = DeconstructionSelection.secondPos
+        val first = AreaSelection.firstPos
+        val second = AreaSelection.secondPos
 
         if (first != null && second != null) {
             // Send packet to server to start deconstruction
             CatnipServices.NETWORK.sendToServer(StartDeconstructionPacket(first, second))
 
             // Clear the selection
-            DeconstructionSelection.discard()
+            AreaSelection.discard()
         }
 
         onClose()

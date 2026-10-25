@@ -3,6 +3,7 @@
     "cbbees:mechanical_beehive",
     "cbbees:logistics_port",
     "cbbees:cargo_port",
-    "cbbees:dock_port"
+    "cbbees:dock_port",
+    "cbbees:waggle_port"
   ]
 }

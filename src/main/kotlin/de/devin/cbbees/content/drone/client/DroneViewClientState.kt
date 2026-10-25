@@ -91,14 +91,19 @@ object DroneViewClientState {
      * if drone view is active. Returns [ItemStack.EMPTY] if not found.
      */
     @JvmStatic
-    fun findActivePlanner(player: Player): ItemStack {
+    fun findActivePlanner(player: Player): ItemStack = findPlanner(player) { AllPlanners.CONSTRUCTION.isIn(it) }
+
+    @JvmStatic
+    fun findSchematicPlanner(player: Player): ItemStack = findPlanner(player) { AllPlanners.schematicPlannerOf(it) != null }
+
+    private inline fun findPlanner(player: Player, matches: (ItemStack) -> Boolean): ItemStack {
         val mainHand = player.mainHandItem
-        if (AllPlanners.CONSTRUCTION.isIn(mainHand)) return mainHand
+        if (matches(mainHand)) return mainHand
         if (active) {
             val inv = player.inventory
             for (i in 0 until inv.containerSize) {
                 val stack = inv.getItem(i)
-                if (AllPlanners.CONSTRUCTION.isIn(stack)) return stack
+                if (matches(stack)) return stack
             }
         }
         return ItemStack.EMPTY

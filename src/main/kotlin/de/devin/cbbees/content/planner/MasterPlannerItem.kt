@@ -41,12 +41,16 @@ class MasterPlannerItem(properties: Properties) : Item(properties) {
         fun currentPlanner(stack: ItemStack): Planner =
             stack.get(AllDataComponents.PLANNER_MODE.get())?.let(AllPlanners::byId) ?: AllPlanners.ALL.first()
 
+        fun select(stack: ItemStack, planner: Planner) {
+            stack.set(AllDataComponents.PLANNER_MODE.get(), planner.id)
+        }
+
         /** Switches [stack] to the next planner, or the previous one when [forward] is false. */
         fun cycle(stack: ItemStack, forward: Boolean): Planner {
             val planners = AllPlanners.ALL
             val step = if (forward) 1 else -1
             val next = planners[(planners.indexOf(currentPlanner(stack)) + step).mod(planners.size)]
-            stack.set(AllDataComponents.PLANNER_MODE.get(), next.id)
+            select(stack, next)
             return next
         }
     }

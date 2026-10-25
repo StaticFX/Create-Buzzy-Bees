@@ -4,10 +4,12 @@ import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import de.devin.cbbees.content.drone.client.DroneViewClientState;
+import de.devin.cbbees.content.planner.AllPlanners;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.content.schematics.client.ConstructionToolState;
 import de.devin.cbbees.items.AllItems;
 import de.devin.cbbees.content.deployer.SchematicProgram;
+import de.devin.cbbees.network.PrintSchematicPacket;
 import de.devin.cbbees.network.ProgramSchematicPacket;
 import de.devin.cbbees.network.StartConstructionPacket;
 import de.devin.cbbees.network.StopTasksPacket;
@@ -44,6 +46,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class SchematicHandlerHudMixin {
 
     @Shadow private boolean active;
+    @Shadow private ItemStack activeSchematicItem;
     @Shadow public abstract boolean isDeployed();
 
     /* ------------------------------------------------------------------ */
@@ -64,6 +67,18 @@ public abstract class SchematicHandlerHudMixin {
         PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
     }
 
+    @Inject(method = "printInstantly", at = @At("HEAD"), cancellable = true)
+    private void ccr$printWithPlanner(CallbackInfo ci) {
+        ItemStack stack = activeSchematicItem;
+        if (stack == null || AllPlanners.schematicPlannerOf(stack) == null) return;
+
+        var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
+        var settings = transform.toSettings();
+        PacketDistributor.sendToServer(new PrintSchematicPacket(transform.getAnchor(), settings.getRotation(), settings.getMirror()));
+        ConstructionPlannerItem.Companion.releaseSchematic(stack);
+        ci.cancel();
+    }
+
     /* ------------------------------------------------------------------ */
     /*  RMB — custom tool actions (state 3 only)                           */
     /* ------------------------------------------------------------------ */
@@ -79,10 +94,10 @@ public abstract class SchematicHandlerHudMixin {
         if (tool == ConstructionToolState.CustomTool.NONE) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) return;
+        if (mc.player == null || mc.player.isShiftKeyDown()) return;
 
         // Find the planner (main hand, or inventory during drone view)
-        ItemStack mainHand = DroneViewClientState.findActivePlanner(mc.player);
+        ItemStack mainHand = DroneViewClientState.findSchematicPlanner(mc.player);
         if (mainHand.isEmpty()) {
             ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
             return;
@@ -91,7 +106,7 @@ public abstract class SchematicHandlerHudMixin {
         if (tool == ConstructionToolState.CustomTool.CONSTRUCT) {
             ccr$sendConstructionPacket(mainHand);
             // Clear client state immediately so Create deactivates cleanly
-            ConstructionPlannerItem.Companion.clearSchematic(mainHand);
+            ConstructionPlannerItem.Companion.releaseSchematic(mainHand);
             mc.player.displayClientMessage(
                 Component.translatable("gui.cbbees.schematic.construction_started")
                     .withStyle(style -> style.withColor(0x00FF00)),
@@ -146,11 +161,11 @@ public abstract class SchematicHandlerHudMixin {
         if (AllKeys.INSTANCE.getSTART_ACTION().matches(key, 0)) {
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
-                ItemStack mainHand = DroneViewClientState.findActivePlanner(mc.player);
+                ItemStack mainHand = DroneViewClientState.findSchematicPlanner(mc.player);
                 if (!mainHand.isEmpty()) {
                     ccr$sendConstructionPacket(mainHand);
                     // Clear client state immediately so Create deactivates cleanly
-                    ConstructionPlannerItem.Companion.clearSchematic(mainHand);
+                    ConstructionPlannerItem.Companion.releaseSchematic(mainHand);
                     mc.player.displayClientMessage(
                         Component.translatable("gui.cbbees.schematic.construction_started")
                             .withStyle(style -> style.withColor(0x00FF00)),

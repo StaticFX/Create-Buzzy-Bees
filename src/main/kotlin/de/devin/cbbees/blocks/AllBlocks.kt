@@ -3,6 +3,7 @@ package de.devin.cbbees.blocks
 import com.simibubi.create.AllItems
 import com.simibubi.create.AllBlocks as CreateAllBlocks
 import com.simibubi.create.api.stress.BlockStressValues
+import com.simibubi.create.content.logistics.packagerLink.LogisticallyLinkedBlockItem
 import com.simibubi.create.foundation.data.SharedProperties
 import com.tterrag.registrate.providers.RegistrateRecipeProvider
 import com.tterrag.registrate.util.entry.BlockEntry
@@ -14,6 +15,7 @@ import de.devin.cbbees.content.logistics.dock.DockPortBlock
 import de.devin.cbbees.content.logistics.ports.LogisticPortBlock
 import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.transport.TransportPortBlock
+import de.devin.cbbees.content.logistics.waggle.WagglePortBlock
 import de.devin.cbbees.datagen.PortBlockStates
 import net.minecraft.data.recipes.RecipeCategory
 import net.minecraft.data.recipes.ShapedRecipeBuilder
@@ -70,7 +72,7 @@ object AllBlocks {
         .blockstate { _, _ -> } // Hand-written blockstate in resources
         .item()
         .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, c.get())
+            ShapedRecipeBuilder.shaped(RecipeCategory.REDSTONE, c.get(), 2)
                 .define('B', AllItems.BRASS_INGOT.get())
                 .define('E', AllItems.ELECTRON_TUBE.get())
                 .define('C', CreateAllBlocks.BRASS_CASING.get())
@@ -92,10 +94,10 @@ object AllBlocks {
         .blockstate { c, p -> PortBlockStates.generate(c, p, TransportPortBlock.TRANSPORT_MODE) }
         .item()
         .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get(), 2)
                 .define('W', AllItems.TRANSMITTER.get())
                 .define('V', CreateAllBlocks.ITEM_VAULT.get())
-                .define('B', CreateAllBlocks.BRASS_CASING.get())
+                .define('B', CreateAllBlocks.COPPER_CASING.get())
                 .pattern("W")
                 .pattern("V")
                 .pattern("B")
@@ -113,9 +115,9 @@ object AllBlocks {
         .blockstate { c, p -> PortBlockStates.generate(c, p, PortBlock.PORT_TYPE) }
         .item()
         .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get(), 2)
                 .define('W', AllItems.TRANSMITTER.get())
-                .define('V', CreateAllBlocks.SMART_FLUID_PIPE.get())
+                .define('V', CreateAllBlocks.FLUID_TANK.get())
                 .define('B', CreateAllBlocks.COPPER_CASING.get())
                 .pattern("W")
                 .pattern("V")
@@ -127,12 +129,39 @@ object AllBlocks {
         .build()
         .register()
 
+    val WAGGLE_PORT: BlockEntry<WagglePortBlock> = CreateBuzzyBeez.REGISTRATE.block("waggle_port", ::WagglePortBlock)
+        .initialProperties(SharedProperties::softMetal)
+        .properties { it.noOcclusion() }
+        .tag(BlockTags.MINEABLE_WITH_PICKAXE)
+        .blockstate { c, p -> p.horizontalBlock(c.get(), p.models().getExistingFile(p.modLoc("block/waggle_port"))) }
+        .item(::LogisticallyLinkedBlockItem)
+        .recipe { c, p ->
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+                .define('W', AllItems.TRANSMITTER.get())
+                .define('L', CreateAllBlocks.STOCK_LINK.get())
+                .define('H', Items.HONEYCOMB)
+                .define('B', CreateAllBlocks.BRASS_CASING.get())
+                .pattern(" W ")
+                .pattern("HLH")
+                .pattern(" B ")
+                .unlockedBy("has_stock_link", RegistrateRecipeProvider.has(CreateAllBlocks.STOCK_LINK.get()))
+                .save(p, CreateBuzzyBeez.asResource("crafting/" + c.name))
+        }
+        .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/waggle_port")) }
+        .build()
+        .register()
+
     val MECHANICAL_APIARY: BlockEntry<MechanicalApiaryBlock> = CreateBuzzyBeez.REGISTRATE
         .block("mechanical_apiary", ::MechanicalApiaryBlock)
         .initialProperties(SharedProperties::wooden)
         .properties { it.noOcclusion() }
         .tag(BlockTags.MINEABLE_WITH_AXE)
-        .blockstate { c, p -> p.horizontalBlock(c.get(), p.models().getExistingFile(p.modLoc("block/mechanical_apiary"))) }
+        .blockstate { c, p ->
+            p.horizontalBlock(
+                c.get(),
+                p.models().getExistingFile(p.modLoc("block/mechanical_apiary"))
+            )
+        }
         .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 4.0 } }
         .item()
         .recipe { c, p ->

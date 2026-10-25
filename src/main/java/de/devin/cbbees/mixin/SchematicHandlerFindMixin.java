@@ -63,7 +63,7 @@ public abstract class SchematicHandlerFindMixin {
     }
 
     private static boolean ccr$isDeployedPlanner(ItemStack stack) {
-        return AllPlanners.INSTANCE.getCONSTRUCTION().isIn(stack)
+        return AllPlanners.schematicPlannerOf(stack) != null
                 && stack.has(AllDataComponents.SCHEMATIC_FILE)
                 && stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false);
     }

@@ -40,9 +40,9 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         SchematicHandler handler = CreateClient.SCHEMATIC_HANDLER;
         if (!handler.isDeployed()) return;
 
-        // Only show for Construction Planner
+        // Only show for schematic-placing planners
         ItemStack activeItem = handler.getActiveSchematicItem();
-        if (activeItem == null || !AllPlanners.INSTANCE.getCONSTRUCTION().isIn(activeItem)) return;
+        if (activeItem == null || AllPlanners.schematicPlannerOf(activeItem) == null) return;
 
         int buttonX = guiLeft + 10;
         int buttonY = guiTop + 90;
@@ -59,7 +59,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
             Mirror mirror = settings.getMirror();
             PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
             // Clear client state immediately so Create deactivates cleanly
-            ConstructionPlannerItem.Companion.clearSchematic(activeItem);
+            ConstructionPlannerItem.Companion.releaseSchematic(activeItem);
             if (Minecraft.getInstance().screen != null) {
                 Minecraft.getInstance().screen.onClose();
             }

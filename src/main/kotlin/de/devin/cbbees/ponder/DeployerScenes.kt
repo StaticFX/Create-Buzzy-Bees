@@ -95,10 +95,7 @@ object DeployerScenes {
         scene.idle(20)
 
         // Beehive picks up the job
-        scene.world().showSection(util.select().position(hivePos), Direction.DOWN)
-        scene.world().showSection(util.select().position(shaftPos), Direction.DOWN)
-        scene.world().setKineticSpeed(util.select().position(hivePos), 64f)
-        scene.world().setKineticSpeed(util.select().position(shaftPos), 64f)
+        BeeScenes.showPoweredHive(scene, util, hivePos, shaftPos)
         scene.idle(10)
 
         scene.overlay().showText(80)

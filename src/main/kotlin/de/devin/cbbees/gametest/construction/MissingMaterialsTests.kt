@@ -3,6 +3,7 @@ package de.devin.cbbees.gametest.construction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.MissingMaterials
+import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.job.MissingMaterials.missingCount
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -56,5 +57,19 @@ object MissingMaterialsTests {
         val job = helper.jobWith(ItemStack(Items.STONE, 2) to TaskStatus.COMPLETED)
 
         assertTrue(MissingMaterials.checklistFor(job, null).required.isEmpty(), "nothing required")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun toRequest_onlyCountsTasksNoBeePickedUp(helper: GameTestHelper) = helper.unitTest {
+        val job = helper.jobWith(
+            ItemStack(Items.STONE, 2) to TaskStatus.PENDING,
+            ItemStack(Items.STONE, 3) to TaskStatus.PICKED,
+            ItemStack(Items.DIRT, 4) to TaskStatus.PENDING,
+        )
+
+        val requested = MissingMaterials.toRequest(job.tasks, BeeNetwork()).associate { it.stack.item to it.count }
+
+        assertEquals(mapOf(Items.STONE to 2, Items.DIRT to 4), requested, "requested items")
     }
 }

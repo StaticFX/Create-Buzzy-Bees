@@ -120,7 +120,7 @@ class StartConstructionPacket(
     }
 
     override fun beforeGenerate(job: BeeJob, player: ServerPlayer) {
-        ConstructionPlannerItem.clearSchematic(plannerStack)
+        ConstructionPlannerItem.releaseSchematic(plannerStack)
     }
 
     override fun generateTasks(

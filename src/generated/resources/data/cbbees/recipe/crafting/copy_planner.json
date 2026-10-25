@@ -5,26 +5,23 @@
     "B": {
       "item": "create:brass_ingot"
     },
-    "C": {
-      "item": "create:precision_mechanism"
-    },
     "E": {
       "item": "create:electron_tube"
     },
-    "H": {
-      "item": "minecraft:honeycomb"
-    },
     "P": {
-      "item": "create:schematic"
+      "item": "minecraft:paper"
+    },
+    "Q": {
+      "item": "create:schematic_and_quill"
     }
   },
   "pattern": [
     " E ",
-    "CPB",
-    " HB"
+    "BPB",
+    " Q "
   ],
   "result": {
     "count": 1,
-    "id": "cbbees:schematic_zapper"
+    "id": "cbbees:copy_planner"
   }
 }

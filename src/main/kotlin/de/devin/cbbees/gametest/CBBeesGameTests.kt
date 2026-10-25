@@ -23,6 +23,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.inventory.ItemHandlerExtensionTests::class.java,
         de.devin.cbbees.gametest.deconstruction.DeconstructionTests::class.java,
         de.devin.cbbees.gametest.logistics.LogisticsPortTests::class.java,
+        de.devin.cbbees.gametest.logistics.WagglePortTests::class.java,
         de.devin.cbbees.gametest.construction.ConstructionTests::class.java,
         de.devin.cbbees.gametest.construction.MissingMaterialsTests::class.java,
         de.devin.cbbees.gametest.dock.DockPortTests::class.java,
@@ -31,8 +32,10 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.portable.PortableBeehiveTests::class.java,
         de.devin.cbbees.gametest.network.NetworkLinkingTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperPlanningTests::class.java,
+        de.devin.cbbees.gametest.zapper.ZapperShapeTests::class.java,
         de.devin.cbbees.gametest.apiary.MechanicalApiaryTests::class.java,
         de.devin.cbbees.gametest.history.JobHistoryTests::class.java,
+        de.devin.cbbees.gametest.copy.CopyPlannerTests::class.java,
     )
 
     fun onRegisterGameTests(event: RegisterGameTestsEvent) {

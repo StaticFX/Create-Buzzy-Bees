@@ -2,9 +2,13 @@ package de.devin.cbbees.content.schematics
 
 import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.content.planner.AllPlanners
+import de.devin.cbbees.content.planner.PlannerSounds
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHandler
+import com.simibubi.create.content.schematics.SchematicItem
 import net.minecraft.ChatFormatting
+import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResultHolder
 import net.minecraft.world.entity.player.Player
@@ -12,6 +16,8 @@ import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.TooltipFlag
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.Mirror
+import net.minecraft.world.level.block.Rotation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 
@@ -29,6 +35,8 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
 
     override fun use(level: Level, player: Player, hand: InteractionHand): InteractionResultHolder<ItemStack> {
         val stack = player.getItemInHand(hand)
+
+        if (player.isShiftKeyDown && reset(stack, player)) return InteractionResultHolder.sidedSuccess(stack, level.isClientSide)
 
         if (level.isClientSide) {
             if (!hasSchematic(stack)) {
@@ -78,19 +86,36 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
         }
 
         /**
-         * Finds a Construction Planner in the player's inventory.
+         * Finds a schematic-placing planner in the player's inventory.
          * Checks main hand first, then searches the full inventory.
          * Returns [ItemStack.EMPTY] if not found.
          */
         fun findPlanner(player: Player): ItemStack {
             val mainHand = player.mainHandItem
-            if (AllPlanners.CONSTRUCTION.isIn(mainHand)) return mainHand
+            if (AllPlanners.schematicPlannerOf(mainHand) != null) return mainHand
             val inv = player.inventory
             for (i in 0 until inv.containerSize) {
                 val stack = inv.getItem(i)
-                if (AllPlanners.CONSTRUCTION.isIn(stack)) return stack
+                if (AllPlanners.schematicPlannerOf(stack) != null) return stack
             }
             return ItemStack.EMPTY
+        }
+
+        fun deploy(stack: ItemStack, file: String, owner: String, anchor: BlockPos, level: Level) {
+            stack.set(AllDataComponents.SCHEMATIC_FILE, file)
+            stack.set(AllDataComponents.SCHEMATIC_OWNER, owner)
+            stack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
+            stack.set(AllDataComponents.SCHEMATIC_ANCHOR, anchor)
+            stack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE)
+            stack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
+            SchematicItem.writeSize(level, stack)
+        }
+
+        fun reset(stack: ItemStack, player: Player): Boolean {
+            if (!hasSchematic(stack)) return false
+            clearSchematic(stack)
+            (player as? ServerPlayer)?.let(PlannerSounds::reset)
+            return true
         }
 
         fun clearSchematic(stack: ItemStack) {
@@ -101,6 +126,10 @@ class ConstructionPlannerItem(properties: Properties) : Item(properties) {
             stack.remove(AllDataComponents.SCHEMATIC_ROTATION)
             stack.remove(AllDataComponents.SCHEMATIC_MIRROR)
             stack.remove(AllDataComponents.SCHEMATIC_BOUNDS)
+        }
+
+        fun releaseSchematic(stack: ItemStack) {
+            if (AllPlanners.schematicPlannerOf(stack)?.keepsSchematic != true) clearSchematic(stack)
         }
     }
 }

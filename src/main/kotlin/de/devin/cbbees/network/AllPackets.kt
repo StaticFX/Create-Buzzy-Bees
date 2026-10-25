@@ -70,6 +70,26 @@ object AllPackets {
             SelectSchematicPacket.Companion::handle
         )
         registrar.playToServer(
+            SetWaggleAddressPacket.TYPE,
+            SetWaggleAddressPacket.STREAM_CODEC,
+            SetWaggleAddressPacket.Companion::handle
+        )
+        registrar.playToServer(
+            ConfigureZapperShapePacket.TYPE,
+            ConfigureZapperShapePacket.STREAM_CODEC,
+            ConfigureZapperShapePacket.Companion::handle
+        )
+        registrar.playToServer(
+            PrintSchematicPacket.TYPE,
+            PrintSchematicPacket.STREAM_CODEC,
+            PrintSchematicPacket.Companion::handle
+        )
+        registrar.playToServer(
+            CopyAreaPacket.TYPE,
+            CopyAreaPacket.STREAM_CODEC,
+            CopyAreaPacket.Companion::handle
+        )
+        registrar.playToServer(
             UnselectSchematicPacket.TYPE,
             UnselectSchematicPacket.STREAM_CODEC,
             UnselectSchematicPacket.Companion::handle

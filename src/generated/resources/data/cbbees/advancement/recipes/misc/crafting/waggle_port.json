@@ -1,11 +1,11 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_precision_mechanism": {
+    "has_stock_link": {
       "conditions": {
         "items": [
           {
-            "items": "create:precision_mechanism"
+            "items": "create:stock_link"
           }
         ]
       },
@@ -13,7 +13,7 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipe": "cbbees:crafting/schematic_zapper"
+        "recipe": "cbbees:crafting/waggle_port"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
@@ -21,12 +21,12 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_precision_mechanism"
+      "has_stock_link"
     ]
   ],
   "rewards": {
     "recipes": [
-      "cbbees:crafting/schematic_zapper"
+      "cbbees:crafting/waggle_port"
     ]
   }
 }

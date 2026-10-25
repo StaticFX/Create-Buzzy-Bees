@@ -13,7 +13,7 @@ import net.minecraft.world.item.Item
  * 5. Right-click a third time to open the deconstruction prompt
  * 6. Shift+Right-click to cancel the selection
  *
- * The actual selection logic is handled by [de.devin.cbbees.content.schematics.client.DeconstructionHandler]
+ * The actual selection logic is handled by [de.devin.cbbees.content.planner.client.AreaPlanners]
  * on the client side. This item just needs to exist for the handler to detect when it's held.
  *
  * The selection is rendered with a red outline (in contrast to Create's blue schematic outline)

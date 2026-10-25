@@ -2,6 +2,7 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.deployer.SchematicProgram
+import de.devin.cbbees.content.planner.PlannerSounds
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.BlockPos
@@ -57,6 +58,7 @@ class ProgramSchematicPacket(
                     Component.translatable("cbbees.schematic.programmed"),
                     true
                 )
+                PlannerSounds.programmed(player)
             }
         }
     }
