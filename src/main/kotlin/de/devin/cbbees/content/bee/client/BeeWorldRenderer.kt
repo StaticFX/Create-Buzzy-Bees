@@ -92,7 +92,7 @@ object BeeWorldRenderer {
         profiler.pop()
     }
 
-    private fun renderCarriedItem(poseStack: PoseStack, bufferSource: MultiBufferSource, item: ItemStack, seed: Int) {
+    fun renderCarriedItem(poseStack: PoseStack, bufferSource: MultiBufferSource, item: ItemStack, seed: Int) {
         val mc = Minecraft.getInstance()
         poseStack.pushPose()
         poseStack.translate(0.0, CARRIED_ITEM_OFFSET_Y + 0.1, 0.0)

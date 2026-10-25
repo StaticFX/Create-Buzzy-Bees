@@ -7,9 +7,6 @@ import de.devin.cbbees.items.AllItems
 import net.createmod.ponder.api.registration.PonderPlugin
 import net.createmod.ponder.api.registration.PonderSceneRegistrationHelper
 import net.createmod.ponder.api.registration.PonderTagRegistrationHelper
-import net.createmod.ponder.api.scene.PonderStoryBoard
-import net.createmod.ponder.api.scene.SceneBuilder
-import net.createmod.ponder.api.scene.SceneBuildingUtil
 import net.minecraft.resources.ResourceLocation
 
 class CBBPonderPlugin : PonderPlugin {
@@ -22,13 +19,11 @@ class CBBPonderPlugin : PonderPlugin {
             .addStoryBoard("mechanical_beehive/networking", { scene, util -> BeehiveScenes.networking(scene, util) })
 
         helper.forComponents(AllBlocks.LOGISTICS_PORT.id)
-            .addStoryBoard("logistics_port/intro", { scene, util -> BeeScenes.introLogisticsPort(scene, util) })
-            .addStoryBoard("logistics_port/with_bees", { scene, util -> BeeScenes.logisticsPortWithBees(scene, util) })
+            .addStoryBoard("logistics_port/intro", { scene, util -> PortScenes.logisticsPort(scene, util) })
 
 
         helper.forComponents(AllBlocks.CARGO_PORT.id)
-            .addStoryBoard("cargo_port/scene", { scene, util -> BeeScenes.cargoPortIntro(scene, util) })
-            .addStoryBoard("cargo_port/scene2", { scene, util -> BeeScenes.cargoPortWithBees(scene, util) })
+            .addStoryBoard("cargo_port/intro", { scene, util -> PortScenes.cargoPort(scene, util) })
 
 
         helper.forComponents(AllBlocks.DOCK_PORT.id)
@@ -37,18 +32,14 @@ class CBBPonderPlugin : PonderPlugin {
         helper.forComponents(AllBlocks.WAGGLE_PORT.id)
             .addStoryBoard("waggle_port/intro", { scene, util -> PortScenes.wagglePort(scene, util) })
 
-        val beeStoryBoard = { scene: SceneBuilder, util: SceneBuildingUtil -> BeeScenes.mechanicalBee(scene, util) }
+        helper.forComponents(AllItems.MECHANICAL_BEE.id, AllItems.MECHANICAL_BUMBLE_BEE.id)
+            .addStoryBoard("mechanical_bee/types", { scene, util -> BeeScenes.types(scene, util) })
+            .addStoryBoard("mechanical_bee/spring", { scene, util -> BeeScenes.spring(scene, util) })
 
-        helper.forComponents(AllItems.MECHANICAL_BEE.id).addStoryBoard("base", beeStoryBoard)
-        helper.forComponents(AllItems.MECHANICAL_BUMBLE_BEE.id).addStoryBoard("base", beeStoryBoard)
-
-        helper.forComponents(AllBlocks.SCHEMATIC_DEPLOYER.id)
-            .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.schematicDeployerIntro(scene, util) })
+        helper.forComponents(AllBlocks.SCHEMATIC_DEPLOYER.id, AllItems.PROGRAMMED_SCHEMATIC.id)
+            .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.intro(scene, util) })
             .addStoryBoard("schematic_deployer/automation", { scene, util -> DeployerScenes.deployModes(scene, util) })
-            .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.selfReplicating(scene, util) })
-
-        helper.forComponents(AllItems.PROGRAMMED_SCHEMATIC.id)
-            .addStoryBoard("schematic_deployer/intro", { scene, util -> DeployerScenes.schematicDeployerIntro(scene, util) })
+            .addStoryBoard("schematic_deployer/replicating", { scene, util -> DeployerScenes.selfReplicating(scene, util) })
 
     }
 

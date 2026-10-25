@@ -24,7 +24,7 @@ class AllCCRGuiTextures(sheet: String, val startX: Int, val startY: Int, val wid
 
         val WAGGLE_PORT = AllCCRGuiTextures("waggle_port", 0, 0, 200, 58)
 
-        val JOB_DETAIL_TOP = AllCCRGuiTextures("job_detail", 0, 0, 200, 24)
+        val JOB_DETAIL_TOP = AllCCRGuiTextures("job_detail", 0, 0, 201, 24)
         val JOB_DETAIL_MIDDLE = AllCCRGuiTextures("job_detail", 0, 24, 200, 8)
         val JOB_DETAIL_BOTTOM = AllCCRGuiTextures("job_detail", 0, 32, 200, 32)
         val JOB_DETAIL_BAR = AllCCRGuiTextures("job_detail", 0, 70, 184, 6)

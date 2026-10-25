@@ -9,6 +9,7 @@ import de.devin.cbbees.content.bee.flight.FlightPlanComputer
 import de.devin.cbbees.content.bee.flight.GatherFromPort
 import de.devin.cbbees.content.bee.state.*
 import de.devin.cbbees.content.domain.beehive.BeeHive
+import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.items.AllItems
 import net.minecraft.world.entity.item.ItemEntity
@@ -179,6 +180,28 @@ object ServerBeeManager {
         pendingReturns.clear()
     }
 
+    fun startPlan(bee: ServerBeeData, plan: FlightPlan, gameTime: Long, network: BeeNetwork? = null) {
+        val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
+        if (gatherAction != null && network != null) {
+            network.ports.firstOrNull { it.id == gatherAction.providerId }?.reserve(bee.id, gatherAction.items, gameTime)
+        }
+        bee.flightPlan = plan
+        bee.planStartTick = gameTime
+        bee.currentCheckpointIndex = 0
+        if (plan.checkpoints.size > 1) {
+            bee.currentCheckpointIndex = 1
+            bee.nextCheckpointArrivalTick = gameTime + plan.segmentTicks[1]
+        }
+        broadcastFlightPlan(bee, plan, clientStartIndex = 0)
+    }
+
+    fun redirect(bee: ServerBeeData, plan: FlightPlan, gameTime: Long) {
+        bee.flightPlan = plan
+        bee.planStartTick = gameTime
+        bee.currentCheckpointIndex = 0
+        broadcastFlightPlan(bee, plan, clientStartIndex = 0)
+    }
+
     private fun advanceCheckpoint(bee: ServerBeeData, gameTime: Long) {
         val plan = bee.flightPlan ?: return
         val prevIndex = bee.currentCheckpointIndex
@@ -235,19 +258,7 @@ object ServerBeeManager {
                     return@computeAsync
                 }
                 CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
-                val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
-                if (gatherAction != null) {
-                    val port = network.ports.firstOrNull { it.id == gatherAction.providerId }
-                    port?.reserve(bee.id, gatherAction.items, beeWorld.gameTime)
-                }
-                bee.flightPlan = plan
-                bee.planStartTick = beeWorld.gameTime
-                bee.currentCheckpointIndex = 0
-                if (plan.checkpoints.size > 1) {
-                    bee.currentCheckpointIndex = 1
-                    bee.nextCheckpointArrivalTick = beeWorld.gameTime + plan.segmentTicks[1]
-                }
-                broadcastFlightPlan(bee, plan, clientStartIndex = 0)
+                startPlan(bee, plan, beeWorld.gameTime, network)
             }
         } else {
             CreateBuzzyBeez.LOGGER.warn("[SpawnBee] No network found for bee ${bee.id.toString().substring(0, 6)} (networkId=$networkId, level=${beeWorld.dimension().location()})")

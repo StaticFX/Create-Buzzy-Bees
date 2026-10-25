@@ -9,6 +9,7 @@ import net.createmod.ponder.foundation.PonderScene
 import net.createmod.ponder.foundation.element.AnimatedSceneElementBase
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.MultiBufferSource
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -19,6 +20,8 @@ class PonderBeeElement(
     var position: Vec3,
     var yRot: Float,
 ) : AnimatedSceneElementBase() {
+
+    var carried: ItemStack = ItemStack.EMPTY
 
     private var previousPosition = position
     private var previousYRot = yRot
@@ -37,6 +40,7 @@ class PonderBeeElement(
         poseStack.translate(renderPosition.x, renderPosition.y, renderPosition.z)
         poseStack.mulPose(Axis.YP.rotationDegrees(180f - AngleHelper.angleLerp(pt.toDouble(), previousYRot.toDouble(), yRot.toDouble())))
         BeeWorldRenderer.renderBee(poseStack, buffer, type, lightCoordsFromFade(fade))
+        if (!carried.isEmpty) BeeWorldRenderer.renderCarriedItem(poseStack, buffer, carried, hashCode())
         poseStack.popPose()
     }
 }

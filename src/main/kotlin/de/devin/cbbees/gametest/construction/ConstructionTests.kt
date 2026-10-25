@@ -1,13 +1,17 @@
 package de.devin.cbbees.gametest.construction
 
+import de.devin.cbbees.content.bee.flight.RechargeSpring
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.gametest.GameTestSetup
 import de.devin.cbbees.gametest.dsl.beeTest
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
+import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Blocks
+import java.util.UUID
 
 /**
  * Integration tests for construction (block placement from materials).
@@ -110,6 +114,38 @@ object ConstructionTests {
             // Vault should be empty
             val remaining = GameTestSetup.countItem(level, extractVault.blockPos.below(), Items.DIRT)
             check(remaining == 0) { "Vault should be empty, has $remaining" }
+        }
+    }
+
+    /**
+     * A bee whose spring runs out mid-job flies home, rewinds and finishes the remaining blocks.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 6000, setupTicks = 20)
+    @JvmStatic
+    fun construct_rewindsSpringAndFinishes(helper: GameTestHelper) = helper.beeTest {
+        val scan = scanStructure {}
+        val jobPool = setupNetwork(scan)
+        val extractVault = scan.ports.find { it.isValidForPickup() }
+            ?: throw GameTestAssertException("No extract port found")
+        insertItems(extractVault.blockPos.below(), Items.DIRT, 5)
+
+        val placements = (1..5).map { x ->
+            GameTestSetup.PlacementTask(helper.absolutePos(BlockPos(x, 1, 2)), Blocks.DIRT.defaultBlockState(), listOf(ItemStack(Items.DIRT, 1)))
+        }
+        val job = construct(placements)
+        val drained = mutableSetOf<UUID>()
+        val exhausted = mutableSetOf<UUID>()
+        var rewound = false
+
+        awaitSuccess {
+            job.batches.mapNotNull { it.assignedBeeId }.mapNotNull(ServerBeeManager::getBee).forEach { bee ->
+                if (drained.add(bee.id)) bee.springTension = 0.01f
+                if (bee.springTension <= 0f) exhausted += bee.id
+                if (bee.flightPlan?.checkpoints?.any { it.action is RechargeSpring } == true) rewound = true
+            }
+            if (exhausted.any { ServerBeeManager.getBee(it) == null }) rewound = true
+            placements.forEach { check(level.getBlockState(it.pos).`is`(Blocks.DIRT)) { "Expected dirt at ${it.pos}" } }
+            check(rewound) { "Bee never flew home to rewind its spring" }
         }
     }
 }

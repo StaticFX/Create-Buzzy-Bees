@@ -178,6 +178,19 @@ object FlightPlanComputer {
         return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
     }
 
+    fun forRewind(bee: ServerBeeData, batch: TaskBatch, level: ServerLevel): FlightPlan {
+        val hive = bee.hiveInstance
+        val hiveApproach = hive?.approachPos() ?: (bee.hivePos ?: bee.blockPosition()).above()
+        val rewindTicks = hive?.rechargeTicks(bee.getBeeContext()) ?: 0
+        val raw = listOf(
+            Checkpoint(bee.blockPosition(), FlyThrough),
+            Checkpoint(hiveApproach, RechargeSpring(), clientPauseTicks = rewindTicks),
+            Checkpoint(hiveApproach, ResumeConstruction(batch)),
+            Checkpoint(hiveApproach, EnterHive()),
+        )
+        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, insertObstacleWaypoints(raw, level), level)
+    }
+
     private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         val missing = computeMissingItems(bee, batch)

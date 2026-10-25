@@ -124,7 +124,9 @@ interface BeeHive : INetworkComponent {
      * @param ctx the bee context providing spring efficiency and fuel multipliers
      * @return recharge duration in ticks
      */
-    fun rechargeSpring(ctx: BeeContext): Int {
+    fun rechargeSpring(ctx: BeeContext): Int = rechargeTicks(ctx)
+
+    fun rechargeTicks(ctx: BeeContext): Int {
         val baseTicks = CBBeesConfig.springRechargeTicks.get()
         return (baseTicks / ctx.springEfficiency).toInt().coerceAtLeast(20)
     }

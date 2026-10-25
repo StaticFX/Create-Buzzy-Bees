@@ -13,6 +13,7 @@ import de.devin.cbbees.content.domain.history.JobHistoryRecorder
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.domain.task.BeeTask
+import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.items.AllItems as CBeesItems
 import net.minecraft.core.BlockPos
@@ -188,6 +189,7 @@ class ExecuteBeeAction(
 
             task.complete()
             bee.currentTask?.advance()
+            rewindIfExhausted(bee, level, gameTime)
         } else {
             failTicks++
             // If the action fails repeatedly (e.g., missing materials at placement),
@@ -195,6 +197,12 @@ class ExecuteBeeAction(
             if (failTicks >= MAX_ACTION_FAIL_TICKS) bee.abandonTask()
         }
         return done
+    }
+
+    private fun rewindIfExhausted(bee: ServerBeeData, level: ServerLevel, gameTime: Long) {
+        val batch = bee.currentTask ?: return
+        if (bee.springTension > 0f || batch.getRemainingTasks().isEmpty()) return
+        ServerBeeManager.redirect(bee, FlightPlanComputer.forRewind(bee, batch, level), gameTime)
     }
 
     companion object {
@@ -234,6 +242,7 @@ object ActionThrottle {
 class CheckForNextWork : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
+        if (bee.springTension <= 0f) return true
         val hive = bee.hiveInstance ?: return true
 
         val nextBatch = GlobalJobPool.workBacklog(hive)
@@ -331,6 +340,28 @@ class EnterHive : CheckpointAction {
  *
  * @see CheckpointAction
  */
+class ResumeConstruction(private val batch: TaskBatch) : CheckpointAction {
+    private var requested = false
+    private var failed = false
+
+    override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
+        if (failed) return true
+        if (requested) return false
+        requested = true
+        val network = bee.network() ?: return true
+        FlightPlanComputer.computeAsync(bee, batch, network, level) { plan ->
+            if (plan == null) {
+                batch.releaseWithoutRetry()
+                bee.currentTask = null
+                failed = true
+            } else {
+                ServerBeeManager.startPlan(bee, plan, level.gameTime, network)
+            }
+        }
+        return false
+    }
+}
+
 class RechargeSpring : CheckpointAction {
     private var finishTick: Long = -1
 

@@ -9,11 +9,12 @@ import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.math.VecHelper
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
-import net.minecraft.client.resources.sounds.SimpleSoundInstance
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.Direction.AxisDirection
 import net.minecraft.network.chat.Component
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.util.Mth
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.context.BlockPlaceContext
@@ -73,7 +74,7 @@ object AreaSelector {
 
         if (player.isShiftKeyDown) {
             if (AreaSelection.firstPos != null) {
-                Minecraft.getInstance().soundManager.play(SimpleSoundInstance.forUI(AllSoundEvents.CLIPBOARD_ERASE.mainEvent, 1f, 0.5f))
+                player.level().playSound(player, player.blockPosition(), SoundEvents.ITEM_FRAME_REMOVE_ITEM, SoundSource.BLOCKS, 0.75f, 1f)
             }
             discard()
             return true
@@ -87,6 +88,7 @@ object AreaSelector {
             return true
         }
 
+        AllSoundEvents.CLIPBOARD_CHECKMARK.play(player.level(), player, selected, 0.5f, 1f)
         if (AreaSelection.firstPos != null) {
             AreaSelection.secondPos = selected
             return true
