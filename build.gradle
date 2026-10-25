@@ -242,6 +242,7 @@ if (System.getenv("CURSEFORGE_TOKEN")) {
         mainFile.addGameVersion(minecraft_version)
         mainFile.addModLoader('NeoForge')
         mainFile.addJavaVersion('Java 21')
+        mainFile.addEnvironment('Client', 'Server')
         mainFile.addRequirement('create')
         mainFile.addRequirement('kotlin-for-forge')
         mainFile.addRequirement('geckolib')
