@@ -249,15 +249,15 @@ object ConstructionRenderer {
      */
     private fun buildSchematicRenderer(job: ClientJobInfo, clientLevel: Level): JobRenderer? {
         val placement = job.schematicPlacement ?: return buildFallbackRenderer(job, clientLevel)
+        // Schematic files are read from this player's disk, which only holds their own schematics
+        val player = Minecraft.getInstance().player ?: return buildFallbackRenderer(job, clientLevel)
+        if (job.ownerId != null && !job.isOwnedBy(player.uuid)) return buildFallbackRenderer(job, clientLevel)
         val schematicFile = placement.file
         val anchor = placement.anchor
         val rotation = placement.rotation
         val mirror = placement.mirror
 
         try {
-            val mc = Minecraft.getInstance()
-            val player = mc.player ?: return buildFallbackRenderer(job, clientLevel)
-
             val fakeStack = com.simibubi.create.AllItems.SCHEMATIC.asStack()
             fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_FILE, schematicFile)
             fakeStack.set(com.simibubi.create.AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)

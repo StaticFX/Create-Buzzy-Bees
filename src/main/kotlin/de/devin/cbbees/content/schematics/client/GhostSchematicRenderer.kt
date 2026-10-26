@@ -14,9 +14,11 @@ import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.ModelBlockRenderer
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.entity.BlockEntity
+import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.client.model.data.ModelData
 import java.util.BitSet
 
@@ -28,7 +30,9 @@ import java.util.BitSet
  *
  * Maintains its own geometry buffer cache and overrides [render] to skip
  * block entity rendering, which is the dominant per-frame cost for large
- * schematics (Create blocks nearly all have block entities).
+ * schematics (Create blocks nearly all have block entities). Blocks without a
+ * model of their own, like belts, are drawn by their block entity only, so
+ * those block entities are always rendered.
  *
  * Geometry can be pre-built on a background thread via [prebuildGeometry],
  * eliminating the frame stutter that would otherwise occur on first render.
@@ -42,6 +46,7 @@ class GhostSchematicRenderer(
 
     /** Own buffer cache — parent's is private and we need to skip block entity rendering. */
     private val ghostBufferCache = LinkedHashMap<RenderType, SuperByteBuffer>()
+    private var modelOnlyBlockEntities: List<BlockEntity> = emptyList()
     private var needsRedraw = true
 
     @Volatile
@@ -82,15 +87,22 @@ class GhostSchematicRenderer(
                 ghostBufferCache[layer] = buffer
             }
         }
+        modelOnlyBlockEntities = schematic.renderedBlockEntities.filter { hasNoModel(it.blockState) }
         needsRedraw = false
         isReady = true
     }
 
+    private fun hasNoModel(state: BlockState): Boolean {
+        val model = Minecraft.getInstance().blockRenderer.getBlockModel(state)
+        val random = OBJECTS.get().random
+        return (Direction.entries + null).all { model.getQuads(state, it, random, ModelData.EMPTY, null).isEmpty() }
+    }
+
     /**
-     * Renders cached static block geometry and optionally block entities.
-     * Block entity rendering is off by default for performance — controlled
-     * by [CBBeesClientConfig.renderGhostBlockEntities] and capped by
-     * [CBBeesClientConfig.maxGhostBlockEntities].
+     * Renders cached static block geometry and block entities. Only blocks without a model of their
+     * own render their block entity by default; [CBBeesClientConfig.renderGhostBlockEntities] adds all
+     * others, and [CBBeesClientConfig.maxGhostBlockEntities] caps the total. The schematic is passed as
+     * the level so Flywheel does not claim block entities that only exist in the preview.
      */
     override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) {
         val mc = Minecraft.getInstance()
@@ -104,22 +116,23 @@ class GhostSchematicRenderer(
             buffer.renderInto(ms, buffers.getBuffer(layer))
         }
 
-        if (CBBeesClientConfig.renderGhostBlockEntities.get()) {
-            val max = CBBeesClientConfig.maxGhostBlockEntities.get()
-            val allBEs = schematic.renderedBlockEntities.toList()
-            val capped = if (allBEs.size > max) allBEs.subList(0, max) else allBEs
-            val shouldRender = BitSet(capped.size)
-            shouldRender.set(0, capped.size)
-            val errored = BitSet(capped.size)
-            ms.pushPose()
-            ms.translate(-origin.x.toDouble(), -origin.y.toDouble(), -origin.z.toDouble())
-            BlockEntityRenderHelper.renderBlockEntities(
-                capped, shouldRender, errored,
-                null, mc.level, ms, null, buffers,
-                AnimationTickHolder.getPartialTicks()
-            )
-            ms.popPose()
-        }
+        val candidates = if (CBBeesClientConfig.renderGhostBlockEntities.get())
+            (modelOnlyBlockEntities + schematic.renderedBlockEntities).distinct()
+        else modelOnlyBlockEntities
+        val blockEntities = candidates.take(CBBeesClientConfig.maxGhostBlockEntities.get())
+        if (blockEntities.isEmpty()) return
+
+        val shouldRender = BitSet(blockEntities.size)
+        shouldRender.set(0, blockEntities.size)
+        val errored = BitSet(blockEntities.size)
+        ms.pushPose()
+        ms.translate(-origin.x.toDouble(), -origin.y.toDouble(), -origin.z.toDouble())
+        BlockEntityRenderHelper.renderBlockEntities(
+            blockEntities, shouldRender, errored,
+            null, schematic, ms, null, buffers,
+            AnimationTickHolder.getPartialTicks()
+        )
+        ms.popPose()
     }
 
     override fun drawLayer(layer: RenderType): SuperByteBuffer {

@@ -4,11 +4,14 @@ import com.simibubi.create.foundation.data.CreateRegistrate
 import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
+import de.devin.cbbees.compat.ae2.AE2Compat
+import de.devin.cbbees.compat.refinedstorage.RefinedStorageCompat
 import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.compat.sable.SubLevelNetworkTracker
 import de.devin.cbbees.blocks.AllBlocks
 import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.content.logistics.ports.PortPartialModels
 import de.devin.cbbees.content.backpack.client.CCRClientEvents
 import de.devin.cbbees.content.backpack.client.BeeNetworkClientEvents
 import de.devin.cbbees.content.bee.client.BeeClientTracker
@@ -21,6 +24,7 @@ import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
+import de.devin.cbbees.content.schematics.client.JobLookOverlay
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.domain.history.client.JobHistoryClientEvents
 import de.devin.cbbees.content.drone.client.DroneRangeRenderer
@@ -113,6 +117,7 @@ object CreateBuzzyBeez {
         }
 
         if (net.neoforged.fml.loading.FMLEnvironment.dist.isClient) {
+            PortPartialModels.init()
             MOD_BUS.register(CCRClientEvents::class.java)
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(PlannerClientEvents::class.java)
@@ -148,6 +153,12 @@ object CreateBuzzyBeez {
                 }
                 event.registerAbove(
                     VanillaGuiLayers.CHAT,
+                    asResource("job_overlay")
+                ) { guiGraphics, deltaTracker ->
+                    JobLookOverlay.render(guiGraphics, deltaTracker)
+                }
+                event.registerAbove(
+                    VanillaGuiLayers.CHAT,
                     asResource("drone_view_hud")
                 ) { guiGraphics, deltaTracker ->
                     DroneViewHUD.renderHUD(guiGraphics, deltaTracker)
@@ -167,7 +178,7 @@ object CreateBuzzyBeez {
             event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
                 AllBlockEntityTypes.LOGISTICS_PORT.get(),
-                { be, side -> be.getItemHandler(be.world) }
+                { be, side -> be.getInventory(be.world) }
             )
             event.registerBlockEntity(
                 Capabilities.ItemHandler.BLOCK,
@@ -199,6 +210,8 @@ object CreateBuzzyBeez {
         NeoForge.EVENT_BUS.register(CCRServerEvents::class.java)
         NeoForge.EVENT_BUS.register(PlayerTickEvent())
         if (SableCompat.isLoaded) NeoForge.EVENT_BUS.register(SubLevelNetworkTracker::class.java)
+        AE2Compat.register()
+        RefinedStorageCompat.register()
     }
 
     fun asResource(path: String): ResourceLocation {

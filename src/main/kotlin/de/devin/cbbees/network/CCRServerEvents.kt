@@ -7,6 +7,7 @@ import de.devin.cbbees.content.domain.TransportDispatcher
 import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.drone.DroneViewManager
+import de.devin.cbbees.content.logistics.storage.AutocraftRequester
 import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.bus.api.SubscribeEvent
@@ -71,6 +72,10 @@ object CCRServerEvents {
             TransportDispatcher.tick(gameTime)
             profiler.pop()
 
+            profiler.push("autocraftRequester")
+            AutocraftRequester.tick(gameTime)
+            profiler.pop()
+
             profiler.push("reservationCleanup")
             ServerBeeNetworkManager.getNetworks().forEach { it.cleanupReservations(gameTime) }
             profiler.pop()
@@ -133,6 +138,7 @@ object CCRServerEvents {
         ServerBeeNetworkManager.getNetworks().forEach { it.clearReservations() }
         ServerBeeNetworkManager.clear()
         TransportDispatcher.clear()
+        AutocraftRequester.clear()
         BeeDebug.clear()
         PlannerUploadPacket.shutdown()
         DroneViewManager.clear()

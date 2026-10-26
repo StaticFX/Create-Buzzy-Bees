@@ -44,6 +44,11 @@ object CBBeesConfig {
     val waggleRequestInterval: ModConfigSpec.IntValue
     val waggleRequestTimeout: ModConfigSpec.IntValue
 
+    // Storage network autocrafting settings
+    val autocraftMissing: ModConfigSpec.BooleanValue
+    val autocraftInterval: ModConfigSpec.IntValue
+    val autocraftRetryDelay: ModConfigSpec.IntValue
+
     // Spring (clockwork) settings
     val springDrainPlace: ModConfigSpec.DoubleValue
     val springDrainBreak: ModConfigSpec.DoubleValue
@@ -196,6 +201,23 @@ object CBBeesConfig {
         waggleRequestTimeout = builder
             .comment("Ticks a request counts as on its way; after that, anything still missing is requested again")
             .defineInRange("waggleRequestTimeout", 1200, 100, 24000)
+
+        builder.pop()
+
+        builder.comment("Autocrafting Settings — pickup ports on an AE2 or Refined Storage network craft what bee jobs are missing")
+            .push("autocrafting")
+
+        autocraftMissing = builder
+            .comment("Whether pickup ports ask their storage network to craft missing materials")
+            .define("autocraftMissing", true)
+
+        autocraftInterval = builder
+            .comment("Ticks between checks for materials that bee jobs are missing")
+            .defineInRange("autocraftInterval", 100, 20, 1200)
+
+        autocraftRetryDelay = builder
+            .comment("Ticks to wait before asking again for an item the network could not craft")
+            .defineInRange("autocraftRetryDelay", 1200, 100, 24000)
 
         builder.pop()
 

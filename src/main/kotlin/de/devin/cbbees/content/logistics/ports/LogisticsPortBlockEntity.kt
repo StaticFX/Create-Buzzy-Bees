@@ -1,7 +1,8 @@
 package de.devin.cbbees.content.logistics.ports
 
-import com.simibubi.create.AllBlocks
+import com.mojang.serialization.Codec
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
+import com.simibubi.create.content.logistics.BigItemStack
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
@@ -9,12 +10,14 @@ import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollVa
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
-import de.devin.cbbees.util.extractExactly
+import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.nbt.NbtOps
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
@@ -45,20 +48,16 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         }
 
     var filterStack: ItemStack = ItemStack.EMPTY
+    var crafting: List<BigItemStack> = emptyList()
+        private set
     var priority = 0
 
     private val reservationManager = de.devin.cbbees.content.domain.logistics.PortReservationManager()
 
-    // This is what the bees will call
     fun getInventory(level: Level): IItemHandler? {
         val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
         val attachedPos = blockPos.relative(attachedDir)
         return level.getCapability(Capabilities.ItemHandler.BLOCK, attachedPos, attachedDir.opposite)
-    }
-
-    private fun getAttachesPos(): BlockPos {
-        val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
-        return blockPos.relative(attachedDir)
     }
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
@@ -112,6 +111,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         if (tag.contains("Filter")) {
             filterStack = ItemStack.parseOptional(registries, tag.getCompound("Filter"))
         }
+        if (clientPacket) crafting = ORDER_CODEC.parse(registries.createSerializationContext(NbtOps.INSTANCE), tag.get("Crafting")).result().orElse(emptyList())
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {
@@ -121,14 +121,23 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         if (!filterStack.isEmpty) {
             tag.put("Filter", filterStack.save(registries))
         }
+        if (clientPacket) ORDER_CODEC.encodeStart(registries.createSerializationContext(NbtOps.INSTANCE), crafting).result().ifPresent { tag.put("Crafting", it) }
+    }
+
+    override fun showCrafting(order: List<BigItemStack>) {
+        if (order.map { it.stack.item to it.count } == crafting.map { it.stack.item to it.count }) return
+        crafting = order
+        sendData()
     }
 
     override fun getFilter(): ItemStack {
         return filterStack
     }
 
-    override fun getItemHandler(level: Level): IItemHandler? {
-        return getInventory(level)
+    override fun storage(): PortStorage? {
+        val level = level ?: return null
+        val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
+        return PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
     }
 
     override fun getPortType(): PortType = portType()
@@ -157,45 +166,17 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         return WalkTarget(blockPos, 1.0f, 1)
     }
 
-    fun hasCreativeCrate() = level?.let { AllBlocks.CREATIVE_CRATE.has(it.getBlockState(getAttachesPos())) } ?: false
-
-    override fun hasItemStack(stack: ItemStack): Boolean {
-        val level = level ?: return false
-
-        if (hasCreativeCrate()) return true
-
-        val handler = getItemHandler(level) ?: return false
-
-        for (i in 0 until handler.slots) {
-            val stackInSlot = handler.getStackInSlot(i)
-
-            if (!stackInSlot.isEmpty && ItemStack.isSameItemSameComponents(stackInSlot, stack)) {
-                return true
-            }
-        }
-
-        return false
-    }
+    override fun hasItemStack(stack: ItemStack): Boolean = (storage()?.count(stack) ?: 0) > 0
 
     override fun removeItemStack(stack: ItemStack): Boolean {
-        val level = level ?: return false
-        if (hasCreativeCrate()) return true
-
-        val handler = getItemHandler(level) ?: return false
-        if (!handler.extractExactly(stack)) return false
-
+        if (storage()?.extract(stack) != true) return false
         pulseBusy()
         return true
     }
 
     override fun addItemStack(stack: ItemStack): ItemStack {
-        val level = level ?: return stack
-        val handler = getItemHandler(level) ?: return stack
-
-        val result = net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(handler, stack, false)
-        if (result.count < stack.count) {
-            pulseBusy()
-        }
+        val result = storage()?.insert(stack) ?: return stack
+        if (result.count < stack.count) pulseBusy()
         return result
     }
 
@@ -212,21 +193,8 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         }
     }
 
-    override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
-        val level = level ?: return false
-        if (hasCreativeCrate()) return true
-
-        val handler = getItemHandler(level) ?: return false
-        var physical = 0
-        for (i in 0 until handler.slots) {
-            val slotStack = handler.getStackInSlot(i)
-            if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
-                physical += slotStack.count
-            }
-        }
-
-        return physical - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
-    }
+    override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean =
+        (storage()?.count(stack) ?: 0) - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
 
     override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
         reservationManager.reserve(beeId, items, tick)
@@ -281,7 +249,19 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
             .style(ChatFormatting.GOLD)
             .forGoggles(tooltip)
 
+        if (crafting.isNotEmpty()) {
+            Lang.builder("cbbees").translate("gui.goggles.logistics.crafting").style(ChatFormatting.GRAY).forGoggles(tooltip, 1)
+            crafting.take(MAX_SHOWN_CRAFTING_LINES).forEach {
+                Lang.builder("cbbees").text("${it.count}x ").add(it.stack.hoverName.copy()).style(ChatFormatting.DARK_GRAY).forGoggles(tooltip, 2)
+            }
+        }
+
         addNetworkTooltip(tooltip, 1)
         return true
+    }
+
+    private companion object {
+        val ORDER_CODEC: Codec<List<BigItemStack>> = BigItemStack.CODEC.listOf()
+        const val MAX_SHOWN_CRAFTING_LINES = 4
     }
 }

@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.job
 
 import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
@@ -56,8 +57,27 @@ data class ClientJobInfo(
     val reason: String?,       // null if not stuck
     val batches: List<ClientBatchInfo>,
     val schematicPlacement: SchematicPlacement? = null,
-    val jobType: JobType = JobType.Construction
-)
+    val jobType: JobType = JobType.Construction,
+    val ownerId: UUID? = null,
+    /** The owner's name, for display only. */
+    val ownerName: String? = null
+) {
+    fun isOwnedBy(playerId: UUID): Boolean = ownerId == playerId
+
+    /** Only the owner can cancel a job; jobs without an owner can be cancelled by anyone. */
+    fun isCancellableBy(playerId: UUID): Boolean = ownerId == null || isOwnedBy(playerId)
+
+    fun displayName(): Component = jobDisplayName(schematicPlacement, jobType)
+
+    val activeBees: Int
+        get() = batches.filter { it.status == "IN_PROGRESS" || it.status == "PICKED" }
+            .flatMap { it.assignedBeeIds }.distinct().size
+}
+
+/** The schematic's file name, or the job type for jobs without a schematic. */
+fun jobDisplayName(placement: SchematicPlacement?, jobType: JobType): Component = placement
+    ?.let { Component.literal(it.file.substringAfterLast('/').removeSuffix(".nbt")) }
+    ?: Component.translatable(jobType.translationKey)
 
 data class ClientNetworkInfo(
     val name: String,

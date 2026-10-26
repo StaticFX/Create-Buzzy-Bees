@@ -10,8 +10,6 @@ import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.job.MissingMaterials
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -48,10 +46,9 @@ class WagglePortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bloc
     var address = ""
         set(value) {
             field = value.take(MAX_ADDRESS_LENGTH)
-            pending.clear()
+            if (level?.isClientSide == false) ServerBeeNetworkManager.getNetworkFor(this)?.pendingRequests?.clear(id)
         }
 
-    private val pending = PendingRequests()
     private var nextRequestTick = 0L
     var lastOrder: List<BigItemStack> = emptyList()
         private set
@@ -87,23 +84,16 @@ class WagglePortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bloc
     fun requestMissing(now: Long): List<BigItemStack> {
         if (address.isBlank()) return emptyList()
         val network = ServerBeeNetworkManager.getNetworkFor(this) ?: return emptyList()
-        val tasks = GlobalJobPool.getAllJobs()
-            .filter { it.status == JobStatus.IN_PROGRESS }
-            .flatMap { it.batches }
-            .filter(network::canWorkOn)
-            .flatMap { it.tasks }
-        if (tasks.isEmpty()) return emptyList()
-
-        val missing = MissingMaterials.toRequest(tasks, network)
+        val missing = MissingMaterials.forNetwork(network)
         if (missing.isEmpty()) return emptyList()
 
         val stock = LogisticsManager.getSummaryOfNetwork(link.freqId, true)
-        val order = pending.plan(missing, stock::getCountOf, now)
+        val order = network.pendingRequests.plan(missing, stock::getCountOf, now)
         if (order.isEmpty()) return emptyList()
         if (!LogisticsManager.broadcastPackageRequest(link.freqId, RequestType.REDSTONE, PackageOrderWithCrafts.simple(order), null, address))
             return emptyList()
 
-        pending.record(order, now + CBBeesConfig.waggleRequestTimeout.get())
+        network.pendingRequests.record(id, order, now + CBBeesConfig.waggleRequestTimeout.get())
         lastOrder = order
         sendData()
         return order

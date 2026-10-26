@@ -51,7 +51,7 @@ object AllBlocks {
         .blockstate { c, p -> PortBlockStates.generate(c, p, PortBlock.PORT_TYPE) }
         .item()
         .recipe { c, p ->
-            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get())
+            ShapedRecipeBuilder.shaped(RecipeCategory.MISC, c.get(), 2)
                 .define('W', AllItems.TRANSMITTER.get())
                 .define('V', CreateAllBlocks.BRASS_FUNNEL.get())
                 .define('B', CreateAllBlocks.BRASS_CASING.get())

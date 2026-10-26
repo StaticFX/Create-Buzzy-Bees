@@ -7,6 +7,7 @@ import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.logistics.ports.PortType
+import de.devin.cbbees.content.logistics.storage.PortStorage
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.gametest.dsl.unitTest
 import net.minecraft.core.BlockPos
@@ -15,7 +16,6 @@ import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.neoforged.neoforge.items.IItemHandler
 import java.util.UUID
 
 /**
@@ -65,7 +65,7 @@ object NetworkLinkingTests {
         override fun getFilter(): ItemStack = ItemStack.EMPTY
         override fun isValidForPickup(): Boolean = true
         override fun isValidForDropOff(): Boolean = true
-        override fun getItemHandler(level: Level): IItemHandler? = null
+        override fun storage(): PortStorage? = null
         override fun walkTarget(): WalkTarget = WalkTarget(pos, 1.0f, 0)
         override fun priority(): Int = portPriority
         override fun hasItemStack(stack: ItemStack): Boolean =

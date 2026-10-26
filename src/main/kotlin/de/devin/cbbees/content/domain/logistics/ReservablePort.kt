@@ -1,11 +1,11 @@
 package de.devin.cbbees.content.domain.logistics
 
 import de.devin.cbbees.content.domain.network.INetworkComponent
+import de.devin.cbbees.content.logistics.storage.PortStorage
 import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.neoforged.neoforge.items.IItemHandler
 import java.util.UUID
 
 /**
@@ -20,7 +20,7 @@ interface ReservablePort : INetworkComponent {
     override val world: Level
     override val pos: BlockPos
 
-    fun getItemHandler(level: Level): IItemHandler?
+    fun storage(): PortStorage?
 
     fun walkTarget(): WalkTarget
 
@@ -44,14 +44,7 @@ interface ReservablePort : INetworkComponent {
     /**
      * Checks whether the attached inventory has any free space at all.
      */
-    fun hasInventorySpace(): Boolean {
-        val handler = getItemHandler(world) ?: return false
-        for (i in 0 until handler.slots) {
-            val slotStack = handler.getStackInSlot(i)
-            if (slotStack.isEmpty || slotStack.count < slotStack.maxStackSize) return true
-        }
-        return false
-    }
+    fun hasInventorySpace(): Boolean = storage()?.hasSpace() ?: false
 
     /**
      * Reserves [items] at this port for the given bee. One reservation per bee;

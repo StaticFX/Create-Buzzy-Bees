@@ -1,13 +1,13 @@
 package de.devin.cbbees.content.logistics.ports
 
 import com.mojang.serialization.MapCodec
+import de.devin.cbbees.content.logistics.storage.PortStorages
 import de.devin.cbbees.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.neoforged.neoforge.capabilities.Capabilities
 
 class LogisticPortBlock(properties: Properties) : PortBlock<LogisticPortBlockEntity>(properties) {
 
@@ -18,7 +18,7 @@ class LogisticPortBlock(properties: Properties) : PortBlock<LogisticPortBlockEnt
     override fun codec(): MapCodec<LogisticPortBlock> = CODEC
 
     override fun hasStorage(level: Level, pos: BlockPos, side: Direction): Boolean =
-        level.getCapability(Capabilities.ItemHandler.BLOCK, pos, side) != null
+        PortStorages.find(level, pos, side) != null
 
     override fun onRemove(state: BlockState, level: Level, pos: BlockPos, newState: BlockState, isMoving: Boolean) {
         if (state.block != newState.block) {

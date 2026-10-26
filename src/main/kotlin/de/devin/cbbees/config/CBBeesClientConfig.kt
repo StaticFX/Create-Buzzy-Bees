@@ -42,8 +42,8 @@ object CBBeesClientConfig {
             .define("renderGhostBlockEntities", false)
 
         maxGhostBlockEntities = builder
-            .comment("Maximum number of block entities to render per ghost preview. Lower values improve performance.")
-            .defineInRange("maxGhostBlockEntities", 64, 1, 1024)
+            .comment("Maximum number of block entities to render per ghost preview, including belts. Lower values improve performance.")
+            .defineInRange("maxGhostBlockEntities", 100, 1, 1024)
 
         beeShadowDistance = builder
             .comment("Maximum distance (blocks) at which bee shadows are rendered. Lower for better FPS with many bees.")

@@ -5,6 +5,7 @@ import de.devin.cbbees.content.domain.GlobalJobPool
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
 
@@ -20,10 +21,11 @@ class CancelJobPacket(val jobId: UUID) : CustomPacketPayload {
 
         fun handle(payload: CancelJobPacket, ctx: IPayloadContext) {
             ctx.enqueueWork {
-                val job = GlobalJobPool.getAllJobs().firstOrNull { it.jobId == payload.jobId }
-                job?.cancel()
+                val player = ctx.player() as? ServerPlayer ?: return@enqueueWork
+                val job = GlobalJobPool.getAllJobs().firstOrNull { it.jobId == payload.jobId } ?: return@enqueueWork
+                if (job.ownerId != null && job.ownerId != player.uuid) return@enqueueWork
+                job.cancel()
                 // Immediately sync so the client cache drops the cancelled job
-                val player = ctx.player() as? net.minecraft.server.level.ServerPlayer ?: return@enqueueWork
                 HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
             }
         }

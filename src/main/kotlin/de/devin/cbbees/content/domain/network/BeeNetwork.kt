@@ -25,6 +25,8 @@ class BeeNetwork(
 
     var level: net.minecraft.world.level.Level? = null
 
+    val pendingRequests = PendingRequests()
+
     private val _components = mutableSetOf<INetworkComponent>()
     val components: MutableSet<INetworkComponent> get() = _components
 

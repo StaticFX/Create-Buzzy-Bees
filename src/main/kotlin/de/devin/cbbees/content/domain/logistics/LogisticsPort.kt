@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.logistics
 
+import com.simibubi.create.content.logistics.BigItemStack
 import de.devin.cbbees.content.logistics.ports.PortType
 import net.minecraft.world.item.ItemStack
 
@@ -17,6 +18,9 @@ interface LogisticsPort : ReservablePort {
     fun isValidForPickup(): Boolean
 
     fun isValidForDropOff(): Boolean
+
+    /** Shows what this port's storage network is crafting for the bees. */
+    fun showCrafting(order: List<BigItemStack>) {}
 
     /**
      * Tests whether the given [stack] passes this port's item filter.

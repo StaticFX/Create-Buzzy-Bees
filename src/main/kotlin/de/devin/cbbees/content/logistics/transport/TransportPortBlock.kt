@@ -7,6 +7,7 @@ import com.simibubi.create.foundation.block.ProperWaterloggedBlock
 import com.simibubi.create.foundation.block.ProperWaterloggedBlock.WATERLOGGED
 import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.ports.PortState
+import de.devin.cbbees.content.logistics.storage.PortStorages
 import de.devin.cbbees.registry.AllBlockEntityTypes
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -26,7 +27,6 @@ import net.minecraft.world.level.block.state.properties.EnumProperty
 import net.minecraft.world.level.material.FluidState
 import net.minecraft.world.phys.shapes.CollisionContext
 import net.minecraft.world.phys.shapes.VoxelShape
-import net.neoforged.neoforge.capabilities.Capabilities
 
 class TransportPortBlock(properties: Properties) :
     FaceAttachedHorizontalDirectionalBlock(properties),
@@ -99,7 +99,7 @@ class TransportPortBlock(properties: Properties) :
 
         if (neighborPos == connectedPos) {
             val hasInventory =
-                level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+                PortStorages.find(level, connectedPos, getConnectedDirection(state)) != null
             val targetState = if (hasInventory) PortState.VALID else PortState.INVALID
 
             if (state.getValue(PORT_STATE) != targetState) {
@@ -119,7 +119,7 @@ class TransportPortBlock(properties: Properties) :
         val connectedPos = pos.relative(getConnectedDirection(state).opposite)
 
         val hasInventory =
-            level.getCapability(Capabilities.ItemHandler.BLOCK, connectedPos, getConnectedDirection(state)) != null
+            PortStorages.find(level, connectedPos, getConnectedDirection(state)) != null
         state = state.setValue(PORT_STATE, if (hasInventory) PortState.VALID else PortState.INVALID)
 
         return withWater(state, context)

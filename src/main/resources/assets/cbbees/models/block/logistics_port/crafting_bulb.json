@@ -1,0 +1,21 @@
+{
+  "textures": {
+    "1": "cbbees:block/logistics_port/port_details_crafting",
+    "particle": "create:block/brass_casing"
+  },
+  "elements": [
+    {
+      "name": "bulb",
+      "from": [2.45, 7.95, 8.45],
+      "to": [7.55, 13.05, 13.55],
+      "faces": {
+        "north": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "east": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "south": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "west": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "up": {"uv": [13.5, 0, 16, 2.5], "texture": "#1"},
+        "down": {"uv": [13.5, 5, 16, 7.5], "texture": "#1"}
+      }
+    }
+  ]
+}

@@ -29,11 +29,7 @@ object PortBlockStates {
 
         for (face in AttachFace.entries) {
             for (facing in Direction.Plane.HORIZONTAL) {
-                val rotationX = when (face) {
-                    AttachFace.FLOOR -> 0
-                    AttachFace.CEILING -> 180
-                    AttachFace.WALL -> 270
-                }
+                val rotationX = PortBlock.modelRotationX(face)
                 val rotationY = facing.toYRot().toInt()
 
                 for (mode in modeProperty.possibleValues) {

@@ -1,0 +1,21 @@
+{
+  "textures": {
+    "1": "cbbees:block/cargo_port/port_details_busy",
+    "particle": "create:block/brass_casing"
+  },
+  "elements": [
+    {
+      "name": "glow",
+      "from": [2, 7.5, 8],
+      "to": [8, 13.5, 14],
+      "faces": {
+        "north": {"uv": [16, 2.5, 13.5, 5], "texture": "#1"},
+        "east": {"uv": [16, 2.5, 13.5, 5], "texture": "#1"},
+        "south": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "west": {"uv": [13.5, 2.5, 16, 5], "texture": "#1"},
+        "up": {"uv": [13.5, 0, 16, 2.5], "texture": "#1"},
+        "down": {"uv": [13.5, 5, 16, 7.5], "texture": "#1"}
+      }
+    }
+  ]
+}

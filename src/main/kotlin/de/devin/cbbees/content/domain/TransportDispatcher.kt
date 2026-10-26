@@ -14,7 +14,6 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.phys.Vec3
-import net.neoforged.neoforge.items.ItemHandlerHelper
 import java.util.*
 
 /**
@@ -62,7 +61,7 @@ object TransportDispatcher : SavedData() {
             val requestersByFreq = requesterPorts.groupBy { it.linkBehaviour.networkKey }
 
             for (provider in providerPorts) {
-                val handler = provider.getItemHandler(provider.world) ?: continue
+                val storage = provider.storage() ?: continue
 
                 // Find a requester that matches this provider's frequency and has space
                 val matchingRequesters = requestersByFreq[provider.linkBehaviour.networkKey] ?: continue
@@ -72,22 +71,18 @@ object TransportDispatcher : SavedData() {
 
                 // Collect up to INVENTORY_SIZE distinct stacks for a single trip,
                 // only items the requester can actually accept
-                val requesterHandler = requester.getItemHandler(requester.world)
+                val requesterStorage = requester.storage()
                 val itemsToTransport = mutableListOf<ItemStack>()
-                for (slot in 0 until handler.slots) {
+                for (stack in storage.stacks()) {
                     if (itemsToTransport.size >= ServerBeeData.TRANSPORT_INVENTORY_SIZE) break
 
-                    val stack = handler.getStackInSlot(slot)
-                    if (stack.isEmpty) continue
-                    if (!provider.hasAvailableItemStack(stack)) continue
+                    val trip = stack.copyWithCount(minOf(stack.count, stack.maxStackSize))
+                    if (!provider.hasAvailableItemStack(trip)) continue
 
                     // Check if the requester can accept this item (simulate insert)
-                    if (requesterHandler != null) {
-                        val simulated = ItemHandlerHelper.insertItemStacked(requesterHandler, stack.copy(), true)
-                        if (simulated.count == stack.count) continue // no space at all
-                    }
+                    if (requesterStorage != null && requesterStorage.insert(trip.copy(), true).count == trip.count) continue
 
-                    itemsToTransport.add(stack.copy())
+                    itemsToTransport.add(trip)
                 }
 
                 if (itemsToTransport.isEmpty()) continue

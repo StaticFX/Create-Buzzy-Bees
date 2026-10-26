@@ -5,9 +5,7 @@ import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.WriteMissingToClipboardPacket
 import de.devin.cbbees.registry.AllKeys
-import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
-import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
@@ -33,7 +31,7 @@ object ConstructionPlannerClientEvents {
     fun onClientTick(event: ClientTickEvent.Post) {
         ConstructionPlannerHandler.tick()
         ConstructionPlannerHUD.update()
-        checkStuckJobTooltip()
+        JobLookOverlay.tick()
 
         if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
             val player = Minecraft.getInstance().player
@@ -98,7 +96,7 @@ object ConstructionPlannerClientEvents {
 
         val eyePos = player.getEyePosition(1f)
         val lookDir = player.lookAngle
-        val (jobId, aabbDist) = ConstructionRenderer.findJobAtRayWithDist(eyePos, lookDir, 5.0) ?: return
+        val (jobId, aabbDist) = ConstructionRenderer.findJobAtRayWithDist(eyePos, lookDir, player.blockInteractionRange()) ?: return
 
         val hit = mc.hitResult
         if (hit != null && hit.type == net.minecraft.world.phys.HitResult.Type.BLOCK) {
@@ -124,32 +122,5 @@ object ConstructionPlannerClientEvents {
     @JvmStatic
     fun onRenderLevel(event: RenderLevelStageEvent) {
         SchematicHoverPreview.render(event)
-    }
-
-    /**
-     * Shows the stall reason as an action bar message when the player
-     * looks at a stuck job's red AABB outline.
-     */
-    private fun checkStuckJobTooltip() {
-        val mc = Minecraft.getInstance()
-        val player = mc.player ?: return
-        if (mc.screen != null) return
-
-        val eyePos = player.getEyePosition(1f)
-        val lookDir = player.lookAngle
-        val jobId = ConstructionRenderer.findJobAtRay(eyePos, lookDir, 5.0) ?: return
-        val job = ConstructionRenderer.getJobInfo(jobId) ?: return
-        val reason = job.reason ?: return
-
-        val reasonText = if (reason.startsWith("cbbees.")) {
-            Component.translatable(reason)
-        } else {
-            Component.literal(reason)
-        }
-        player.displayClientMessage(
-            Component.literal("${ChatFormatting.RED}${ChatFormatting.BOLD}! ")
-                .append(reasonText.copy().withStyle(ChatFormatting.RED)),
-            true
-        )
     }
 }

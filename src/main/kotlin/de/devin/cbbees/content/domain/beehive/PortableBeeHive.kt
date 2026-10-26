@@ -9,6 +9,7 @@ import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.logistics.ports.PortType
+import de.devin.cbbees.content.logistics.storage.PortStorage
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllDataComponents
@@ -18,7 +19,6 @@ import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
-import net.neoforged.neoforge.items.IItemHandler
 import de.devin.cbbees.compat.CuriosCompat
 import java.util.*
 
@@ -246,7 +246,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
 
     override fun testFilter(stack: ItemStack): Boolean = true
 
-    override fun getItemHandler(level: Level): IItemHandler? = null
+    override fun storage(): PortStorage? = null
 
     /** Lowest priority — bees prefer network logistics ports; player inventory is the fallback. */
     override fun priority(): Int = Int.MIN_VALUE

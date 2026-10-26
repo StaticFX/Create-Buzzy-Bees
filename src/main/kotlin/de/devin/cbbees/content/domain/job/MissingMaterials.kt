@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.job
 
 import com.simibubi.create.content.logistics.BigItemStack
 import com.simibubi.create.content.schematics.cannon.MaterialChecklist
+import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -14,6 +15,15 @@ object MissingMaterials {
 
     fun checklistFor(job: BeeJob, network: BeeNetwork?): MaterialChecklist =
         checklist(job.tasks.filter { it.status !in FINISHED }, network)
+
+    fun forNetwork(network: BeeNetwork): List<BigItemStack> {
+        val tasks = GlobalJobPool.getAllJobs()
+            .filter { it.status == JobStatus.IN_PROGRESS }
+            .flatMap { it.batches }
+            .filter(network::canWorkOn)
+            .flatMap { it.tasks }
+        return if (tasks.isEmpty()) emptyList() else toRequest(tasks, network)
+    }
 
     fun toRequest(tasks: Collection<BeeTask>, network: BeeNetwork): List<BigItemStack> {
         val checklist = checklist(tasks.filter { it.status == TaskStatus.PENDING }, network)
@@ -35,8 +45,8 @@ object MissingMaterials {
         network?.ports.orEmpty()
             .filter { it.isValidForPickup() }
             .distinct()
-            .mapNotNull { it.getItemHandler(it.world) }
-            .forEach { handler -> (0 until handler.slots).forEach { checklist.collect(handler.getStackInSlot(it)) } }
+            .mapNotNull { it.storage() }
+            .forEach { storage -> storage.stacks().forEach(checklist::collect) }
 
         return checklist
     }

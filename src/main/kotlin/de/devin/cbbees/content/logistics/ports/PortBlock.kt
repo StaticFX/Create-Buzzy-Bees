@@ -50,6 +50,13 @@ abstract class PortBlock<T : SmartBlockEntity>(properties: Properties) :
                 else -> state.getValue(FACING)
             }
         }
+
+        /** X rotation of the port models for the face the port is attached to. */
+        fun modelRotationX(face: AttachFace): Int = when (face) {
+            AttachFace.FLOOR -> 0
+            AttachFace.CEILING -> 180
+            AttachFace.WALL -> 270
+        }
     }
 
     /** Whether the block at [pos] offers the storage this port works with, seen from [side]. */

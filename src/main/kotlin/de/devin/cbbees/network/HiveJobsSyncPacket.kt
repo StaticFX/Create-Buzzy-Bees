@@ -122,6 +122,8 @@ class HiveJobsSyncPacket(
                     b.writeEnum(sp.mirror)
                 }
                 buf.writeVarInt(JobType.ordinalOf(j.jobType))
+                buf.writeNullable(j.ownerId) { b, id -> UUID_CODEC.encode(b, id) }
+                buf.writeNullable(j.ownerName) { b, s -> STRING_CODEC.encode(b, s) }
             },
             { buf ->
                 val id = UUID_CODEC.decode(buf)
@@ -140,7 +142,9 @@ class HiveJobsSyncPacket(
                     )
                 }
                 val jobType = JobType.fromOrdinal(buf.readVarInt())
-                ClientJobInfo(id, name, status, completed, total, reason, batches, placement, jobType)
+                val ownerId = buf.readNullable { b -> UUID_CODEC.decode(b) }
+                val ownerName = buf.readNullable { b -> STRING_CODEC.decode(b) }
+                ClientJobInfo(id, name, status, completed, total, reason, batches, placement, jobType, ownerId, ownerName)
             }
         )
 
@@ -232,7 +236,9 @@ class HiveJobsSyncPacket(
                         reason = reason,
                         batches = job.jobType.collectClientBatches(job),
                         schematicPlacement = job.schematicPlacement,
-                        jobType = job.jobType
+                        jobType = job.jobType,
+                        ownerId = job.ownerId,
+                        ownerName = ownerNameOf(job, player)
                     )
                 }
 
@@ -240,9 +246,23 @@ class HiveJobsSyncPacket(
             PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(hivePos, HiveSnapshot(ni, jobs)))
         }
 
+        private const val VISIBLE_RANGE = 128.0
+
+        /** Other players' jobs in the same dimension close enough to see their bounding box. */
+        private fun isNearby(job: BeeJob, player: ServerPlayer): Boolean =
+            job.level == player.level() && job.centerPos.closerToCenterThan(player.position(), VISIBLE_RANGE)
+
+        private fun ownerNameOf(job: BeeJob, player: ServerPlayer): String? {
+            val ownerId = job.ownerId ?: return null
+            val server = player.server
+            return server.playerList.getPlayer(ownerId)?.gameProfile?.name
+                ?: server.profileCache?.get(ownerId)?.map { it.name }?.orElse(null)
+        }
+
         fun sendPlayerSnapshotTo(player: ServerPlayer) {
-            val jobs = GlobalJobPool.getAllJobs().filter { it.ownerId == player.uuid }
+            val jobs = GlobalJobPool.getAllJobs()
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
+                .filter { it.ownerId == player.uuid || isNearby(it, player) }
 
             // Use the player's portable hive network as the primary source for stuck detection.
             // This is more reliable than guessing from batch assignedNetworkId, which gets
@@ -261,7 +281,8 @@ class HiveJobsSyncPacket(
                             ghostBlocks = emptyMap()
                         )
                     }
-                    val network = playerNetwork ?: ServerBeeNetworkManager.findNetworkForJob(job)
+                    val ownJob = job.ownerId == player.uuid
+                    val network = (if (ownJob) playerNetwork else null) ?: ServerBeeNetworkManager.findNetworkForJob(job)
                     val reason = if (network != null) {
                         StuckReasonResolver.firstReasonOrNull(network, job)
                     } else {
@@ -276,7 +297,9 @@ class HiveJobsSyncPacket(
                         reason,
                         batches,
                         schematicPlacement = job.schematicPlacement,
-                        jobType = job.jobType
+                        jobType = job.jobType,
+                        ownerId = job.ownerId,
+                        ownerName = ownerNameOf(job, player)
                     )
                 }
             val ni = if (playerNetwork != null) {

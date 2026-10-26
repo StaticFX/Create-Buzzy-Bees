@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.logistics.transport
 
-import com.simibubi.create.AllBlocks as CreateAllBlocks
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.redstone.link.LinkBehaviour
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
@@ -11,7 +10,8 @@ import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
-import de.devin.cbbees.util.extractExactly
+import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
@@ -23,8 +23,6 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
 import net.minecraft.world.level.block.state.BlockState
-import net.neoforged.neoforge.capabilities.Capabilities
-import net.neoforged.neoforge.items.IItemHandler
 import org.apache.commons.lang3.tuple.Pair
 import java.util.*
 
@@ -52,17 +50,6 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
 
     override fun isProvider(): Boolean =
         blockState.getValue(TransportPortBlock.TRANSPORT_MODE) == TransportMode.PROVIDER
-
-    fun getInventory(level: Level): IItemHandler? {
-        val attachedDir = TransportPortBlock.getConnectedDirection(blockState).opposite
-        val attachedPos = blockPos.relative(attachedDir)
-        return level.getCapability(Capabilities.ItemHandler.BLOCK, attachedPos, attachedDir.opposite)
-    }
-
-    private fun getAttachedPos(): BlockPos {
-        val attachedDir = TransportPortBlock.getConnectedDirection(blockState).opposite
-        return blockPos.relative(attachedDir)
-    }
 
     override fun addBehaviours(behaviours: MutableList<BlockEntityBehaviour>) {
         linkBehaviour = LinkBehaviour.receiver(
@@ -115,7 +102,11 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         networkId?.let { tag.putUUID("NetworkId", it) }
     }
 
-    override fun getItemHandler(level: Level): IItemHandler? = getInventory(level)
+    override fun storage(): PortStorage? {
+        val level = level ?: return null
+        val attachedDir = TransportPortBlock.getConnectedDirection(blockState).opposite
+        return PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
+    }
 
     override fun isValidProvider(): Boolean {
         if (!isProvider()) return false
@@ -133,52 +124,14 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
 
     override fun walkTarget(): WalkTarget = WalkTarget(blockPos, 1.0f, 1)
 
-    fun hasCreativeCrate() =
-        level?.let { CreateAllBlocks.CREATIVE_CRATE.has(it.getBlockState(getAttachedPos())) } ?: false
+    override fun hasItemStack(stack: ItemStack): Boolean = (storage()?.count(stack) ?: 0) > 0
 
-    override fun hasItemStack(stack: ItemStack): Boolean {
-        val level = level ?: return false
-        if (hasCreativeCrate()) return true
+    override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean =
+        (storage()?.count(stack) ?: 0) - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
 
-        val handler = getItemHandler(level) ?: return false
-        for (i in 0 until handler.slots) {
-            val stackInSlot = handler.getStackInSlot(i)
-            if (!stackInSlot.isEmpty && ItemStack.isSameItemSameComponents(stackInSlot, stack)) {
-                return true
-            }
-        }
-        return false
-    }
+    override fun removeItemStack(stack: ItemStack): Boolean = storage()?.extract(stack) ?: false
 
-    override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
-        val level = level ?: return false
-        if (hasCreativeCrate()) return true
-
-        val handler = getItemHandler(level) ?: return false
-        var physical = 0
-        for (i in 0 until handler.slots) {
-            val slotStack = handler.getStackInSlot(i)
-            if (!slotStack.isEmpty && ItemStack.isSameItemSameComponents(slotStack, stack)) {
-                physical += slotStack.count
-            }
-        }
-
-        return physical - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
-    }
-
-    override fun removeItemStack(stack: ItemStack): Boolean {
-        val level = level ?: return false
-        if (hasCreativeCrate()) return true
-
-        val handler = getItemHandler(level) ?: return false
-        return handler.extractExactly(stack)
-    }
-
-    override fun addItemStack(stack: ItemStack): ItemStack {
-        val level = level ?: return stack
-        val handler = getItemHandler(level) ?: return stack
-        return net.neoforged.neoforge.items.ItemHandlerHelper.insertItemStacked(handler, stack, false)
-    }
+    override fun addItemStack(stack: ItemStack): ItemStack = storage()?.insert(stack) ?: stack
 
     override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
         reservationManager.reserve(beeId, items, tick)

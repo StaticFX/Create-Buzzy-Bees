@@ -50,11 +50,14 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         job = ConstructionRenderer.getJobInfo(jobId)
         cancelButton?.let { removeWidget(it) }
 
-        if (job != null) {
+        val current = job
+        if (current != null) {
             setWindowSize(PANEL_W, computePanelHeight())
             guiLeft = (width - windowWidth) / 2
             guiTop = (height - windowHeight) / 2
-            cancelButton = IconButton(guiLeft + windowWidth - 25, guiTop + windowHeight - 25, AllIcons.I_TRASH).also {
+            val player = minecraft?.player
+            cancelButton = if (player == null || !current.isCancellableBy(player.uuid)) null
+            else IconButton(guiLeft + windowWidth - 25, guiTop + windowHeight - 25, AllIcons.I_TRASH).also {
                 it.setToolTip(Component.translatable("gui.cbbees.job_detail.cancel"))
                 addRenderableWidget(it)
             }
