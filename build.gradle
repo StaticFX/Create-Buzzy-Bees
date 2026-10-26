@@ -226,6 +226,11 @@ publishing {
 
 processResources {
     duplicatesStrategy = DuplicatesStrategy.WARN
+    // Datagen started from the IDE skips the cleanup above, so never package a generated lang file.
+    def generatedRoot = file('src/generated/resources').toPath()
+    eachFile { details ->
+        if (details.path.startsWith('assets/cbbees/lang/') && details.file.toPath().startsWith(generatedRoot)) details.exclude()
+    }
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
