@@ -248,6 +248,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         Lang.builder("cbbees").translate("gui.goggles.logistics.${portType().serializedName}")
             .style(ChatFormatting.GOLD)
             .forGoggles(tooltip)
+        tooltip.addInvalidPortTooltip(blockState, "gui.goggles.port.no_storage")
 
         if (crafting.isNotEmpty()) {
             Lang.builder("cbbees").translate("gui.goggles.logistics.crafting").style(ChatFormatting.GRAY).forGoggles(tooltip, 1)

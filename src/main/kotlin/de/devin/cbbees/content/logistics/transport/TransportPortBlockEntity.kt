@@ -10,6 +10,7 @@ import de.devin.cbbees.content.domain.logistics.PortReservationManager
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
+import de.devin.cbbees.content.logistics.ports.addInvalidPortTooltip
 import de.devin.cbbees.content.logistics.storage.PortStorage
 import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang
@@ -173,6 +174,7 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         Lang.builder("cbbees").translate(typeKey)
             .style(ChatFormatting.GOLD)
             .forGoggles(tooltip)
+        tooltip.addInvalidPortTooltip(blockState, "gui.goggles.port.no_storage")
 
         addNetworkTooltip(tooltip, 1)
 

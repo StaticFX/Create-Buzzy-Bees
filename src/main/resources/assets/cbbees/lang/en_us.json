@@ -250,6 +250,8 @@
   "cbbees.gui.goggles.logistics.crafting": "Crafting:",
   "cbbees.gui.goggles.dock.extract": "Dock Port (Extract)",
   "cbbees.gui.goggles.dock.insert": "Dock Port (Insert)",
+  "cbbees.gui.goggles.port.no_storage": "Not attached to a storage",
+  "cbbees.gui.goggles.port.no_tank": "Not attached to a fluid tank",
   "cbbees.gui.goggles.apiary": "Mechanical Apiary",
   "cbbees.gui.goggles.apiary.empty": "No honey yet, holds ",
   "cbbees.gui.goggles.waggle_port": "Waggle Port",

@@ -12,6 +12,7 @@ import de.devin.cbbees.content.logistics.ports.LogisticsPortFilterValueBox
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.PortType
+import de.devin.cbbees.content.logistics.ports.addInvalidPortTooltip
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
 import net.minecraft.core.BlockPos
@@ -162,6 +163,7 @@ class DockPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockS
         Lang.builder("cbbees").translate("gui.goggles.dock.${portType().serializedName}")
             .style(ChatFormatting.GOLD)
             .forGoggles(tooltip)
+        tooltip.addInvalidPortTooltip(blockState, "gui.goggles.port.no_tank")
 
         addNetworkTooltip(tooltip, 1)
         return true
