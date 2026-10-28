@@ -32,6 +32,22 @@
           "item": "cbbees:incomplete_mechanical_beehive"
         },
         {
+          "item": "create:precision_mechanism"
+        }
+      ],
+      "results": [
+        {
+          "id": "cbbees:incomplete_mechanical_beehive"
+        }
+      ]
+    },
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "cbbees:incomplete_mechanical_beehive"
+        },
+        {
           "item": "create:cogwheel"
         }
       ],

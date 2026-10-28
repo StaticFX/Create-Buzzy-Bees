@@ -108,6 +108,12 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
     override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
+    override fun changedPositions(level: Level): List<BlockPos> =
+        PlaceBeltAction.chainAt(level, pos).ifEmpty { changedPositions }
+
+    override fun inversion(level: Level, pos: BlockPos, before: BlockSnapshot): BeeAction =
+        PlaceBeltAction.capture(level, pos) ?: before.restoreAt(pos)
+
     override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
 
     fun save(): CompoundTag {

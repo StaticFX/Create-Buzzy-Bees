@@ -2,62 +2,123 @@ package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.systems.RenderSystem
 import com.mojang.math.Axis
-import com.simibubi.create.AllDataComponents
-import com.simibubi.create.content.schematics.SchematicItem
 import com.simibubi.create.content.schematics.requirement.ItemRequirement
+import com.simibubi.create.foundation.utility.CreatePaths
+import de.devin.cbbees.CreateBuzzyBeez
+import com.mojang.blaze3d.platform.Lighting
 import net.createmod.catnip.levelWrappers.SchematicLevel
+import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.renderer.LightTexture
-import net.minecraft.client.renderer.RenderType
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer
-import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Vec3i
+import net.minecraft.Util
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.chat.Component
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.NbtAccounter
 import net.minecraft.nbt.NbtIo
-import net.minecraft.util.RandomSource
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.Mirror
-import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate
 import net.minecraft.world.level.material.Fluid
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import net.neoforged.neoforge.client.model.data.ModelData
 import net.neoforged.neoforge.fluids.FluidStack
 import net.neoforged.neoforge.fluids.FluidType
-import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
-import java.io.DataInputStream
-import java.util.zip.GZIPInputStream
+import java.util.Locale
+import java.util.concurrent.CompletableFuture
 import kotlin.math.max
 import kotlin.math.min
 
 /**
  * Renders an isometric 3D preview of a schematic in GUI space.
  *
- * Loads the schematic into a [SchematicLevel] and renders each block
- * using [net.minecraft.client.renderer.block.BlockRenderDispatcher.renderSingleBlock].
- * Caches the loaded level per filename.
+ * Schematics are read in the background and kept in a small LRU cache; the
+ * [SchematicLevel] is built on the render thread once the file has been parsed.
  */
 @OnlyIn(Dist.CLIENT)
 object SchematicPreviewRenderer {
 
-    /** Material entry: an item stack (with count=1 for display) and total count. */
-    data class MaterialEntry(val icon: ItemStack, val amount: String, val name: Component)
+    /** Material entry: an item stack (with count=1 for display), total amount, and a short label for slots. */
+    data class MaterialEntry(val icon: ItemStack, val amount: String, val name: Component, val slotLabel: String)
 
-    private var cachedFilename: String? = null
-    private var cachedLevel: SchematicLevel? = null
-    private var cachedSize: Vec3i = Vec3i.ZERO
-    private var cachedMaterials: List<MaterialEntry> = emptyList()
+    enum class State { LOADING, READY, FAILED }
+
+    private class Preview(val renderer: GhostSchematicRenderer, val size: Vec3i, val materials: List<MaterialEntry>)
+
+    private sealed interface Slot
+    private class Loading(val template: CompletableFuture<StructureTemplate>) : Slot
+    private class Ready(val preview: Preview) : Slot
+    private data object Failed : Slot
+
+    private const val CACHE_SIZE = 4
+    private const val MAX_NBT_BYTES = 0x20000000L
+
+    private val cache = object : LinkedHashMap<String, Slot>(CACHE_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Slot>): Boolean {
+            if (size <= CACHE_SIZE) return false
+            (eldest.value as? Loading)?.template?.cancel(true)
+            return true
+        }
+    }
+
+    fun loadFromFile(filename: String) = request(filename) {
+        val dir = CreatePaths.SCHEMATICS_DIR
+        val path = dir.resolve(filename).normalize()
+        require(path.startsWith(dir)) { "Schematic path escapes the schematics folder: $filename" }
+        NbtIo.readCompressed(path, NbtAccounter.create(MAX_NBT_BYTES))
+    }
+
+    fun loadFromNbtBytes(key: String, nbtBytes: ByteArray) = request(key) {
+        NbtIo.readCompressed(ByteArrayInputStream(nbtBytes), NbtAccounter.create(MAX_NBT_BYTES))
+    }
+
+    private fun request(key: String, read: () -> CompoundTag) {
+        if (cache.containsKey(key)) return
+        val blocks = Minecraft.getInstance().level?.holderLookup(Registries.BLOCK) ?: return
+        cache[key] = Loading(CompletableFuture.supplyAsync({ StructureTemplate().apply { load(blocks, read()) } }, Util.backgroundExecutor()))
+    }
+
+    fun state(key: String): State? {
+        preview(key)
+        return when (cache[key]) {
+            is Ready -> State.READY
+            is Loading -> State.LOADING
+            Failed -> State.FAILED
+            null -> null
+        }
+    }
+
+    private fun preview(key: String): Preview? = when (val slot = cache[key]) {
+        is Ready -> slot.preview
+        is Loading -> if (slot.template.isDone) finish(key, slot) else null
+        else -> null
+    }
+
+    private fun finish(key: String, slot: Loading): Preview? {
+        val preview = runCatching { build(slot.template.join()) }
+            .onFailure { CreateBuzzyBeez.LOGGER.warn("Failed to load schematic preview $key", it) }
+            .getOrNull()
+        cache[key] = preview?.let(::Ready) ?: Failed
+        return preview
+    }
+
+    private fun build(template: StructureTemplate): Preview {
+        require(template.size != Vec3i.ZERO) { "Schematic is empty" }
+        val level = SchematicLevel(Minecraft.getInstance().level ?: error("No client level"))
+        val settings = StructurePlaceSettings().setRotation(Rotation.NONE).setMirror(Mirror.NONE)
+        template.placeInWorld(level, BlockPos.ZERO, BlockPos.ZERO, settings, level.random, Block.UPDATE_CLIENTS)
+        level.blockEntities.forEach { it.setLevel(level) }
+        val renderer = GhostSchematicRenderer(level, renderAllBlockEntities = true).also { it.prebuildGeometry() }
+        return Preview(renderer, template.size, buildMaterialList(level))
+    }
 
     /**
      * Renders an isometric 3D preview of the given schematic in the specified GUI rectangle.
@@ -79,9 +140,12 @@ object SchematicPreviewRenderer {
         x: Int, y: Int, w: Int, h: Int,
         rotationX: Float, rotationY: Float, zoom: Float
     ) {
-        val level = getOrLoadLevel(filename) ?: return
-        val size = cachedSize
-        if (size == Vec3i.ZERO) return
+        val preview = preview(filename)
+        if (preview == null) {
+            renderStatus(guiGraphics, state(filename), x, y, w, h)
+            return
+        }
+        val size = preview.size
 
         guiGraphics.enableScissor(x, y, x + w, y + h)
 
@@ -103,84 +167,11 @@ object SchematicPreviewRenderer {
         // Center the schematic at origin
         pose.translate(-size.x / 2.0, -size.y / 2.0, -size.z / 2.0)
 
-        // Render each block
-        val dispatcher = Minecraft.getInstance().blockRenderer
-        val bufferSource = guiGraphics.bufferSource()
-        val bounds = level.bounds
-
         RenderSystem.enableDepthTest()
-
-        for (blockPos in BlockPos.betweenClosed(
-            bounds.minX(), bounds.minY(), bounds.minZ(),
-            bounds.maxX(), bounds.maxY(), bounds.maxZ()
-        )) {
-            val state = level.getBlockState(blockPos)
-            if (state.isAir) continue
-            if (state.renderShape == RenderShape.INVISIBLE) continue
-
-            pose.pushPose()
-            pose.translate(blockPos.x.toDouble(), blockPos.y.toDouble(), blockPos.z.toDouble())
-
-            try {
-                // Query block entity for model data (Create blocks need this for correct rendering)
-                val blockEntity = level.getBlockEntity(blockPos)
-                val bakedModel = dispatcher.getBlockModel(state)
-                val modelData = if (blockEntity != null) {
-                    val beData = blockEntity.modelData
-                    bakedModel.getModelData(level, blockPos, state, beData)
-                } else {
-                    ModelData.EMPTY
-                }
-
-                // Render the baked block model directly instead of using renderSingleBlock,
-                // which would render ENTITYBLOCK_ANIMATED blocks (shafts, belts, crushing wheels,
-                // gearboxes) as their item form rather than their actual block model.
-                val color = Minecraft.getInstance().blockColors.getColor(state, null, null, 0)
-                val r = (color shr 16 and 0xFF) / 255f
-                val g = (color shr 8 and 0xFF) / 255f
-                val b = (color and 0xFF) / 255f
-                val random = RandomSource.create(state.getSeed(blockPos))
-
-                for (renderType in bakedModel.getRenderTypes(state, random, modelData)) {
-                    dispatcher.modelRenderer.renderModel(
-                        pose.last(), bufferSource.getBuffer(renderType),
-                        state, bakedModel, r, g, b,
-                        LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-                        modelData, renderType
-                    )
-                }
-            } catch (_: Exception) {
-                // Skip blocks that fail to render
-            }
-
-            pose.popPose()
-        }
-
-        // Render block entities (belts, kinetic blocks, etc.) via their BlockEntityRenderers.
-        // The baked model pass above handles static geometry; this pass adds the dynamic parts
-        // that only exist in BlockEntityRenderer (e.g. the belt strip, rotating shafts).
-        val beDispatcher = Minecraft.getInstance().blockEntityRenderDispatcher
-        for (blockEntity in level.renderedBlockEntities) {
-            @Suppress("UNCHECKED_CAST")
-            val beRenderer = beDispatcher.getRenderer(blockEntity) as? BlockEntityRenderer<Any> ?: continue
-            val pos = blockEntity.blockPos
-
-            pose.pushPose()
-            pose.translate(pos.x.toDouble(), pos.y.toDouble(), pos.z.toDouble())
-
-            try {
-                beRenderer.render(
-                    blockEntity, 0f, pose, bufferSource,
-                    LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY
-                )
-            } catch (_: Exception) {
-                // Skip block entities that fail to render
-            }
-
-            pose.popPose()
-        }
-
-        bufferSource.endBatch()
+        Lighting.setupFor3DItems()
+        val buffers = DefaultSuperRenderTypeBuffer.getInstance()
+        preview.renderer.render(pose, buffers)
+        buffers.draw()
         pose.popPose()
         guiGraphics.disableScissor()
     }
@@ -247,123 +238,31 @@ object SchematicPreviewRenderer {
         }
     }
 
-    private fun getOrLoadLevel(filename: String): SchematicLevel? {
-        if (filename == cachedFilename) return cachedLevel
-
-        cachedFilename = filename
-        cachedLevel = null
-        cachedSize = Vec3i.ZERO
-
-        try {
-            val mc = Minecraft.getInstance()
-            val level = mc.level ?: return null
-            val player = mc.player ?: return null
-
-            val fakeStack = com.simibubi.create.AllItems.SCHEMATIC.asStack()
-            fakeStack.set(AllDataComponents.SCHEMATIC_FILE, filename)
-            fakeStack.set(AllDataComponents.SCHEMATIC_OWNER, player.gameProfile.name)
-            fakeStack.set(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO)
-            fakeStack.set(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE)
-            fakeStack.set(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE)
-            fakeStack.set(AllDataComponents.SCHEMATIC_DEPLOYED, true)
-
-            val template = SchematicItem.loadSchematic(level, fakeStack)
-            if (template.size == Vec3i.ZERO) return null
-
-            cachedSize = template.size
-
-            val schematicLevel = SchematicLevel(level)
-            val settings = StructurePlaceSettings()
-            settings.rotation = Rotation.NONE
-            settings.mirror = Mirror.NONE
-
-            template.placeInWorld(
-                schematicLevel, BlockPos.ZERO, BlockPos.ZERO,
-                settings, schematicLevel.random, Block.UPDATE_CLIENTS
-            )
-
-            for (blockEntity in schematicLevel.blockEntities) {
-                blockEntity.setLevel(schematicLevel)
-            }
-
-            cachedLevel = schematicLevel
-            buildMaterialList(schematicLevel)
-            return schematicLevel
-        } catch (_: Exception) {
-            return null
+    private fun renderStatus(guiGraphics: GuiGraphics, state: State?, x: Int, y: Int, w: Int, h: Int) {
+        val key = when (state) {
+            State.FAILED -> "gui.cbbees.schematic_preview.failed"
+            State.LOADING -> "gui.cbbees.browse_online.loading_preview"
+            else -> return
+        }
+        val font = Minecraft.getInstance().font
+        val lines = font.split(Component.translatable(key), w - 8)
+        lines.forEachIndexed { i, line ->
+            guiGraphics.drawCenteredString(font, line, x + w / 2, y + h / 2 - lines.size * 5 + i * 10, 0x888888)
         }
     }
 
-    /**
-     * Loads a schematic from raw (GZIPped) NBT bytes into the cache.
-     * Use [key] as the cache identifier for subsequent [renderPreview] / [getMaterials] calls.
-     *
-     * @return true if the schematic was loaded successfully
-     */
-    fun loadFromNbtBytes(key: String, nbtBytes: ByteArray): Boolean {
-        if (key == cachedFilename) return cachedLevel != null
+    /** Returns the material list for the given schematic, or an empty list while it is loading. */
+    fun getMaterials(key: String): List<MaterialEntry> = preview(key)?.materials ?: emptyList()
 
-        cachedFilename = key
-        cachedLevel = null
-        cachedSize = Vec3i.ZERO
-        cachedMaterials = emptyList()
-
-        try {
-            val mc = Minecraft.getInstance()
-            val level = mc.level ?: return false
-
-            val stream = DataInputStream(BufferedInputStream(GZIPInputStream(ByteArrayInputStream(nbtBytes))))
-            val nbt = NbtIo.read(stream, NbtAccounter.create(0x20000000L))
-            val template = StructureTemplate()
-            template.load(level.holderLookup(Registries.BLOCK), nbt)
-
-            if (template.size == Vec3i.ZERO) return false
-
-            cachedSize = template.size
-
-            val schematicLevel = SchematicLevel(level)
-            val settings = StructurePlaceSettings()
-            settings.rotation = Rotation.NONE
-            settings.mirror = Mirror.NONE
-
-            template.placeInWorld(
-                schematicLevel, BlockPos.ZERO, BlockPos.ZERO,
-                settings, schematicLevel.random, Block.UPDATE_CLIENTS
-            )
-
-            for (blockEntity in schematicLevel.blockEntities) {
-                blockEntity.setLevel(schematicLevel)
-            }
-
-            cachedLevel = schematicLevel
-            buildMaterialList(schematicLevel)
-            return true
-        } catch (_: Exception) {
-            return false
-        }
-    }
-
-    /**
-     * Returns the material list for the given schematic.
-     * Sorted by count descending. Loads the schematic if not cached.
-     */
-    fun getMaterials(filename: String): List<MaterialEntry> {
-        getOrLoadLevel(filename)
-        return cachedMaterials
-    }
-
-    /** Returns the schematic size, or [Vec3i.ZERO] if not loaded. */
-    fun getSize(filename: String): Vec3i {
-        getOrLoadLevel(filename)
-        return cachedSize
-    }
+    /** Returns the schematic size, or [Vec3i.ZERO] while it is loading. */
+    fun getSize(key: String): Vec3i = preview(key)?.size ?: Vec3i.ZERO
 
     /**
      * Builds the material list using Create's [ItemRequirement] system.
      * This correctly handles multi-block structures (belts), encased blocks,
      * double slabs, and other special cases.
      */
-    private fun buildMaterialList(level: SchematicLevel) {
+    private fun buildMaterialList(level: SchematicLevel): List<MaterialEntry> {
         val counts = mutableMapOf<Item, Int>()
         val fluidAmounts = mutableMapOf<Fluid, Int>()
         val bounds = level.bounds
@@ -392,21 +291,25 @@ object SchematicPreviewRenderer {
 
         val items = counts.entries
             .sortedByDescending { it.value }
-            .map { (item, count) -> ItemStack(item).let { MaterialEntry(it, "x$count", it.hoverName) } }
+            .map { (item, count) -> ItemStack(item).let { MaterialEntry(it, "x$count", it.hoverName, compactCount(count)) } }
         val fluids = fluidAmounts.entries
             .sortedByDescending { it.value }
             .map { (fluid, amount) ->
                 val bucket = fluid.bucket.takeIf { it != Items.AIR } ?: Items.BUCKET
-                MaterialEntry(ItemStack(bucket), "${amount}mB", FluidStack(fluid, amount).hoverName)
+                MaterialEntry(ItemStack(bucket), "${amount}mB", FluidStack(fluid, amount).hoverName, compactCount(amount / FluidType.BUCKET_VOLUME))
             }
-        cachedMaterials = items + fluids
+        return items + fluids
+    }
+
+    private fun compactCount(count: Int): String = when {
+        count < 1000 -> count.toString()
+        count < 10_000 -> "%.1fk".format(Locale.ROOT, count / 1000f)
+        else -> "${count / 1000}k"
     }
 
     /** Clears the cache. Call when the screen closes. */
     fun clear() {
-        cachedFilename = null
-        cachedLevel = null
-        cachedSize = Vec3i.ZERO
-        cachedMaterials = emptyList()
+        cache.values.filterIsInstance<Loading>().forEach { it.template.cancel(true) }
+        cache.clear()
     }
 }

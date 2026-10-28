@@ -15,7 +15,9 @@ import net.minecraft.world.level.Level
 interface BeeAction {
     val pos: BlockPos
     val changedPositions: List<BlockPos> get() = listOf(pos)
+    fun changedPositions(level: Level): List<BlockPos> = changedPositions
     fun inversion(pos: BlockPos, before: BlockSnapshot): BeeAction? = null
+    fun inversion(level: Level, pos: BlockPos, before: BlockSnapshot): BeeAction? = inversion(pos, before)
     fun getWorkTicks(context: BeeContext): Int = 0
 
     fun onStart(worker: BeeWorker) {}

@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.job
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.domain.built.BuiltSchematics
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -123,6 +124,7 @@ data class BeeJob(
     fun checkCompletion() {
         if (status == JobStatus.IN_PROGRESS && isComplete()) {
             complete()
+            BuiltSchematics.record(this)
             JobNotifications.finished(this)
         }
     }

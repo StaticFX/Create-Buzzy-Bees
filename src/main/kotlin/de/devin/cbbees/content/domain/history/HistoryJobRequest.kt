@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.history
 
+import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.beehive.BeeHive
@@ -86,6 +87,7 @@ class HistoryJobRequest(
             val removals = edits.keys.filterNot { level.getBlockState(it).isAir }
                 .map { SchematicCreateBridge.removalBatch(it, level.getBlockState(it), maxY, job) }
             val restores = edits.filterValues { it.undo !is RemoveBlockAction }
+                .entries.distinctBy { (pos, change) -> (change.undo as? PlaceBeltAction)?.pos ?: pos }
                 .map { (pos, change) -> restoreBatch(pos, change, job) }
             return removals + restores
         }

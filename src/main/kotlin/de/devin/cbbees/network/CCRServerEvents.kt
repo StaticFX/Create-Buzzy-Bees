@@ -91,6 +91,7 @@ object CCRServerEvents {
                 server.playerList.players.forEach { player ->
                     HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                     NetworkSyncPacket.sendTo(player)
+                    BuiltSchematicsSyncPacket.sendTo(player)
                 }
                 profiler.pop()
             }

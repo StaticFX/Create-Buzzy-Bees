@@ -12,6 +12,7 @@ import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.logistics.DockPort
+import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -22,6 +23,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.LiquidBlock
 import net.neoforged.neoforge.fluids.FluidStack
+import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -195,7 +197,8 @@ object FlightPlanComputer {
         add(Checkpoint(bee.blockPosition(), FlyThrough))
         val missing = computeMissingItems(bee, batch)
         if (missing.isNotEmpty()) {
-            val provider = findBestProvider(network, missing, bee.id) ?: return null
+            val nextStop = batch.getRemainingTasks().firstOrNull()?.targetPos ?: batch.targetPosition
+            val provider = findBestProvider(network, missing, bee.id, bee.blockPosition(), nextStop) ?: return null
             add(Checkpoint(provider.gatherPos(), GatherFromPort(missing, provider.id), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val missingFluid = computeMissingFluid(bee, batch)
@@ -420,12 +423,14 @@ object FlightPlanComputer {
     private fun findBestProvider(
         network: BeeNetwork,
         missing: List<ItemStack>,
-        beeId: java.util.UUID,
-    ): de.devin.cbbees.content.domain.logistics.LogisticsPort? {
+        beeId: UUID,
+        from: BlockPos,
+        to: BlockPos,
+    ): LogisticsPort? {
         val log = CreateBuzzyBeez.LOGGER
         val first = missing.firstOrNull() ?: return null
         log.debug("[FlightPlan] Finding provider for ${first.hoverName.string} x${first.count}")
-        val provider = network.findAvailableProvider(first.copyWithCount(1), beeId)
+        val provider = network.findAvailableProvider(first.copyWithCount(1), beeId, from, to)
         if (provider == null) {
             log.debug("[FlightPlan] No available provider found for ${first.hoverName.string}")
         } else {

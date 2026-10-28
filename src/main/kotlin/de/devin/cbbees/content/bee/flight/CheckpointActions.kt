@@ -64,6 +64,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
                 bee.id.toString().substring(0, 6)
             } arrived, gathering ${items.size} item type(s) from ${targetPort?.javaClass?.simpleName ?: "fallback"}"
         )
+        val nextStop = bee.currentTask?.let { it.getRemainingTasks().firstOrNull()?.targetPos ?: it.targetPosition }
         var allGathered = true
         items.forEach { item ->
             if (bee.isInventoryFull()) {
@@ -73,7 +74,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
             val provider = if (targetPort != null && targetPort.hasItemStack(item)) {
                 targetPort
             } else {
-                network.findAvailableProvider(item.copyWithCount(1), bee.id)
+                network.findAvailableProvider(item.copyWithCount(1), bee.id, bee.blockPosition(), nextStop)
             }
 
             if (provider == null) {

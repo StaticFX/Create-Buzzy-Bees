@@ -20,7 +20,7 @@ class CBBSequencedAssemblyGen(
         it.require { Items.HONEYCOMB }.transitionTo { AllItems.INCOMPLETE_MECHANICAL_BEE.get() }
             .addOutput(AllItems.MECHANICAL_BEE_CHASSIS.get(), 1f)
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.ELECTRON_TUBE.get() } }
-            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.PRECISION_MECHANISM.get() } }
+            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllBlocks.COGWHEEL.asItem() } }
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.BRASS_SHEET.get() } }
             .addStep(::PressingRecipe) { it }
             .loops(1)
@@ -31,8 +31,8 @@ class CBBSequencedAssemblyGen(
             .addOutput(AllItems.MECHANICAL_BUMBLE_BEE_CHASSIS.get(), 1f)
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.IRON_SHEET.get() } }
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.ELECTRON_TUBE.get() } }
-            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.PRECISION_MECHANISM.get() } }
-            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllBlocks.ITEM_VAULT.asItem() } }
+            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllBlocks.COGWHEEL.asItem() } }
+            .addStep(::DeployerApplicationRecipe) { it.require { Blocks.CHEST.asItem() } }
             .addStep(::PressingRecipe) { it }
             .loops(1)
     })
@@ -41,6 +41,7 @@ class CBBSequencedAssemblyGen(
         it.require { Blocks.BEEHIVE.asItem() }.transitionTo { AllItems.INCOMPLETE_MECHANICAL_BEEHIVE.get() }
             .addOutput(AllBlocks.MECHANICAL_BEEHIVE.get(), 1f)
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.ELECTRON_TUBE.get() } }
+            .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllItems.PRECISION_MECHANISM.get() } }
             .addStep(::DeployerApplicationRecipe) { it.require { com.simibubi.create.AllBlocks.COGWHEEL.asItem() } }
             .addStep(::PressingRecipe) { it }
             .loops(1)

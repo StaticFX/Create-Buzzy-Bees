@@ -15,13 +15,13 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.neoforged.neoforge.fluids.FluidStack
 import java.util.*
+import kotlin.math.sqrt
 
 class BeeNetwork(
     val id: UUID = UUID.randomUUID(),
     private val topology: NetworkTopology = ServerBeeNetworkManager.topology
 ) {
     val name: String = id.toString().substring(0, 4).uppercase()
-    val color: Int = (id.hashCode() and 0x7F7F7F) or 0x808080
 
     var level: net.minecraft.world.level.Level? = null
 
@@ -193,19 +193,32 @@ class BeeNetwork(
         }.maxByOrNull { it.priority() }
     }
 
-    fun findAvailableProvider(stack: ItemStack, excludeBeeId: UUID? = null): LogisticsPort? {
-        return findAvailableProviders(stack, excludeBeeId).firstOrNull()
+    fun findAvailableProvider(
+        stack: ItemStack,
+        excludeBeeId: UUID? = null,
+        from: BlockPos? = null,
+        to: BlockPos? = null,
+    ): LogisticsPort? {
+        return findAvailableProviders(stack, excludeBeeId, from, to).firstOrNull()
     }
 
-    fun findAvailableProviders(stack: ItemStack, excludeBeeId: UUID? = null): List<LogisticsPort> {
+    fun findAvailableProviders(
+        stack: ItemStack,
+        excludeBeeId: UUID? = null,
+        from: BlockPos? = null,
+        to: BlockPos? = null,
+    ): List<LogisticsPort> {
         return ports.filter {
             it.isValidForPickup() && it.testFilter(stack) && it.hasAvailableItemStack(
                 stack,
                 excludeBeeId
             )
         }
-            .sortedByDescending { it.priority() }
+            .sortedWith(compareByDescending<LogisticsPort> { it.priority() }.thenBy { it.detour(from, to) })
     }
+
+    private fun LogisticsPort.detour(from: BlockPos?, to: BlockPos?): Double =
+        listOfNotNull(from, to).sumOf { sqrt(world.worldDistanceSqr(pos, it)) }
 
     fun findFluidProvider(fluid: FluidStack): DockPort? {
         return dockPorts.filter { it.isValidForPickup() && it.testFilter(fluid) && it.hasFluid(fluid) }

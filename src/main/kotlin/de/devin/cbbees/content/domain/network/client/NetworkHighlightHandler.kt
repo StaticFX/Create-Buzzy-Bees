@@ -12,10 +12,9 @@ import net.minecraft.world.phys.HitResult
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.ClientTickEvent
 import de.devin.cbbees.util.ClientSide
-import kotlin.math.sin
 
 /**
- * Handles the blinking network highlight when hovering over any component of a bee network.
+ * Handles the breathing network highlight when hovering over any component of a bee network.
  */
 @ClientSide
 object NetworkHighlightHandler {
@@ -37,21 +36,17 @@ object NetworkHighlightHandler {
         if (trace != null && trace.type == HitResult.Type.BLOCK) {
             val be = level.getBlockEntity(trace.blockPos)
             if (be is INetworkComponent) {
-                renderNetworkBlink(be)
+                renderNetworkHighlight(be)
             }
         }
     }
 
-    private fun renderNetworkBlink(component: INetworkComponent) {
+    private fun renderNetworkHighlight(component: INetworkComponent) {
         val network = component.networkId?.let(ClientBeeNetworkManager::getNetwork) ?: return
 
         if (network.components.isEmpty()) return
 
-        // Create-style smooth blinking
-        val time = AnimationTickHolder.getRenderTime()
-        // Oscillate alpha between 0.3 and 0.9
-        val alpha = (0.6 + 0.3 * sin(time * 0.6))
-        val color = ((alpha * 255).toInt() shl 24) or 0xFFFFFF
+        val color = NetworkColors.breathing(network.id, AnimationTickHolder.getRenderTime())
 
         for (comp in network.components) {
             val pos = comp.pos

@@ -239,7 +239,7 @@ class SchematicCreateBridge(
 
         positions.forEachIndexed { index, pos ->
             onProgress?.let { if (index % 2_000 == 0) it(index, positions.size) }
-            processRemovalBlock(pos, corner1, corner2, job, batches)
+            processRemovalBlock(pos, maxOf(corner1.y, corner2.y), job, batches)
         }
 
         return batches
@@ -259,17 +259,27 @@ class SchematicCreateBridge(
         blocksPerTick: Int = 1000,
         progress: JobCalculationProgress.Tracker? = null,
         onComplete: (List<TaskBatch>) -> Unit,
+    ) = generateRemovalTasksAsync(buildRemovalPositions(corner1, corner2), job, server, blocksPerTick, progress, onComplete)
+
+    fun generateRemovalTasksAsync(
+        positions: List<BlockPos>,
+        job: BeeJob,
+        server: MinecraftServer,
+        blocksPerTick: Int = 1000,
+        progress: JobCalculationProgress.Tracker? = null,
+        onComplete: (List<TaskBatch>) -> Unit,
     ) {
         val batches = mutableListOf<TaskBatch>()
-        val positions = buildRemovalPositions(corner1, corner2)
-        val total = positions.size
+        val ordered = positions.sortedByDescending { it.y }
+        val maxY = ordered.firstOrNull()?.y ?: 0
+        val total = ordered.size
         var index = 0
 
         fun processChunk() {
             val chunkStart = index
             val end = (index + blocksPerTick).coerceAtMost(total)
             while (index < end) {
-                processRemovalBlock(positions[index], corner1, corner2, job, batches)
+                processRemovalBlock(ordered[index], maxY, job, batches)
                 index++
             }
             progress?.advance(index - chunkStart)
@@ -325,8 +335,7 @@ class SchematicCreateBridge(
         }
     }
 
-    private fun processRemovalBlock(pos: BlockPos, corner1: BlockPos, corner2: BlockPos, job: BeeJob, batches: MutableList<TaskBatch>) {
-        val maxY = maxOf(corner1.y, corner2.y)
+    private fun processRemovalBlock(pos: BlockPos, maxY: Int, job: BeeJob, batches: MutableList<TaskBatch>) {
         val state = level.getBlockState(pos)
         if (state.block is LiquidBlock && !state.fluidState.isSource) return
         if (!state.isAir && state.getDestroySpeed(level, pos) >= 0) {

@@ -22,6 +22,7 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.NbtUtils
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.ByteBufCodecs
+import net.minecraft.server.MinecraftServer
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerLevel
@@ -252,12 +253,12 @@ class HiveJobsSyncPacket(
         private fun isNearby(job: BeeJob, player: ServerPlayer): Boolean =
             job.level == player.level() && job.centerPos.closerToCenterThan(player.position(), VISIBLE_RANGE)
 
-        private fun ownerNameOf(job: BeeJob, player: ServerPlayer): String? {
-            val ownerId = job.ownerId ?: return null
-            val server = player.server
-            return server.playerList.getPlayer(ownerId)?.gameProfile?.name
-                ?: server.profileCache?.get(ownerId)?.map { it.name }?.orElse(null)
-        }
+        private fun ownerNameOf(job: BeeJob, player: ServerPlayer): String? =
+            job.ownerId?.let { playerName(player.server, it) }
+
+        fun playerName(server: MinecraftServer, playerId: UUID): String? =
+            server.playerList.getPlayer(playerId)?.gameProfile?.name
+                ?: server.profileCache?.get(playerId)?.map { it.name }?.orElse(null)
 
         fun sendPlayerSnapshotTo(player: ServerPlayer) {
             val jobs = GlobalJobPool.getAllJobs()

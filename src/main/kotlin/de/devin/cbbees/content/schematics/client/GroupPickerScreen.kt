@@ -1,215 +1,164 @@
 package de.devin.cbbees.content.schematics.client
 
-import com.simibubi.create.foundation.gui.AllIcons
-import com.simibubi.create.foundation.gui.widget.IconButton
-import net.minecraft.client.Minecraft
+import de.devin.cbbees.icons.AllCCRGuiTextures
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.ObjectSelectionList
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.createmod.catnip.gui.AbstractSimiScreen
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import org.lwjgl.glfw.GLFW
 
 /**
- * Popup screen for selecting or creating a group path for a schematic.
- * Styled to match the Schematic Deployer screen.
+ * Popup for choosing an existing group path for a schematic or creating a new one.
  */
 @OnlyIn(Dist.CLIENT)
 class GroupPickerScreen(
     private val callback: (String) -> Unit,
     private val currentGroup: String = "",
-    private val parentScreen: Screen? = null
-) : AbstractSimiScreen(Component.translatable("gui.cbbees.group_picker.title")) {
+    parentScreen: Screen? = null
+) : PlannerDialog(Component.translatable("gui.cbbees.group_picker.title"), WIDTH, HEIGHT, parentScreen) {
 
-    companion object {
-        private const val PANEL_W = 220
-        private const val PANEL_H = 210
-        private const val MARGIN = 10
+    private class GroupEntry(val path: String, val label: Component, val depth: Int)
 
-        private const val BG_PANEL = 0xCC2A2A2A.toInt()
-        private const val BG_TITLE = 0xFF3A3A3A.toInt()
-        private const val BORDER = 0xFF555555.toInt()
-        private const val GOLD = 0xFFD4AA00.toInt()
-        private const val LABEL = 0xAAAAAA
-    }
+    private val entries = mutableListOf<GroupEntry>()
+    private var selectedPath = currentGroup
+    private var scroll = 0
+    private var draggingScrollbar = false
+    private lateinit var newGroupField: EditBox
 
-    private var groupList: GroupSelectionList? = null
-    private var newGroupField: EditBox? = null
-    private var selectedPath: String = currentGroup
-    private var confirmButton: IconButton? = null
-    private var cancelButton: IconButton? = null
+    private val listLeft get() = left + MARGIN
+    private val listTop get() = top + 32
+    private val rowsLeft get() = listLeft + 2
+    private val rowsTop get() = listTop + 2
+    private val rowsWidth get() = WIDTH - MARGIN * 2 - 10
+    private val trackLeft get() = rowsLeft + rowsWidth + 2
 
     override fun init() {
-        setWindowSize(PANEL_W, PANEL_H)
         super.init()
-
-        val x = guiLeft
-        val y = guiTop
-        val innerLeft = x + MARGIN
-        val innerWidth = PANEL_W - MARGIN * 2
-
-        val listTop = y + 38
-        val listHeight = 94
-        groupList = GroupSelectionList(minecraft!!, innerWidth, listHeight, listTop, 16, innerLeft)
-        addWidget(groupList!!)
-
-        groupList!!.addGroupEntry(GroupEntry("", Component.translatable("gui.cbbees.group_picker.root")))
-        for (path in SchematicGroupManager.getAllGroupPaths().sorted()) {
-            val depth = path.count { it == '/' }
-            val indent = "  ".repeat(depth)
-            val displayName = path.substringAfterLast("/")
-            groupList!!.addGroupEntry(GroupEntry(path, Component.literal("$indent$displayName")))
+        entries.clear()
+        entries += GroupEntry("", Component.translatable("gui.cbbees.group_picker.root"), 0)
+        SchematicGroupManager.getAllGroupPaths().sorted().forEach { path ->
+            entries += GroupEntry(path, Component.literal(path.substringAfterLast('/')), path.count { it == '/' })
         }
-        groupList!!.children().find { it.path == currentGroup }?.let { groupList!!.selected = it }
+        scroll = scroll.coerceIn(0, maxScroll())
 
-        val fieldY = y + PANEL_H - 46
-        newGroupField = EditBox(font, innerLeft, fieldY, innerWidth, 16,
-            Component.translatable("gui.cbbees.group_picker.new_group"))
-        newGroupField!!.setMaxLength(200)
-        newGroupField!!.value = ""
-        newGroupField!!.setHint(Component.translatable("gui.cbbees.group_picker.new_group_hint"))
-        addRenderableWidget(newGroupField!!)
+        val previous = if (::newGroupField.isInitialized) newGroupField.value else ""
+        newGroupField = addInput(left + MARGIN, top + 140, WIDTH - MARGIN * 2, Component.translatable("gui.cbbees.group_picker.new_group"))
+        newGroupField.setMaxLength(200)
+        newGroupField.setHint(Component.translatable("gui.cbbees.group_picker.new_group_hint"))
+        newGroupField.value = previous
 
-        confirmButton = IconButton(x + PANEL_W - 25, y + PANEL_H - 25, AllIcons.I_CONFIRM).also {
-            it.setToolTip(Component.translatable("gui.cbbees.group_picker.confirm"))
-            addRenderableWidget(it)
+        addDialogButtons(Component.translatable("gui.cbbees.group_picker.confirm"), ::confirm)
+    }
+
+    private fun maxScroll() = (entries.size - VISIBLE_ROWS).coerceAtLeast(0)
+
+    private fun visibleEntries() = entries.drop(scroll).take(VISIBLE_ROWS)
+
+    private fun entryAt(mouseX: Double, mouseY: Double): GroupEntry? {
+        if (mouseX < rowsLeft || mouseX >= rowsLeft + rowsWidth || mouseY < rowsTop || mouseY >= rowsTop + VISIBLE_ROWS * ROW_HEIGHT) return null
+        return visibleEntries().getOrNull(((mouseY - rowsTop) / ROW_HEIGHT).toInt())
+    }
+
+    private fun overTrack(mouseX: Double, mouseY: Double) =
+        mouseX >= trackLeft && mouseX < trackLeft + 4 && mouseY >= rowsTop && mouseY < rowsTop + VISIBLE_ROWS * ROW_HEIGHT
+
+    private fun scrollTo(mouseY: Double) {
+        val progress = ((mouseY - rowsTop) / (VISIBLE_ROWS * ROW_HEIGHT)).coerceIn(0.0, 1.0)
+        scroll = (progress * maxScroll() + 0.5).toInt()
+    }
+
+    private fun confirm() {
+        val newGroup = newGroupField.value.trim().trim('/')
+        callback(newGroup.ifEmpty { selectedPath })
+        onClose()
+    }
+
+    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick)
+        guiGraphics.drawString(font, Component.translatable("gui.cbbees.group_picker.existing"), left + MARGIN, top + 22, 0xAAAAAA, false)
+
+        AllCCRGuiTextures.PLANNER_PANEL.renderNineSlice(guiGraphics, listLeft, listTop, WIDTH - MARGIN * 2, VISIBLE_ROWS * ROW_HEIGHT + 4, 2)
+        AllCCRGuiTextures.PLANNER_SCROLL_TRACK.renderNineSlice(guiGraphics, trackLeft, rowsTop, 4, VISIBLE_ROWS * ROW_HEIGHT, 0, 2)
+
+        val hovered = entryAt(mouseX.toDouble(), mouseY.toDouble())
+        visibleEntries().forEachIndexed { i, entry ->
+            val y = rowsTop + i * ROW_HEIGHT
+            val selected = entry.path == selectedPath && newGroupField.value.isBlank()
+            when {
+                selected -> AllCCRGuiTextures.PLANNER_ROW_SELECTED.renderNineSlice(guiGraphics, rowsLeft, y, rowsWidth, ROW_HEIGHT, 2)
+                entry === hovered -> AllCCRGuiTextures.PLANNER_ROW_HOVER.renderNineSlice(guiGraphics, rowsLeft, y, rowsWidth, ROW_HEIGHT, 2)
+            }
+            val iconX = rowsLeft + 2 + entry.depth * INDENT
+            AllCCRGuiTextures.PLANNER_ICON_GROUP.render(guiGraphics, iconX, y + 2)
+            val color = when {
+                selected -> 0xFFFFFF
+                entry.path.isEmpty() -> 0xAAAAAA
+                else -> 0x88CCFF
+            }
+            val textX = iconX + 14
+            AbstractWidget.renderScrollingString(guiGraphics, font, entry.label, textX, textX, y, rowsLeft + rowsWidth - 2, y + ROW_HEIGHT, color)
         }
-        cancelButton = IconButton(x + 5, y + PANEL_H - 25, AllIcons.I_DISABLE).also {
-            it.setToolTip(Component.translatable("gui.cbbees.group_picker.cancel"))
-            addRenderableWidget(it)
+
+        if (maxScroll() > 0) {
+            val thumb = AllCCRGuiTextures.PLANNER_SCROLL_THUMB
+            thumb.render(guiGraphics, trackLeft, rowsTop + (VISIBLE_ROWS * ROW_HEIGHT - thumb.height) * scroll / maxScroll())
         }
+
+        drawDivider(guiGraphics, top + 120)
+        guiGraphics.drawString(font, Component.translatable("gui.cbbees.group_picker.or_create"), left + MARGIN, top + 128, 0xAAAAAA, false)
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        confirmButton?.let { if (it.isMouseOver(mouseX, mouseY)) { confirm(); return true } }
-        cancelButton?.let { if (it.isMouseOver(mouseX, mouseY)) { onClose(); return true } }
-        groupList?.let { if (it.mouseClicked(mouseX, mouseY, button)) return true }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
-        groupList?.let { if (it.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) return true }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
-    }
-
-    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
-        groupList?.let { if (it.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+        if (super.mouseClicked(mouseX, mouseY, button)) return true
+        if (button == 0 && overTrack(mouseX, mouseY)) {
+            draggingScrollbar = true
+            scrollTo(mouseY)
+            return true
+        }
+        val entry = entryAt(mouseX, mouseY) ?: return false
+        val wasSelected = entry.path == selectedPath && newGroupField.value.isBlank()
+        selectedPath = entry.path
+        newGroupField.value = ""
+        if (wasSelected) confirm()
+        return true
     }
 
     override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        groupList?.let { if (it.mouseReleased(mouseX, mouseY, button)) return true }
+        draggingScrollbar = false
         return super.mouseReleased(mouseX, mouseY, button)
+    }
+
+    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
+        if (draggingScrollbar) {
+            scrollTo(mouseY)
+            return true
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+    }
+
+    override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
+        scroll = (scroll - scrollY.toInt()).coerceIn(0, maxScroll())
+        return true
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            confirm(); return true
+            confirm()
+            return true
         }
         return super.keyPressed(keyCode, scanCode, modifiers)
     }
 
-    private fun confirm() {
-        val newGroup = newGroupField?.value?.trim() ?: ""
-        val result = if (newGroup.isNotEmpty()) newGroup.trim('/') else selectedPath
-        callback(result)
-        minecraft?.setScreen(parentScreen)
-    }
-
-    override fun onClose() {
-        minecraft?.setScreen(parentScreen)
-    }
-
-    override fun renderWindow(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTicks: Float) {
-        val x = guiLeft
-        val y = guiTop
-        val w = windowWidth
-        val h = windowHeight
-
-        graphics.fill(x, y, x + w, y + h, BG_PANEL)
-        graphics.fill(x, y, x + w, y + 1, BORDER)
-        graphics.fill(x, y + h - 1, x + w, y + h, BORDER)
-        graphics.fill(x, y, x + 1, y + h, BORDER)
-        graphics.fill(x + w - 1, y, x + w, y + h, BORDER)
-
-        graphics.fill(x + 1, y + 1, x + w - 1, y + 18, BG_TITLE)
-        graphics.drawCenteredString(font, title, x + w / 2, y + 5, GOLD)
-
-        graphics.drawString(font, Component.translatable("gui.cbbees.group_picker.existing"),
-            x + MARGIN, y + 22, LABEL, false)
-
-        groupList?.render(graphics, mouseX, mouseY, partialTicks)
-
-        val sepY = y + PANEL_H - 62
-        graphics.fill(x + MARGIN, sepY, x + w - MARGIN, sepY + 1, BORDER)
-
-        graphics.drawString(font, Component.translatable("gui.cbbees.group_picker.or_create"),
-            x + MARGIN, sepY + 3, LABEL, false)
-    }
-
     override fun isPauseScreen(): Boolean = false
 
-    inner class GroupEntry(val path: String, private val display: Component) :
-        ObjectSelectionList.Entry<GroupEntry>() {
-
-        override fun getNarration(): Component = display
-
-        override fun render(
-            guiGraphics: GuiGraphics, index: Int,
-            top: Int, left: Int, width: Int, height: Int,
-            mouseX: Int, mouseY: Int, hovered: Boolean, partialTick: Float
-        ) {
-            val selected = groupList?.selected === this
-            val list = groupList ?: return
-            val hlLeft = list.getRowLeft()
-            val hlRight = hlLeft + list.getRowWidth() + 12
-
-            if (selected) {
-                guiGraphics.fill(hlLeft, top, hlRight, top + height, 0x50FFFFFF)
-            } else if (hovered) {
-                guiGraphics.fill(hlLeft, top, hlRight, top + height, 0x20FFFFFF)
-            }
-
-            val color = when {
-                selected -> 0xFFFF00
-                path.isEmpty() -> LABEL
-                hovered -> 0xFFFFFF
-                else -> 0xCCCCCC
-            }
-            guiGraphics.drawString(font, display, left + 2, top + 3, color, false)
-        }
-
-        override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-            groupList?.setSelected(this)
-            selectedPath = path
-            newGroupField?.value = ""
-            return true
-        }
-    }
-
-    inner class GroupSelectionList(
-        mc: Minecraft, width: Int, height: Int, top: Int, itemHeight: Int,
-        private val listLeft: Int
-    ) : ObjectSelectionList<GroupEntry>(mc, width, height, top, itemHeight) {
-
-        init {
-            x = listLeft
-        }
-
-        override fun getRowLeft(): Int = listLeft
-        override fun getRowWidth(): Int = this.width - 12
-        override fun isSelectedItem(index: Int): Boolean = false
-
-        fun addGroupEntry(entry: GroupEntry): Int = super.addEntry(entry)
-
-        override fun renderWidget(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-            guiGraphics.enableScissor(listLeft, this.y, listLeft + this.width, this.y + this.height)
-            guiGraphics.fill(listLeft, this.y, listLeft + this.width, this.y + this.height, 0x40000000)
-            renderListItems(guiGraphics, mouseX, mouseY, partialTick)
-            guiGraphics.disableScissor()
-        }
+    companion object {
+        private const val WIDTH = 220
+        private const val HEIGHT = 200
+        private const val ROW_HEIGHT = 16
+        private const val VISIBLE_ROWS = 5
+        private const val INDENT = 8
     }
 }

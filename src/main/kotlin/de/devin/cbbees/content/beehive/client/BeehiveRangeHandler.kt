@@ -6,6 +6,7 @@ import com.simibubi.create.foundation.utility.RaycastHelper
 import de.devin.cbbees.config.CBBeesClientConfig
 import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
+import de.devin.cbbees.content.domain.network.client.NetworkColors
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
 import net.minecraft.world.phys.AABB
@@ -119,7 +120,7 @@ object BeehiveRangeHandler {
             }
         }
 
-        val color = network.color
+        val color = NetworkColors.light(network.id)
 
         // 4. Render the interior (checkerboard) using non-overlapping rectangles
         // We use a simple greedy merging algorithm for rectangles to reduce outliner calls

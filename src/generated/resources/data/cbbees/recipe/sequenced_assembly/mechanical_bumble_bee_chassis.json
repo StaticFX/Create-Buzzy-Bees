@@ -48,7 +48,7 @@
           "item": "cbbees:incomplete_mechanical_bumble_bee"
         },
         {
-          "item": "create:precision_mechanism"
+          "item": "create:cogwheel"
         }
       ],
       "results": [
@@ -64,7 +64,7 @@
           "item": "cbbees:incomplete_mechanical_bumble_bee"
         },
         {
-          "item": "create:item_vault"
+          "item": "minecraft:chest"
         }
       ],
       "results": [

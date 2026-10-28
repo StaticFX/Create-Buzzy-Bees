@@ -54,6 +54,16 @@ object AllPackets {
             CancelJobPacket.STREAM_CODEC,
             CancelJobPacket.Companion::handle
         )
+        registrar.playToClient(
+            BuiltSchematicsSyncPacket.TYPE,
+            BuiltSchematicsSyncPacket.STREAM_CODEC,
+            BuiltSchematicsSyncPacket.Companion::handle
+        )
+        registrar.playToServer(
+            RemoveBuildPacket.TYPE,
+            RemoveBuildPacket.STREAM_CODEC,
+            RemoveBuildPacket.Companion::handle
+        )
         registrar.playToServer(
             WriteMissingToClipboardPacket.TYPE,
             WriteMissingToClipboardPacket.STREAM_CODEC,

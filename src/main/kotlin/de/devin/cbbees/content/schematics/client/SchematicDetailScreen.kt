@@ -109,11 +109,8 @@ class SchematicDetailScreen(
         val cached = bytesCache[id]
         if (cached != null) {
             val key = "preview:$id"
-            if (SchematicPreviewRenderer.loadFromNbtBytes(key, cached)) {
-                previewKey = key
-            } else {
-                previewFailed = true
-            }
+            SchematicPreviewRenderer.loadFromNbtBytes(key, cached)
+            previewKey = key
             return
         }
 
@@ -125,11 +122,8 @@ class SchematicDetailScreen(
             Minecraft.getInstance().execute {
                 bytesCache[id] = nbtBytes
                 val key = "preview:$id"
-                if (SchematicPreviewRenderer.loadFromNbtBytes(key, nbtBytes)) {
-                    previewKey = key
-                } else {
-                    previewFailed = true
-                }
+                SchematicPreviewRenderer.loadFromNbtBytes(key, nbtBytes)
+                previewKey = key
                 previewLoading = false
                 statusMessage = null
             }
@@ -242,7 +236,7 @@ class SchematicDetailScreen(
             )
         } else if (previewFailed) {
             guiGraphics.drawCenteredString(
-                font, Component.literal("Preview unavailable"),
+                font, Component.translatable("gui.cbbees.schematic_preview.failed"),
                 previewLeft + previewW / 2, previewTop + previewH / 2, 0x888888
             )
         }

@@ -39,7 +39,8 @@ import java.util.BitSet
  */
 class GhostSchematicRenderer(
     world: SchematicLevel,
-    private val origin: BlockPos = BlockPos.ZERO
+    private val origin: BlockPos = BlockPos.ZERO,
+    private val renderAllBlockEntities: Boolean = false,
 ) : SchematicRenderer(world) {
 
     private val anchor: BlockPos = world.anchor
@@ -100,8 +101,8 @@ class GhostSchematicRenderer(
 
     /**
      * Renders cached static block geometry and block entities. Only blocks without a model of their
-     * own render their block entity by default; [CBBeesClientConfig.renderGhostBlockEntities] adds all
-     * others, and [CBBeesClientConfig.maxGhostBlockEntities] caps the total. The schematic is passed as
+     * own render their block entity by default; [CBBeesClientConfig.renderGhostBlockEntities] or
+     * [renderAllBlockEntities] add all others, and [CBBeesClientConfig.maxGhostBlockEntities] caps the total. The schematic is passed as
      * the level so Flywheel does not claim block entities that only exist in the preview.
      */
     override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) {
@@ -116,7 +117,7 @@ class GhostSchematicRenderer(
             buffer.renderInto(ms, buffers.getBuffer(layer))
         }
 
-        val candidates = if (CBBeesClientConfig.renderGhostBlockEntities.get())
+        val candidates = if (renderAllBlockEntities || CBBeesClientConfig.renderGhostBlockEntities.get())
             (modelOnlyBlockEntities + schematic.renderedBlockEntities).distinct()
         else modelOnlyBlockEntities
         val blockEntities = candidates.take(CBBeesClientConfig.maxGhostBlockEntities.get())

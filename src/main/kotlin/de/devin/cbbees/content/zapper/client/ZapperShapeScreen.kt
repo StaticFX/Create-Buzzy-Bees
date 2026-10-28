@@ -20,6 +20,7 @@ import de.devin.cbbees.content.zapper.shape.ZapperShape
 import de.devin.cbbees.content.zapper.shape.ZapperShapes
 import de.devin.cbbees.icons.AllCCRGuiTextures
 import de.devin.cbbees.network.ConfigureZapperShapePacket
+import net.createmod.catnip.lang.FontHelper
 import de.devin.cbbees.registry.AllDataComponents as CBBeesDataComponents
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.AbstractWidget
@@ -27,6 +28,7 @@ import net.minecraft.network.chat.CommonComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.level.block.Blocks
 import net.neoforged.neoforge.network.PacketDistributor
 
 class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
@@ -45,11 +47,15 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
     private var placement = zapper.getOrDefault(AllDataComponents.SHAPER_PLACEMENT_OPTIONS, PlacementOptions.Merged)
 
     private val shapeWidgets = mutableListOf<AbstractWidget>()
+    private val preview = ZapperShapePreview()
 
     init {
         fontColor = 0x000000
         title = zapper.hoverName
     }
+
+    override fun setWindowOffset(xOffset: Int, yOffset: Int) =
+        super.setWindowOffset(xOffset + (PREVIEW_WIDTH + PREVIEW_GAP) / 2, yOffset)
 
     override fun init() {
         super.init()
@@ -102,7 +108,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         if (tool !in shape.tools) tool = shape.tools.first()
         val toolButtons = shape.tools.mapIndexed { id, option ->
             IconButton(x + 7 + id * 18, y + 79, option.icon).apply {
-                setToolTip(CreateLang.translateDirect("gui.terrainzapper.tool." + option.translationKey))
+                describe(this, CreateLang.translateDirect("gui.terrainzapper.tool." + option.translationKey), toolDescription(option))
                 green = option == tool
             }
         }
@@ -118,7 +124,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         if (shape.hasPlacementOptions) {
             val placementButtons = PlacementOptions.entries.mapIndexed { id, option ->
                 IconButton(x + 136 + id * 18, y + 79, option.icon).apply {
-                    setToolTip(CreateLang.translateDirect("gui.terrainzapper.placement." + option.translationKey))
+                    describe(this, CreateLang.translateDirect("gui.terrainzapper.placement." + option.translationKey), Component.translatable("gui.cbbees.zapper.placement.${option.translationKey}.desc"))
                     green = option == placement
                 }
             }
@@ -133,6 +139,15 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         }
 
         addRenderableWidgets(shapeWidgets)
+    }
+
+    private fun toolDescription(option: TerrainTools): Component =
+        Component.translatable("gui.cbbees.zapper.tool.${option.translationKey}.desc")
+
+    private fun describe(button: IconButton, name: Component, description: Component) {
+        button.toolTip.clear()
+        button.toolTip += name
+        button.toolTip += FontHelper.cutTextComponent(description, FontHelper.Palette.ALL_GRAY)
     }
 
     private fun toggle(x: Int, y: Int, icon: AllIcons, tooltip: Component, on: Boolean, onChange: (Boolean) -> Unit) {
@@ -152,6 +167,32 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         drawOnBackground(graphics, guiLeft, guiTop)
         renderBlock(graphics, guiLeft, guiTop)
         renderZapper(graphics, guiLeft, guiTop)
+        renderPreview(graphics)
+    }
+
+    private fun renderPreview(graphics: GuiGraphics) {
+        val x = guiLeft - PREVIEW_GAP - PREVIEW_WIDTH
+        val h = AllCCRGuiTextures.SCHEMATIC_ZAPPER.height
+        AllCCRGuiTextures.PLANNER_PANEL.renderNineSlice(graphics, x, guiTop, PREVIEW_WIDTH, h, 2)
+        AllCCRGuiTextures.PLANNER_VIEWPORT.renderTiled(graphics, x + 2, guiTop + 2, PREVIEW_WIDTH - 4, h - 4)
+        val settings = ShapeSettings(shape.id, values.take(shape.params.size), hollow, diagonals, fuzzy)
+        val block = zapper.getOrDefault(AllDataComponents.SHAPER_BLOCK_USED, Blocks.AIR.defaultBlockState())
+            .takeUnless { it.isAir } ?: Blocks.STONE.defaultBlockState()
+        preview.render(graphics, shape, settings, block, x + 2, guiTop + 2, PREVIEW_WIDTH - 4, h - 4)
+        renderToolCaption(graphics, x + 2, guiTop + h - 2, PREVIEW_WIDTH - 4)
+    }
+
+    private fun renderToolCaption(graphics: GuiGraphics, x: Int, bottom: Int, w: Int) {
+        val name = CreateLang.translateDirect("gui.terrainzapper.tool." + tool.translationKey)
+        val lines = font.split(toolDescription(tool), w - 6)
+        val top = bottom - 4 - (lines.size + 1) * CAPTION_LINE
+        val pose = graphics.pose()
+        pose.pushPose()
+        pose.translate(0f, 0f, 400f)
+        graphics.fill(x, top - 2, x + w, bottom, 0xA0101010.toInt())
+        graphics.drawString(font, name, x + 3, top, 0xFFFFFF)
+        lines.forEachIndexed { i, line -> graphics.drawString(font, line, x + 3, top + (i + 1) * CAPTION_LINE, 0xAAAAAA) }
+        pose.popPose()
     }
 
     override fun drawOnBackground(graphics: GuiGraphics, x: Int, y: Int) {
@@ -175,5 +216,8 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
 
     private companion object {
         const val MAX_PARAMS = 3
+        const val PREVIEW_WIDTH = 140
+        const val PREVIEW_GAP = 4
+        const val CAPTION_LINE = 10
     }
 }

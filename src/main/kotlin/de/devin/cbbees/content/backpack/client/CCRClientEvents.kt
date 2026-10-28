@@ -2,6 +2,7 @@ package de.devin.cbbees.content.backpack.client
 
 import de.devin.cbbees.content.backpack.BeehiveTooltipData
 import de.devin.cbbees.content.bee.client.BeeClientTracker
+import de.devin.cbbees.content.domain.built.client.ClientBuiltSchematics
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent
@@ -33,6 +34,7 @@ object BeeNetworkClientEvents {
     fun onLoggingOut(event: ClientPlayerNetworkEvent.LoggingOut) {
         ClientBeeNetworkManager.clear()
         BeeClientTracker.clear()
+        ClientBuiltSchematics.clear()
     }
 
     @SubscribeEvent
@@ -41,6 +43,7 @@ object BeeNetworkClientEvents {
         if (event.entity.level().isClientSide) {
             ClientBeeNetworkManager.clear()
             BeeClientTracker.clear()
+            ClientBuiltSchematics.clear()
         }
     }
 }

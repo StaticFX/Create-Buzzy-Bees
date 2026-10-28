@@ -1,8 +1,11 @@
 package de.devin.cbbees.content.domain.action.impl
 
 import com.simibubi.create.AllBlocks
+import com.simibubi.create.AllItems
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
+import com.simibubi.create.content.kinetics.belt.BeltPart
+import com.simibubi.create.content.kinetics.belt.BeltSlope
 import com.simibubi.create.content.kinetics.belt.item.BeltConnectorItem
 import de.devin.cbbees.content.bee.server.BeeWorker
 import de.devin.cbbees.content.domain.action.BeeAction
@@ -11,6 +14,7 @@ import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.core.HolderLookup
 import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.core.registries.Registries
@@ -21,6 +25,7 @@ import net.minecraft.nbt.Tag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.block.RotatedPillarBlock
 import net.minecraft.world.level.block.state.BlockState
 
 /**
@@ -38,7 +43,8 @@ class PlaceBeltAction(
     val chainStates: List<BlockState>,
     private val casings: List<BeltBlockEntity.CasingType>,
     private val covers: List<Boolean>,
-    override val requiredItems: List<ItemStack> = emptyList()
+    override val requiredItems: List<ItemStack> = emptyList(),
+    private val shafts: Map<BlockPos, BlockState> = emptyMap(),
 ) : BeeAction, ItemConsumingAction {
 
     override val changedPositions: List<BlockPos> get() = chain
@@ -49,6 +55,9 @@ class PlaceBeltAction(
 
         consumeItems(worker)
 
+        shafts.forEach { (shaftPos, shaftState) ->
+            if (!AllBlocks.SHAFT.has(level.getBlockState(shaftPos))) level.setBlockAndUpdate(shaftPos, shaftState)
+        }
         BeltConnectorItem.createBelts(level, pos, end)
 
         val placedChain = BeltBlock.getBeltChain(level, pos)
@@ -130,6 +139,15 @@ class PlaceBeltAction(
             itemList.add(stack.save(registries))
         }
         tag.put("RequiredItems", itemList)
+
+        tag.put("Shafts", ListTag().apply {
+            shafts.forEach { (shaftPos, shaftState) ->
+                add(CompoundTag().apply {
+                    put("Pos", NbtUtils.writeBlockPos(shaftPos))
+                    put("State", NbtUtils.writeBlockState(shaftState))
+                })
+            }
+        })
         return tag
     }
 
@@ -163,7 +181,54 @@ class PlaceBeltAction(
                 ItemStack.parse(registries, itemList.getCompound(i)).orElse(null)
             }
 
-            return PlaceBeltAction(pos, end, chain, chainStates, casings, covers, items)
+            val shafts = tag.getList("Shafts", Tag.TAG_COMPOUND.toInt()).mapNotNull { element ->
+                val shaft = element as CompoundTag
+                NbtUtils.readBlockPos(shaft, "Pos").map { it to NbtUtils.readBlockState(blockLookup, shaft.getCompound("State")) }.orElse(null)
+            }.toMap()
+
+            return PlaceBeltAction(pos, end, chain, chainStates, casings, covers, items, shafts)
+        }
+
+        fun chainAt(level: Level, pos: BlockPos): List<BlockPos> {
+            if (!AllBlocks.BELT.has(level.getBlockState(pos))) return emptyList()
+            return BeltBlock.getBeltChain(level, startOf(level, pos))
+        }
+
+        private fun startOf(level: Level, pos: BlockPos): BlockPos {
+            var current = pos
+            repeat(MAX_CHAIN_STEPS) {
+                val state = level.getBlockState(current)
+                if (state.getValue(BeltBlock.PART) == BeltPart.START) return current
+                val previous = BeltBlock.nextSegmentPosition(state, current, false) ?: return current
+                if (!AllBlocks.BELT.has(level.getBlockState(previous))) return current
+                current = previous
+            }
+            return current
+        }
+
+        private const val MAX_CHAIN_STEPS = 256
+
+        fun capture(level: Level, pos: BlockPos): PlaceBeltAction? {
+            val chain = chainAt(level, pos)
+            if (chain.isEmpty()) return null
+            val states = chain.map(level::getBlockState)
+            val segments = chain.map { level.getBlockEntity(it) as? BeltBlockEntity }
+            val shafts = chain.zip(states)
+                .filter { (_, state) -> state.getValue(BeltBlock.PART) != BeltPart.MIDDLE }
+                .associate { (shaftPos, state) -> shaftPos to shaftFor(state) }
+            val items = listOf(ItemStack(AllItems.BELT_CONNECTOR.get())) + shafts.values.map { ItemStack(it.block) }
+            return PlaceBeltAction(
+                chain.first(), chain.last(), chain, states,
+                segments.map { it?.casing ?: BeltBlockEntity.CasingType.NONE },
+                segments.map { it?.covered ?: false },
+                items, shafts,
+            )
+        }
+
+        private fun shaftFor(belt: BlockState): BlockState {
+            val axis = if (belt.getValue(BeltBlock.SLOPE) == BeltSlope.SIDEWAYS) Direction.Axis.Y
+            else belt.getValue(BeltBlock.HORIZONTAL_FACING).clockWise.axis
+            return AllBlocks.SHAFT.defaultState.setValue(RotatedPillarBlock.AXIS, axis)
         }
     }
 }

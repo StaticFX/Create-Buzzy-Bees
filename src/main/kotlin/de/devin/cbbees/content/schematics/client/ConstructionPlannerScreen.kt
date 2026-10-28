@@ -1,266 +1,229 @@
 package de.devin.cbbees.content.schematics.client
 
 import com.simibubi.create.CreateClient
-import de.devin.cbbees.network.InstantConstructionPacket
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
+import de.devin.cbbees.icons.AllCCRGuiTextures
+import de.devin.cbbees.network.InstantConstructionPacket
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.gui.components.Button
+import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.components.ObjectSelectionList
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.core.Vec3i
 import net.minecraft.network.chat.Component
 import net.minecraft.world.phys.BlockHitResult
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
-import kotlin.math.min
 
 /**
- * Full-screen schematic browser with group navigation, 3D preview, material list,
- * and group management.
- *
- * Layout (three panels):
- * - Left: scrollable list of groups/schematics with search
- * - Center: isometric 3D preview + schematic info
- * - Right: scrollable material/item list with icons and counts
- * - Bottom: action buttons (Select, Assign Group, Cancel)
+ * Full-screen schematic browser with group navigation, 3D preview and material list.
+ * Panels stretch with the screen and are drawn as nine-slices from the `construction_planner` sheet.
  */
 @OnlyIn(Dist.CLIENT)
 class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.construction_planner.title")) {
 
-    private lateinit var entryList: BrowserList
-    private lateinit var selectButton: Button
-    private lateinit var groupButton: Button
-    private lateinit var backButton: Button
-    private lateinit var renameButton: Button
-    private lateinit var deleteButton: Button
+    private data class Area(val x: Int, val y: Int, val w: Int, val h: Int) {
+        val right get() = x + w
+        val bottom get() = y + h
+        fun contains(mouseX: Double, mouseY: Double) = mouseX >= x && mouseX < right && mouseY >= y && mouseY < bottom
+    }
+
+    private lateinit var selectButton: PlannerButton
+    private lateinit var groupButton: PlannerButton
+    private lateinit var backButton: PlannerIconButton
+    private lateinit var renameButton: PlannerIconButton
+    private lateinit var deleteButton: PlannerIconButton
+    private lateinit var resetViewButton: PlannerIconButton
     private lateinit var searchBox: EditBox
+
+    private val entries = mutableListOf<BrowserEntry>()
     private var selectedEntry: BrowserEntry? = null
-    private var currentGroupPath: String = ""
+    private var listScroll = 0
+    private var currentGroupPath = ""
     private var allSchematics: List<String> = emptyList()
     private var searchActive = false
 
-    // Material list scroll state
-    private var materialScrollOffset = 0
-    private var maxMaterialScroll = 0
+    private var materialScroll = 0
+    private var draggingScrollbar: Area? = null
 
-    // Preview camera state
-    private var previewRotX = 30f
-    private var previewRotY = -45f
+    private var previewRotX = DEFAULT_ROT_X
+    private var previewRotY = DEFAULT_ROT_Y
     private var previewZoom = 1f
 
-    // Layout constants
-    private val MARGIN = 8
-    private val GAP = 6
+    private var search = Area(0, 0, 0, 0)
+    private var titleArea = Area(0, 0, 0, 0)
+    private var listPanel = Area(0, 0, 0, 0)
+    private var breadcrumbArea = Area(0, 0, 0, 0)
+    private var rows = Area(0, 0, 0, 0)
+    private var listTrack = Area(0, 0, 0, 0)
+    private var previewPanel = Area(0, 0, 0, 0)
+    private var viewport = Area(0, 0, 0, 0)
+    private var info = Area(0, 0, 0, 0)
+    private var materialsPanel = Area(0, 0, 0, 0)
+    private var grid = Area(0, 0, 0, 0)
+    private var materialsTrack = Area(0, 0, 0, 0)
+    private var visibleRows = 0
+    private var gridColumns = 0
+    private var gridRows = 0
 
-    // Computed layout values (three panels)
-    private var listLeft = 0
-    private var listWidth = 0
-    private var previewLeft = 0
-    private var previewWidth = 0
-    private var materialsLeft = 0
-    private var materialsWidth = 0
-    private var panelTop = 0
-    private var panelHeight = 0
+    private fun layout() {
+        val panelTop = 22
+        val panelHeight = height - panelTop - 28
+        val listWidth = (width * 0.28).toInt().coerceIn(110, 220)
+        gridColumns = ((width * 0.22).toInt() - 14).div(SLOT_SIZE).coerceIn(3, 9)
+        val materialsWidth = gridColumns * SLOT_SIZE + 14
+
+        search = Area(MARGIN, 5, listWidth, 12)
+        listPanel = Area(MARGIN, panelTop, listWidth, panelHeight)
+        materialsPanel = Area(width - MARGIN - materialsWidth, panelTop, materialsWidth, panelHeight)
+        previewPanel = Area(listPanel.right + GAP, panelTop, materialsPanel.x - GAP - listPanel.right - GAP, panelHeight)
+        titleArea = Area(previewPanel.x, 5, previewPanel.w, 12)
+
+        breadcrumbArea = Area(listPanel.x + 16, listPanel.y + 4, listPanel.w - 18, 9)
+        visibleRows = (panelHeight - 18) / ROW_HEIGHT
+        rows = Area(listPanel.x + 2, listPanel.y + 16, listPanel.w - 10, visibleRows * ROW_HEIGHT)
+        listTrack = Area(rows.right + 2, rows.y, 4, rows.h)
+
+        viewport = Area(previewPanel.x + 2, previewPanel.y + 2, previewPanel.w - 4, previewPanel.h - 34)
+        info = Area(viewport.x, viewport.bottom + 2, viewport.w, 28)
+
+        gridRows = (panelHeight - 18) / SLOT_SIZE
+        grid = Area(materialsPanel.x + 4, materialsPanel.y + 14, gridColumns * SLOT_SIZE, gridRows * SLOT_SIZE)
+        materialsTrack = Area(grid.right + 2, grid.y, 4, grid.h)
+    }
 
     override fun init() {
         super.init()
+        layout()
 
-        // Load schematics
         CreateClient.SCHEMATIC_SENDER.refresh()
         allSchematics = CreateClient.SCHEMATIC_SENDER.availableSchematics.map { it.string }
         SchematicGroupManager.ensureLoaded()
         SchematicGroupManager.reconcile(allSchematics)
-
-        // Sync with HUD navigation state
         currentGroupPath = ConstructionPlannerHandler.currentGroupPath
 
-        // Three-panel layout: list (35%) | preview (40%) | materials (25%)
-        val totalWidth = width - MARGIN * 2
-        listWidth = (totalWidth * 0.33).toInt()
-        previewWidth = (totalWidth * 0.4).toInt()
-        materialsWidth = totalWidth - listWidth - previewWidth - GAP * 2
-
-        listLeft = MARGIN
-        previewLeft = listLeft + listWidth + GAP
-        materialsLeft = previewLeft + previewWidth + GAP
-        panelTop = 36
-        panelHeight = height - panelTop - 50
-
-        // Search box
-        searchBox = EditBox(
-            font, listLeft, 5, listWidth, 16,
-            Component.translatable("gui.cbbees.construction_planner.search")
-        )
+        val previousSearch = if (::searchBox.isInitialized) searchBox.value else ""
+        searchBox = EditBox(font, search.x + 3, search.y + 2, search.w - 6, search.h - 2, Component.translatable("gui.cbbees.construction_planner.search"))
+        searchBox.setBordered(false)
         searchBox.setMaxLength(100)
+        searchBox.setHint(Component.translatable("gui.cbbees.construction_planner.search"))
+        searchBox.value = previousSearch
         searchBox.setResponder { query ->
             searchActive = query.isNotBlank()
+            listScroll = 0
             rebuildList()
         }
         addRenderableWidget(searchBox)
 
-        // Entry list
-        val listTop = 36
-        val listHeight = panelHeight
-        entryList = BrowserList(minecraft!!, listWidth + MARGIN, listHeight, listTop, 18, listLeft)
-        addWidget(entryList)
+        val buttonY = height - 22
+        selectButton = addRenderableWidget(PlannerButton(MARGIN, buttonY, Component.translatable("gui.cbbees.construction_planner.select"), ::onSelectAction))
+        groupButton = addRenderableWidget(PlannerButton(MARGIN + BUTTON_WIDTH + 4, buttonY, Component.translatable("gui.cbbees.construction_planner.assign_group"), ::onAssignGroup))
+        addRenderableWidget(PlannerButton(width - MARGIN - BUTTON_WIDTH * 2 - 4, buttonY, Component.translatable("gui.cbbees.browse_online.button")) {
+            ExternalSchematicSource.active?.let { minecraft?.setScreen(BrowseOnlineScreen(it, this)) }
+        }).active = ExternalSchematicSource.active != null && CBBeesConfig.enableExternalBrowser.get()
+        addRenderableWidget(PlannerButton(width - MARGIN - BUTTON_WIDTH, buttonY, Component.translatable("gui.done"), ::onClose))
 
-        // Bottom buttons
-        val buttonY = height - 36
-        val buttonWidth = 90
-
-        selectButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.select")) {
-            onSelectAction()
-        }.bounds(listLeft, buttonY, buttonWidth, 20).build()
-        selectButton.active = false
-        addRenderableWidget(selectButton)
-
-        groupButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.assign_group")) {
-            onAssignGroup()
-        }.bounds(listLeft + buttonWidth + 4, buttonY, buttonWidth + 10, 20).build()
-        groupButton.active = false
-        addRenderableWidget(groupButton)
-
-        val cancelButton = Button.builder(Component.translatable("gui.done")) {
-            onClose()
-        }.bounds(listLeft + buttonWidth * 2 + 18, buttonY, buttonWidth, 20).build()
-        addRenderableWidget(cancelButton)
-
-        // Browse Online button — opens the external schematic browser
-        val browseOnlineButton = Button.builder(Component.translatable("gui.cbbees.browse_online.button")) {
-            val source = ExternalSchematicSource.active
-            if (source != null) {
-                minecraft?.setScreen(BrowseOnlineScreen(source, this))
-            }
-        }.bounds(width - MARGIN - buttonWidth - 10, buttonY, buttonWidth + 10, 20).build()
-        browseOnlineButton.active = ExternalSchematicSource.active != null && CBBeesConfig.enableExternalBrowser.get()
-        addRenderableWidget(browseOnlineButton)
-
-        // Back button — visible only when inside a group
-        backButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.back")) {
-            navigateUp()
-        }.bounds(listLeft, 22, 40, 14).build()
-        backButton.visible = currentGroupPath.isNotEmpty()
-        addRenderableWidget(backButton)
-
-        // Top-right rename/delete buttons — visible when a schematic is selected
-        val actionBtnWidth = 50
-        val actionBtnY = 5
-        renameButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.rename")) {
-            onRenameAction()
-        }.bounds(width - MARGIN - actionBtnWidth * 2 - 4, actionBtnY, actionBtnWidth, 16).build()
-        renameButton.visible = false
-        addRenderableWidget(renameButton)
-
-        deleteButton = Button.builder(Component.translatable("gui.cbbees.construction_planner.delete")) {
-            onDeleteAction()
-        }.bounds(width - MARGIN - actionBtnWidth, actionBtnY, actionBtnWidth, 16).build()
-        deleteButton.visible = false
-        addRenderableWidget(deleteButton)
+        backButton = addRenderableWidget(PlannerIconButton(listPanel.x + 2, listPanel.y + 2, AllCCRGuiTextures.PLANNER_GLYPH_BACK, Component.translatable("gui.cbbees.construction_planner.back"), ::navigateUp))
+        renameButton = addRenderableWidget(PlannerIconButton(width - MARGIN - 26, 5, AllCCRGuiTextures.PLANNER_GLYPH_RENAME, Component.translatable("gui.cbbees.construction_planner.rename"), ::onRenameAction))
+        deleteButton = addRenderableWidget(PlannerIconButton(width - MARGIN - 12, 5, AllCCRGuiTextures.PLANNER_GLYPH_DELETE, Component.translatable("gui.cbbees.construction_planner.delete"), ::onDeleteAction))
+        resetViewButton = addWidget(PlannerIconButton(viewport.right - 14, viewport.y + 2, AllCCRGuiTextures.PLANNER_GLYPH_RESET_VIEW, Component.translatable("gui.cbbees.construction_planner.reset_view"), ::resetView))
 
         rebuildList()
     }
 
+    private val selectedSchematic: BrowserEntry?
+        get() = selectedEntry?.takeIf { it.type == BrowserEntryType.SCHEMATIC }
+
     private fun rebuildList() {
         val previousSelection = selectedEntry?.value
-        entryList.clearEntries()
-        selectedEntry = null
-        selectButton.active = false
-        groupButton.active = false
-        renameButton.visible = false
-        deleteButton.visible = false
-        materialScrollOffset = 0
-        backButton.visible = currentGroupPath.isNotEmpty()
+        entries.clear()
 
         if (searchActive) {
             val query = searchBox.value.lowercase()
-            for (filename in allSchematics) {
+            allSchematics.forEach { filename ->
                 val group = SchematicGroupManager.getGroup(filename)
                 val displayPath = if (group.isEmpty()) filename else "$group/$filename"
                 if (displayPath.lowercase().contains(query)) {
-                    entryList.addEntry(
-                        BrowserEntry(
-                            BrowserEntryType.SCHEMATIC, filename, filename.removeSuffix(".nbt"),
-                            if (group.isNotEmpty()) group else ""
-                        )
-                    )
+                    entries += BrowserEntry(BrowserEntryType.SCHEMATIC, filename, filename.removeSuffix(".nbt"), group)
                 }
             }
         } else {
-            if (currentGroupPath.isNotEmpty()) {
-                entryList.addEntry(BrowserEntry(BrowserEntryType.PARENT, "..", "..", ""))
-            }
-
+            if (currentGroupPath.isNotEmpty()) entries += BrowserEntry(BrowserEntryType.PARENT, "..", "..", "")
             val (subgroups, schematics) = SchematicGroupManager.getItemsAtLevel(currentGroupPath, allSchematics)
-
-            for (group in subgroups) {
+            subgroups.forEach { group ->
                 val fullPath = if (currentGroupPath.isEmpty()) group else "$currentGroupPath/$group"
-                entryList.addEntry(BrowserEntry(BrowserEntryType.GROUP, fullPath, group, ""))
+                entries += BrowserEntry(BrowserEntryType.GROUP, fullPath, group, "")
             }
-
-            for (filename in schematics) {
-                entryList.addEntry(
-                    BrowserEntry(
-                        BrowserEntryType.SCHEMATIC, filename, filename.removeSuffix(".nbt"), ""
-                    )
-                )
-            }
+            schematics.forEach { entries += BrowserEntry(BrowserEntryType.SCHEMATIC, it, it.removeSuffix(".nbt"), "") }
         }
 
-        if (previousSelection != null) {
-            entryList.children().find { it.value == previousSelection }?.let {
-                entryList.setSelected(it)
-            }
+        listScroll = listScroll.coerceIn(0, maxListScroll())
+        select(entries.find { it.value == previousSelection })
+    }
+
+    private fun select(entry: BrowserEntry?) {
+        val changed = entry?.value != selectedEntry?.value
+        selectedEntry = entry
+        val isSchematic = selectedSchematic != null
+        selectButton.active = entry != null
+        groupButton.active = isSchematic
+        renameButton.visible = isSchematic
+        deleteButton.visible = isSchematic
+        resetViewButton.visible = isSchematic
+        backButton.visible = currentGroupPath.isNotEmpty() && !searchActive
+        if (changed) {
+            materialScroll = 0
+            resetView()
         }
+    }
+
+    private fun activate(entry: BrowserEntry) = when (entry.type) {
+        BrowserEntryType.GROUP -> navigateToGroup(entry.value)
+        BrowserEntryType.PARENT -> navigateUp()
+        BrowserEntryType.SCHEMATIC -> selectSchematic(entry.value)
     }
 
     private fun onSelectAction() {
-        val entry = selectedEntry ?: return
-        when (entry.type) {
-            BrowserEntryType.GROUP -> navigateToGroup(entry.value)
-            BrowserEntryType.PARENT -> navigateUp()
-            BrowserEntryType.SCHEMATIC -> selectSchematic(entry.value)
-        }
+        selectedEntry?.let(::activate)
     }
 
     private fun onRenameAction() {
-        val entry = selectedEntry ?: return
-        if (entry.type != BrowserEntryType.SCHEMATIC) return
-        minecraft?.setScreen(SchematicRenameScreen(entry.value, this))
+        selectedSchematic?.let { minecraft?.setScreen(SchematicRenameScreen(it.value, this)) }
     }
 
     private fun onDeleteAction() {
-        val entry = selectedEntry ?: return
-        if (entry.type != BrowserEntryType.SCHEMATIC) return
-        minecraft?.setScreen(SchematicDeleteScreen(entry.value, this))
+        selectedSchematic?.let { minecraft?.setScreen(SchematicDeleteScreen(it.value, this)) }
     }
 
     private fun onAssignGroup() {
-        val entry = selectedEntry ?: return
-        if (entry.type != BrowserEntryType.SCHEMATIC) return
-
-        val filename = entry.value
+        val filename = selectedSchematic?.value ?: return
         val currentGroup = SchematicGroupManager.getGroup(filename)
-
-        val browserToReturn = ConstructionPlannerScreen()
         minecraft?.setScreen(GroupPickerScreen({ newGroup ->
             SchematicGroupManager.setGroup(filename, newGroup)
-        }, currentGroup, browserToReturn))
+        }, currentGroup, ConstructionPlannerScreen()))
+    }
+
+    private fun resetView() {
+        previewRotX = DEFAULT_ROT_X
+        previewRotY = DEFAULT_ROT_Y
+        previewZoom = 1f
     }
 
     private fun navigateToGroup(groupPath: String) {
         currentGroupPath = groupPath
         searchBox.value = ""
         searchActive = false
+        listScroll = 0
         rebuildList()
     }
 
     private fun navigateUp() {
-        val lastSlash = currentGroupPath.lastIndexOf('/')
-        currentGroupPath = if (lastSlash >= 0) currentGroupPath.substring(0, lastSlash) else ""
+        if (currentGroupPath.isEmpty()) return
+        currentGroupPath = currentGroupPath.substringBeforeLast('/', "")
+        listScroll = 0
         rebuildList()
     }
 
@@ -277,283 +240,236 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         } else {
             mc.player?.blockPosition() ?: return
         }
-
-        // Convert center anchor to corner anchor for server placement
         val anchor = SchematicHoverPreview.computeServerAnchor(centerAnchor)
-
         PacketDistributor.sendToServer(
-            InstantConstructionPacket(
-                filename, anchor,
-                SchematicHoverPreview.currentRotation,
-                SchematicHoverPreview.currentMirror
-            )
+            InstantConstructionPacket(filename, anchor, SchematicHoverPreview.currentRotation, SchematicHoverPreview.currentMirror)
         )
         onClose()
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick)
-
-        entryList.render(guiGraphics, mouseX, mouseY, partialTick)
-
-        // Title
-        guiGraphics.drawCenteredString(font, title, width / 2, 10, 0xFFFFFF)
-
-        // Breadcrumb (offset right when back button is visible)
-        val breadcrumb = buildBreadcrumb()
-        val breadcrumbX = if (currentGroupPath.isNotEmpty()) listLeft + 44 else listLeft
-        guiGraphics.drawString(font, breadcrumb, breadcrumbX, 26, 0x888888, false)
-
-        // Empty list message
-        if (entryList.children().isEmpty()) {
-            guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("gui.cbbees.construction_planner.no_schematics"),
-                listLeft + listWidth / 2, panelTop + 40,
-                0x888888
-            )
+    override fun renderBackground(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        renderTransparentBackground(guiGraphics)
+        AllCCRGuiTextures.PLANNER_SEARCH.renderNineSlice(guiGraphics, search.x, search.y, search.w, search.h, 2)
+        listOf(listPanel, previewPanel, materialsPanel).forEach {
+            AllCCRGuiTextures.PLANNER_PANEL.renderNineSlice(guiGraphics, it.x, it.y, it.w, it.h, 2)
         }
-
-        // Center panel: 3D preview + info
-        renderPreviewPanel(guiGraphics, mouseX, mouseY, partialTick)
-
-        // Right panel: material list
-        renderMaterialPanel(guiGraphics, mouseX, mouseY)
+        AllCCRGuiTextures.PLANNER_VIEWPORT.renderTiled(guiGraphics, viewport.x, viewport.y, viewport.w, viewport.h)
+        AllCCRGuiTextures.PLANNER_SLOT.renderTiled(guiGraphics, grid.x, grid.y, grid.w, grid.h)
+        listOf(listTrack, materialsTrack).forEach {
+            AllCCRGuiTextures.PLANNER_SCROLL_TRACK.renderNineSlice(guiGraphics, it.x, it.y, it.w, it.h, 0, 2)
+        }
     }
 
-    private fun renderPreviewPanel(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        // Panel background
-        guiGraphics.fill(
-            previewLeft - 1, panelTop - 1,
-            previewLeft + previewWidth + 1, panelTop + panelHeight + 1, 0x40FFFFFF
-        )
-        guiGraphics.fill(
-            previewLeft, panelTop,
-            previewLeft + previewWidth, panelTop + panelHeight, 0xC0101010.toInt()
-        )
+    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(guiGraphics, mouseX, mouseY, partialTick)
+        guiGraphics.drawCenteredString(font, title, titleArea.x + titleArea.w / 2, titleArea.y + 2, 0xFFFFFF)
+        renderList(guiGraphics, mouseX, mouseY)
+        renderPreview(guiGraphics)
+        renderMaterials(guiGraphics, mouseX, mouseY)
+        if (resetViewButton.visible) resetViewButton.render(guiGraphics, mouseX, mouseY, partialTick)
+    }
 
-        val entry = selectedEntry
+    private fun renderList(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        val breadcrumbX = if (backButton.visible) breadcrumbArea.x else breadcrumbArea.x - 14
+        val breadcrumb = font.plainSubstrByWidth(breadcrumbText(), breadcrumbArea.right - breadcrumbX)
+        guiGraphics.drawString(font, breadcrumb, breadcrumbX, breadcrumbArea.y, 0xAAAAAA, false)
 
-        if (entry == null || entry.type != BrowserEntryType.SCHEMATIC) {
-            val hint = when {
-                entry?.type == BrowserEntryType.GROUP ->
-                    Component.translatable("gui.cbbees.construction_planner.group_hint")
-
-                else ->
-                    Component.translatable("gui.cbbees.construction_planner.select_hint")
-            }
-            guiGraphics.drawCenteredString(
-                font, hint,
-                previewLeft + previewWidth / 2,
-                panelTop + panelHeight / 2 - 4,
-                0x666666
-            )
+        if (entries.isEmpty()) {
+            guiGraphics.drawWordWrap(font, Component.translatable("gui.cbbees.construction_planner.no_schematics"), rows.x + 4, rows.y + 4, rows.w - 8, 0x888888)
             return
         }
 
-        // 3D preview (upper portion)
-        val infoHeight = 42
-        val previewBoxHeight = panelHeight - infoHeight
+        val hovered = rowAt(mouseX.toDouble(), mouseY.toDouble())
+        visibleEntries().forEachIndexed { i, entry ->
+            val x = rows.x
+            val y = rows.y + i * ROW_HEIGHT
+            when {
+                entry === selectedEntry -> AllCCRGuiTextures.PLANNER_ROW_SELECTED.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
+                entry === hovered -> AllCCRGuiTextures.PLANNER_ROW_HOVER.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
+            }
+            val icon = when (entry.type) {
+                BrowserEntryType.GROUP -> AllCCRGuiTextures.PLANNER_ICON_GROUP
+                BrowserEntryType.PARENT -> AllCCRGuiTextures.PLANNER_ICON_PARENT
+                BrowserEntryType.SCHEMATIC -> null
+            }
+            icon?.render(guiGraphics, x + 2, y + 3)
+            val color = when {
+                entry === selectedEntry -> 0xFFFFFF
+                entry.type != BrowserEntryType.SCHEMATIC -> 0x88CCFF
+                else -> 0xDDDDDD
+            }
+            val textX = if (icon != null) x + 16 else x + 4
+            val textRight = x + rows.w - 2
+            if (entry === selectedEntry || entry === hovered) {
+                AbstractWidget.renderScrollingString(guiGraphics, font, Component.literal(entry.displayName), textX, textX, y, textRight, y + ROW_HEIGHT, color)
+            } else {
+                guiGraphics.drawString(font, font.plainSubstrByWidth(entry.displayName, textRight - textX), textX, y + 5, color, true)
+            }
+        }
 
+        renderScrollbar(guiGraphics, listTrack, listScroll, maxListScroll())
+    }
+
+    private fun renderPreview(guiGraphics: GuiGraphics) {
+        val entry = selectedEntry
+        val schematic = selectedSchematic
+        if (schematic == null) {
+            val hint = if (entry?.type == BrowserEntryType.GROUP) "gui.cbbees.construction_planner.group_hint" else "gui.cbbees.construction_planner.select_hint"
+            val lines = font.split(Component.translatable(hint), viewport.w - 16)
+            lines.forEachIndexed { i, line ->
+                guiGraphics.drawCenteredString(font, line, viewport.x + viewport.w / 2, viewport.y + viewport.h / 2 - lines.size * 5 + i * 10, 0x777777)
+            }
+            return
+        }
+
+        SchematicPreviewRenderer.loadFromFile(schematic.value)
         SchematicPreviewRenderer.renderPreview(
-            entry.value, guiGraphics,
-            previewLeft + 4, panelTop + 4,
-            previewWidth - 8, previewBoxHeight - 8,
+            schematic.value, guiGraphics,
+            viewport.x, viewport.y, viewport.w, viewport.h,
             previewRotX, previewRotY, previewZoom
         )
         SchematicPreviewRenderer.renderAxisIndicator(
-            guiGraphics,
-            previewLeft + 4, panelTop + 4,
-            previewWidth - 8, previewBoxHeight - 8,
-            previewRotX, previewRotY
+            guiGraphics, viewport.x, viewport.y, viewport.w, viewport.h, previewRotX, previewRotY
         )
 
-        // Info area below preview
-        val infoY = panelTop + previewBoxHeight + 2
-        val infoX = previewLeft + 6
-
-        guiGraphics.drawString(font, entry.displayName, infoX, infoY, 0xFFFF00, false)
-
-        val group = SchematicGroupManager.getGroup(entry.value)
-        val groupText = if (group.isEmpty()) {
-            Component.translatable("gui.cbbees.construction_planner.no_group")
-        } else {
-            Component.literal(group)
-        }
-        guiGraphics.drawString(font, groupText, infoX, infoY + 12, 0x88CCFF, false)
-
-        // Size info
-        val size = SchematicPreviewRenderer.getSize(entry.value)
-        if (size != net.minecraft.core.Vec3i.ZERO) {
-            val sizeText = "${size.x} x ${size.y} x ${size.z}"
-            guiGraphics.drawString(font, sizeText, infoX, infoY + 24, 0x666666, false)
-        }
+        val x = info.x + 3
+        val y = info.y + 1
+        AbstractWidget.renderScrollingString(guiGraphics, font, Component.literal(schematic.displayName), x, x, y - 1, info.right - 3, y + 8, 0xFFFF55)
+        val group = SchematicGroupManager.getGroup(schematic.value)
+        val groupText = if (group.isEmpty()) Component.translatable("gui.cbbees.construction_planner.no_group") else Component.literal(group)
+        guiGraphics.drawString(font, groupText, x, y + 9, 0x88CCFF, false)
+        val size = SchematicPreviewRenderer.getSize(schematic.value)
+        if (size != Vec3i.ZERO) guiGraphics.drawString(font, "${size.x} x ${size.y} x ${size.z}", x, y + 18, 0x888888, false)
     }
 
-    private fun renderMaterialPanel(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
-        // Panel background
-        guiGraphics.fill(
-            materialsLeft - 1, panelTop - 1,
-            materialsLeft + materialsWidth + 1, panelTop + panelHeight + 1, 0x40FFFFFF
-        )
-        guiGraphics.fill(
-            materialsLeft, panelTop,
-            materialsLeft + materialsWidth, panelTop + panelHeight, 0xC0101010.toInt()
-        )
+    private fun renderMaterials(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        guiGraphics.drawString(font, Component.translatable("gui.cbbees.construction_planner.materials"), materialsPanel.x + 4, materialsPanel.y + 4, 0xAAAAAA, false)
+        val schematic = selectedSchematic ?: return
+        val materials = SchematicPreviewRenderer.getMaterials(schematic.value)
+        materialScroll = materialScroll.coerceIn(0, maxMaterialScroll(materials.size))
 
-        // Header
-        guiGraphics.drawString(
-            font,
-            Component.translatable("gui.cbbees.construction_planner.materials"),
-            materialsLeft + 4, panelTop + 4, 0xAAAAAA, false
-        )
-
-        val entry = selectedEntry
-        if (entry == null || entry.type != BrowserEntryType.SCHEMATIC) {
-            guiGraphics.drawCenteredString(
-                font,
-                Component.literal("-"),
-                materialsLeft + materialsWidth / 2,
-                panelTop + panelHeight / 2,
-                0x444444
-            )
-            return
-        }
-
-        val materials = SchematicPreviewRenderer.getMaterials(entry.value)
-        if (materials.isEmpty()) return
-
-        val itemSize = 18
-        val startY = panelTop + 16
-        val visibleHeight = panelHeight - 20
-        val visibleCount = visibleHeight / itemSize
-
-        // Clamp scroll
-        maxMaterialScroll = (materials.size - visibleCount).coerceAtLeast(0)
-        materialScrollOffset = materialScrollOffset.coerceIn(0, maxMaterialScroll)
-
-        guiGraphics.enableScissor(materialsLeft, startY, materialsLeft + materialsWidth, panelTop + panelHeight)
-
-        for (i in materialScrollOffset until min(materialScrollOffset + visibleCount, materials.size)) {
-            val mat = materials[i]
-            val y = startY + (i - materialScrollOffset) * itemSize
-            val x = materialsLeft + 4
-
-            // Hover highlight
-            if (mouseX >= materialsLeft && mouseX < materialsLeft + materialsWidth
-                && mouseY >= y && mouseY < y + itemSize
-            ) {
-                guiGraphics.fill(materialsLeft, y, materialsLeft + materialsWidth, y + itemSize, 0x20FFFFFF)
-            }
-
-            // Item icon
-            guiGraphics.renderItem(mat.icon, x, y)
-
-            // Count
-            val countStr = mat.amount
-            guiGraphics.drawString(font, countStr, x + 20, y + 4, 0xCCCCCC, false)
-
-            // Item name (truncated to fit)
-            val name = mat.name
-            val nameX = x + 20 + font.width(countStr) + 4
-            val maxNameWidth = materialsLeft + materialsWidth - nameX - 4
-            if (maxNameWidth > 10) {
-                val fullName = name.string
-                val truncated = if (font.width(fullName) > maxNameWidth) {
-                    var s = fullName
-                    while (s.isNotEmpty() && font.width("$s..") > maxNameWidth) {
-                        s = s.dropLast(1)
-                    }
-                    "$s.."
-                } else {
-                    fullName
-                }
-                guiGraphics.drawString(font, truncated, nameX, y + 4, 0x888888, false)
+        var hovered: SchematicPreviewRenderer.MaterialEntry? = null
+        materials.drop(materialScroll * gridColumns).take(gridColumns * gridRows).forEachIndexed { i, material ->
+            val x = grid.x + (i % gridColumns) * SLOT_SIZE + 1
+            val y = grid.y + (i / gridColumns) * SLOT_SIZE + 1
+            guiGraphics.renderItem(material.icon, x, y)
+            renderSlotLabel(guiGraphics, material.slotLabel, x, y)
+            if (mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16) {
+                guiGraphics.fill(x, y, x + 16, y + 16, 200, 0x80FFFFFF.toInt())
+                hovered = material
             }
         }
 
-        guiGraphics.disableScissor()
-
-        // Scroll indicator
-        if (maxMaterialScroll > 0) {
-            val trackHeight = panelHeight - 20
-            val thumbHeight = (visibleCount.toFloat() / materials.size * trackHeight).toInt().coerceAtLeast(8)
-            val thumbY =
-                startY + (materialScrollOffset.toFloat() / maxMaterialScroll * (trackHeight - thumbHeight)).toInt()
-            val scrollX = materialsLeft + materialsWidth - 3
-            guiGraphics.fill(scrollX, startY, scrollX + 2, startY + trackHeight, 0x30FFFFFF)
-            guiGraphics.fill(scrollX, thumbY, scrollX + 2, thumbY + thumbHeight, 0x80FFFFFF.toInt())
+        renderScrollbar(guiGraphics, materialsTrack, materialScroll, maxMaterialScroll(materials.size))
+        hovered?.let {
+            guiGraphics.renderComponentTooltip(font, listOf(it.name, Component.literal(it.amount).withStyle { s -> s.withColor(0xAAAAAA) }), mouseX, mouseY)
         }
     }
 
-    override fun renderBackground(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        renderTransparentBackground(guiGraphics)
+    private fun renderSlotLabel(guiGraphics: GuiGraphics, label: String, x: Int, y: Int) {
+        val pose = guiGraphics.pose()
+        pose.pushPose()
+        pose.translate(x + 17f, y + 17f, 200f)
+        pose.scale(SLOT_LABEL_SCALE, SLOT_LABEL_SCALE, 1f)
+        guiGraphics.drawString(font, label, -font.width(label), -font.lineHeight + 1, 0xFFFFFF, true)
+        pose.popPose()
     }
 
-    private fun buildBreadcrumb(): Component {
-        if (searchActive) return Component.translatable("gui.cbbees.construction_planner.search_results")
-            .withStyle { it.withColor(0xAAAAAA) }
+    private fun renderScrollbar(guiGraphics: GuiGraphics, track: Area, scroll: Int, maxScroll: Int) {
+        if (maxScroll <= 0) return
+        val thumb = AllCCRGuiTextures.PLANNER_SCROLL_THUMB
+        val y = track.y + (track.h - thumb.height) * scroll / maxScroll
+        thumb.render(guiGraphics, track.x, y)
+    }
 
-        val parts = if (currentGroupPath.isEmpty()) {
-            listOf("Root")
-        } else {
-            listOf("Root") + currentGroupPath.split("/")
+    private fun breadcrumbText(): String = when {
+        searchActive -> Component.translatable("gui.cbbees.construction_planner.search_results").string
+        else -> (listOf("Root") + currentGroupPath.split('/').filter { it.isNotEmpty() }).joinToString(" > ")
+    }
+
+    private fun visibleEntries() = entries.drop(listScroll).take(visibleRows)
+
+    private fun maxListScroll() = (entries.size - visibleRows).coerceAtLeast(0)
+
+    private fun maxMaterialScroll(count: Int) = ((count + gridColumns - 1) / gridColumns - gridRows).coerceAtLeast(0)
+
+    private fun currentMaterialCount() = selectedSchematic?.let { SchematicPreviewRenderer.getMaterials(it.value).size } ?: 0
+
+    private fun rowAt(mouseX: Double, mouseY: Double): BrowserEntry? {
+        if (!rows.contains(mouseX, mouseY)) return null
+        return visibleEntries().getOrNull(((mouseY - rows.y) / ROW_HEIGHT).toInt())
+    }
+
+    private fun scrollFromTrack(track: Area, mouseY: Double, maxScroll: Int): Int {
+        val progress = ((mouseY - track.y) / track.h).coerceIn(0.0, 1.0)
+        return (progress * maxScroll + 0.5).toInt()
+    }
+
+    private fun dragScrollbar(track: Area, mouseY: Double) {
+        when (track) {
+            listTrack -> listScroll = scrollFromTrack(track, mouseY, maxListScroll())
+            materialsTrack -> materialScroll = scrollFromTrack(track, mouseY, maxMaterialScroll(currentMaterialCount()))
         }
-        return Component.literal(parts.joinToString(" > ")).withStyle { it.withColor(0x888888) }
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (button == 1) {
-            val entry = selectedEntry
-            if (entry != null) {
-                when (entry.type) {
-                    BrowserEntryType.GROUP -> {
-                        navigateToGroup(entry.value)
-                        return true
-                    }
+        if (super.mouseClicked(mouseX, mouseY, button)) return true
 
-                    BrowserEntryType.SCHEMATIC -> {
-                        if (hasShiftDown()) {
-                            instantConstruct(entry.value)
-                        } else {
-                            selectSchematic(entry.value)
-                        }
-                        return true
-                    }
-
-                    BrowserEntryType.PARENT -> {
-                        navigateUp()
-                        return true
-                    }
-                }
+        listOf(listTrack, materialsTrack).firstOrNull { it.contains(mouseX, mouseY) }?.let { track ->
+            if (button == 0) {
+                draggingScrollbar = track
+                dragScrollbar(track, mouseY)
+                return true
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button)
+
+        val row = rowAt(mouseX, mouseY)
+        if (row != null) {
+            val wasSelected = row === selectedEntry
+            select(row)
+            when {
+                button == 1 && row.type == BrowserEntryType.SCHEMATIC && hasShiftDown() -> instantConstruct(row.value)
+                button == 1 || wasSelected -> activate(row)
+            }
+            return true
+        }
+
+        if (button == 1) {
+            val entry = selectedEntry ?: return false
+            if (entry.type == BrowserEntryType.SCHEMATIC && hasShiftDown()) instantConstruct(entry.value) else activate(entry)
+            return true
+        }
+        return false
+    }
+
+    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        draggingScrollbar = null
+        return super.mouseReleased(mouseX, mouseY, button)
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
-        // Zoom preview when hovering over it
-        if (mouseX >= previewLeft && mouseX < previewLeft + previewWidth
-            && mouseY >= panelTop && mouseY < panelTop + panelHeight
-        ) {
-            previewZoom = (previewZoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
-            return true
+        val delta = scrollY.toInt()
+        when {
+            viewport.contains(mouseX, mouseY) && selectedSchematic != null ->
+                previewZoom = (previewZoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
+
+            materialsPanel.contains(mouseX, mouseY) ->
+                materialScroll = (materialScroll - delta).coerceIn(0, maxMaterialScroll(currentMaterialCount()))
+
+            listPanel.contains(mouseX, mouseY) ->
+                listScroll = (listScroll - delta).coerceIn(0, maxListScroll())
+
+            else -> return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
         }
-        // Scroll material list when hovering over it
-        if (mouseX >= materialsLeft && mouseX < materialsLeft + materialsWidth
-            && mouseY >= panelTop && mouseY < panelTop + panelHeight
-        ) {
-            materialScrollOffset = (materialScrollOffset - scrollY.toInt()).coerceIn(0, maxMaterialScroll)
-            return true
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+        return true
     }
 
     override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
-        if (button == 0
-            && mouseX >= previewLeft && mouseX < previewLeft + previewWidth
-            && mouseY >= panelTop && mouseY < panelTop + panelHeight
-        ) {
+        draggingScrollbar?.let {
+            dragScrollbar(it, mouseY)
+            return true
+        }
+        if (button == 0 && selectedSchematic != null && viewport.contains(mouseX, mouseY)) {
             previewRotY += dragX.toFloat()
             previewRotX = (previewRotX - dragY.toFloat()).coerceIn(-90f, 90f)
             return true
@@ -563,18 +479,14 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
         if (searchBox.isFocused) {
-            return searchBox.keyPressed(keyCode, scanCode, modifiers)
-                    || super.keyPressed(keyCode, scanCode, modifiers)
+            return searchBox.keyPressed(keyCode, scanCode, modifiers) || super.keyPressed(keyCode, scanCode, modifiers)
         }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !searchActive) {
-            navigateUp()
-            return true
+        when (keyCode) {
+            GLFW.GLFW_KEY_BACKSPACE -> if (!searchActive) navigateUp()
+            GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> onSelectAction()
+            else -> return super.keyPressed(keyCode, scanCode, modifiers)
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            onSelectAction()
-            return true
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers)
+        return true
     }
 
     override fun removed() {
@@ -582,106 +494,18 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         SchematicPreviewRenderer.clear()
     }
 
-    // --- Entry types ---
-
     enum class BrowserEntryType { GROUP, SCHEMATIC, PARENT }
 
-    inner class BrowserEntry(
-        val type: BrowserEntryType,
-        val value: String,
-        val displayName: String,
-        val extra: String
-    ) : ObjectSelectionList.Entry<BrowserEntry>() {
+    data class BrowserEntry(val type: BrowserEntryType, val value: String, val displayName: String, val group: String)
 
-        override fun getNarration(): Component = Component.literal(displayName)
-
-        override fun render(
-            guiGraphics: GuiGraphics, index: Int,
-            top: Int, left: Int, width: Int, height: Int,
-            mouseX: Int, mouseY: Int, hovered: Boolean, partialTick: Float
-        ) {
-            val selected = entryList.selected === this
-            val isFolder = type == BrowserEntryType.GROUP || type == BrowserEntryType.PARENT
-
-            val prefix = when (type) {
-                BrowserEntryType.GROUP -> "\u00A79\u25B6 "
-                BrowserEntryType.PARENT -> "\u00A77\u25C0 "
-                BrowserEntryType.SCHEMATIC -> "  "
-            }
-
-            val nameColor = when {
-                selected -> 0xFFFF00
-                isFolder -> 0x88CCFF
-                hovered -> 0xFFFFFF
-                else -> 0xCCCCCC
-            }
-
-            if (selected) {
-                guiGraphics.fill(left, top, left + width, top + height, 0x30FFFFFF)
-            } else if (hovered) {
-                guiGraphics.fill(left, top, left + width, top + height, 0x18FFFFFF)
-            }
-
-            val text = "$prefix$displayName"
-            guiGraphics.drawString(font, text, left + 2, top + 4, nameColor, false)
-
-            if (extra.isNotEmpty()) {
-                val extraWidth = font.width(extra)
-                guiGraphics.drawString(font, extra, left + width - extraWidth - 4, top + 4, 0x555555, false)
-            }
-        }
-
-        override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-            if (button == 0) {
-                val wasSelected = entryList.selected === this
-                entryList.setSelected(this)
-
-                if (wasSelected) {
-                    when (type) {
-                        BrowserEntryType.GROUP -> navigateToGroup(value)
-                        BrowserEntryType.PARENT -> navigateUp()
-                        BrowserEntryType.SCHEMATIC -> selectSchematic(value)
-                    }
-                }
-            }
-            return true
-        }
-    }
-
-    inner class BrowserList(
-        mc: Minecraft,
-        width: Int,
-        height: Int,
-        top: Int,
-        itemHeight: Int,
-        private val listLeft: Int
-    ) : ObjectSelectionList<BrowserEntry>(mc, width, height, top, itemHeight) {
-
-        init {
-            x = listLeft
-        }
-
-        override fun getRowLeft(): Int = listLeft
-        override fun getRowWidth(): Int = this.width - 12
-
-        public override fun addEntry(entry: BrowserEntry): Int = super.addEntry(entry)
-
-        public override fun clearEntries() {
-            super.clearEntries()
-        }
-
-        override fun setSelected(entry: BrowserEntry?) {
-            super.setSelected(entry)
-            selectedEntry = entry
-            selectButton.active = entry != null
-            val isSchematic = entry != null && entry.type == BrowserEntryType.SCHEMATIC
-            groupButton.active = isSchematic
-            renameButton.visible = isSchematic
-            deleteButton.visible = isSchematic
-            materialScrollOffset = 0
-            previewRotX = 30f
-            previewRotY = -45f
-            previewZoom = 1f
-        }
+    companion object {
+        private const val DEFAULT_ROT_X = 30f
+        private const val DEFAULT_ROT_Y = -45f
+        private const val MARGIN = 6
+        private const val GAP = 4
+        private const val ROW_HEIGHT = 18
+        private const val SLOT_SIZE = 18
+        private const val SLOT_LABEL_SCALE = 0.75f
+        private val BUTTON_WIDTH = AllCCRGuiTextures.PLANNER_BUTTON.width
     }
 }
