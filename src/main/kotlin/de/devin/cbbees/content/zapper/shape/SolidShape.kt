@@ -20,7 +20,7 @@ abstract class SolidShape(
 
     protected open fun Frame.visible(x: Int, y: Int, z: Int): Boolean = true
 
-    private data class Key(val params: List<Int>, val hollow: Boolean, val axis: Direction.Axis)
+    private data class Key(val params: List<Int>, val hollow: Boolean, val open: Boolean, val axis: Direction.Axis)
 
     private val cache = object : LinkedHashMap<Key, List<BlockPos>>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, List<BlockPos>>) = size > CACHE_SIZE
@@ -29,19 +29,25 @@ abstract class SolidShape(
     fun offsets(settings: ShapeSettings, facing: Direction = Direction.NORTH): List<BlockPos> {
         val axis = if (oriented) facing.axis.takeIf { it.isHorizontal } ?: Direction.Axis.Z else Direction.Axis.Y
         val clamped = settings.clampedTo(this)
-        val key = Key(clamped.params, clamped.hollow, axis)
-        return synchronized(cache) { cache.getOrPut(key) { compute(Frame(clamped.params.toIntArray(), axis), clamped.hollow) } }
+        val key = Key(clamped.params, clamped.hollow, clamped.open, axis)
+        return synchronized(cache) { cache.getOrPut(key) { compute(Frame(clamped.params.toIntArray(), axis), clamped.hollow, clamped.open) } }
     }
 
-    private fun compute(frame: Frame, hollow: Boolean): List<BlockPos> = with(frame) {
+    private fun compute(frame: Frame, hollow: Boolean, open: Boolean): List<BlockPos> = with(frame) {
         val box = bounds()
         val result = ArrayList<BlockPos>()
         for (x in box.minX()..box.maxX()) for (y in box.minY()..box.maxY()) for (z in box.minZ()..box.maxZ()) {
             if (!inside(x, y, z) || !visible(x, y, z)) continue
             if (hollow && NEIGHBORS.all { inside(x + it.stepX, y + it.stepY, z + it.stepZ) }) continue
+            if (open && !isWall(x, y, z)) continue
             result += BlockPos(x, y, z)
         }
         result
+    }
+
+    private fun Frame.isWall(x: Int, y: Int, z: Int): Boolean {
+        if (HORIZONTAL.any { !inside(x + it.stepX, y, z + it.stepZ) }) return true
+        return listOf(1, -1).any { dy -> !inside(x, y + dy, z) && HORIZONTAL.any { inside(x + it.stepX, y + dy, z + it.stepZ) } }
     }
 
     override fun place(level: Level, aim: ShapeAim, settings: ShapeSettings): PlacedShape {
@@ -63,6 +69,7 @@ abstract class SolidShape(
     protected companion object {
         const val CACHE_SIZE = 8
         val NEIGHBORS = Direction.entries
+        val HORIZONTAL = Direction.Plane.HORIZONTAL.toList()
 
         fun sq(v: Double) = v * v
 

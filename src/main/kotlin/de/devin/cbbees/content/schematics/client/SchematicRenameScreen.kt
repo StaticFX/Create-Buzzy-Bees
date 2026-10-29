@@ -57,7 +57,7 @@ class SchematicRenameScreen(
             CreateBuzzyBeez.LOGGER.error("Failed to rename schematic $filename to $newFilename", e)
         }
 
-        minecraft?.setScreen(ConstructionPlannerScreen())
+        onClose()
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {

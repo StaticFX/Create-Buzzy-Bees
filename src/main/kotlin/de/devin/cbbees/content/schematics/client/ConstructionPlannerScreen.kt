@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.schematics.client
 
+import com.mojang.blaze3d.platform.InputConstants
 import com.simibubi.create.CreateClient
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
@@ -17,6 +18,7 @@ import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.network.PacketDistributor
 import org.lwjgl.glfw.GLFW
+import kotlin.math.hypot
 
 /**
  * Full-screen schematic browser with group navigation, 3D preview and material list.
@@ -41,8 +43,15 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
 
     private val entries = mutableListOf<BrowserEntry>()
     private var selectedEntry: BrowserEntry? = null
+    private val marked = linkedSetOf<BrowserEntry>()
+    private var rangeAnchor: BrowserEntry? = null
+    private var pressed: BrowserEntry? = null
+    private var pressedWasSelected = false
+    private var pressX = 0.0
+    private var pressY = 0.0
+    private var dragged: List<BrowserEntry> = emptyList()
     private var listScroll = 0
-    private var currentGroupPath = ""
+    private var currentGroupPath = ConstructionPlannerHandler.currentGroupPath
     private var allSchematics: List<String> = emptyList()
     private var searchActive = false
 
@@ -103,7 +112,6 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         allSchematics = CreateClient.SCHEMATIC_SENDER.availableSchematics.map { it.string }
         SchematicGroupManager.ensureLoaded()
         SchematicGroupManager.reconcile(allSchematics)
-        currentGroupPath = ConstructionPlannerHandler.currentGroupPath
 
         val previousSearch = if (::searchBox.isInitialized) searchBox.value else ""
         searchBox = EditBox(font, search.x + 3, search.y + 2, search.w - 6, search.h - 2, Component.translatable("gui.cbbees.construction_planner.search"))
@@ -121,6 +129,9 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         val buttonY = height - 22
         selectButton = addRenderableWidget(PlannerButton(MARGIN, buttonY, Component.translatable("gui.cbbees.construction_planner.select"), ::onSelectAction))
         groupButton = addRenderableWidget(PlannerButton(MARGIN + BUTTON_WIDTH + 4, buttonY, Component.translatable("gui.cbbees.construction_planner.assign_group"), ::onAssignGroup))
+        addRenderableWidget(PlannerButton(MARGIN + (BUTTON_WIDTH + 4) * 2, buttonY, Component.translatable("gui.cbbees.construction_planner.new_folder")) {
+            minecraft?.setScreen(FolderCreateScreen(if (searchActive) "" else currentGroupPath, this))
+        })
         addRenderableWidget(PlannerButton(width - MARGIN - BUTTON_WIDTH * 2 - 4, buttonY, Component.translatable("gui.cbbees.browse_online.button")) {
             ExternalSchematicSource.active?.let { minecraft?.setScreen(BrowseOnlineScreen(it, this)) }
         }).active = ExternalSchematicSource.active != null && CBBeesConfig.enableExternalBrowser.get()
@@ -161,6 +172,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         }
 
         listScroll = listScroll.coerceIn(0, maxListScroll())
+        marked.retainAll(entries.toSet())
         select(entries.find { it.value == previousSelection })
     }
 
@@ -169,15 +181,75 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         selectedEntry = entry
         val isSchematic = selectedSchematic != null
         selectButton.active = entry != null
-        groupButton.active = isSchematic
-        renameButton.visible = isSchematic
-        deleteButton.visible = isSchematic
+        groupButton.active = marked.isNotEmpty()
+        renameButton.visible = isSchematic && marked.size <= 1
+        deleteButton.visible = marked.any { it.type == BrowserEntryType.SCHEMATIC }
         resetViewButton.visible = isSchematic
         backButton.visible = currentGroupPath.isNotEmpty() && !searchActive
         if (changed) {
             materialScroll = 0
             resetView()
         }
+    }
+
+    private val BrowserEntry.markable get() = type != BrowserEntryType.PARENT
+
+    private fun click(row: BrowserEntry) {
+        when {
+            row.markable && multiSelectDown() -> {
+                if (!marked.remove(row)) marked += row
+                rangeAnchor = row
+                select(row.takeIf { it in marked } ?: marked.lastOrNull())
+                return
+            }
+            row.markable && hasShiftDown() -> markRange(rangeAnchor ?: row, row)
+            else -> markOnly(row)
+        }
+        select(row)
+    }
+
+    private fun ctrlKeyDown(): Boolean {
+        val window = Minecraft.getInstance().window.window
+        return InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_CONTROL) || InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_CONTROL)
+    }
+
+    private fun multiSelectDown() = hasControlDown() || ctrlKeyDown()
+
+    private fun isMacCtrlClick(button: Int) = button == 1 && Minecraft.ON_OSX && ctrlKeyDown()
+
+    private fun markOnly(row: BrowserEntry) {
+        marked.clear()
+        if (row.markable) marked += row
+        rangeAnchor = row
+    }
+
+    private fun markRange(from: BrowserEntry, to: BrowserEntry) {
+        val start = entries.indexOf(from).takeIf { it >= 0 } ?: entries.indexOf(to)
+        val end = entries.indexOf(to)
+        marked.clear()
+        marked += entries.subList(minOf(start, end), maxOf(start, end) + 1).filter { it.markable }
+    }
+
+    private fun markAll() {
+        marked.clear()
+        marked += entries.filter { it.markable }
+        select(selectedEntry ?: marked.firstOrNull())
+    }
+
+    private fun dropTarget(mouseX: Double, mouseY: Double): String? {
+        val row = rowAt(mouseX, mouseY) ?: return null
+        val target = when (row.type) {
+            BrowserEntryType.GROUP -> row.value
+            BrowserEntryType.PARENT -> currentGroupPath.substringBeforeLast('/', "")
+            BrowserEntryType.SCHEMATIC -> return null
+        }
+        return target.takeIf { row !in dragged && dragged.none { it.type == BrowserEntryType.GROUP && !SchematicGroupManager.canMoveInto(it.value, target) } }
+    }
+
+    private fun moveMarked(items: List<BrowserEntry>, target: String) {
+        move(items, target)
+        marked.clear()
+        rebuildList()
     }
 
     private fun activate(entry: BrowserEntry) = when (entry.type) {
@@ -195,15 +267,16 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     }
 
     private fun onDeleteAction() {
-        selectedSchematic?.let { minecraft?.setScreen(SchematicDeleteScreen(it.value, this)) }
+        val filenames = marked.filter { it.type == BrowserEntryType.SCHEMATIC }.map { it.value }.ifEmpty { return }
+        minecraft?.setScreen(SchematicDeleteScreen(filenames, this))
     }
 
     private fun onAssignGroup() {
-        val filename = selectedSchematic?.value ?: return
-        val currentGroup = SchematicGroupManager.getGroup(filename)
-        minecraft?.setScreen(GroupPickerScreen({ newGroup ->
-            SchematicGroupManager.setGroup(filename, newGroup)
-        }, currentGroup, ConstructionPlannerScreen()))
+        val items = marked.toList().ifEmpty { return }
+        val currentGroup = items.singleOrNull()?.let {
+            if (it.type == BrowserEntryType.SCHEMATIC) SchematicGroupManager.getGroup(it.value) else it.value.substringBeforeLast('/', "")
+        } ?: currentGroupPath
+        minecraft?.setScreen(GroupPickerScreen({ move(items, it) }, currentGroup, this))
     }
 
     private fun resetView() {
@@ -267,6 +340,18 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         renderPreview(guiGraphics)
         renderMaterials(guiGraphics, mouseX, mouseY)
         if (resetViewButton.visible) resetViewButton.render(guiGraphics, mouseX, mouseY, partialTick)
+        renderDragged(guiGraphics, mouseX, mouseY)
+    }
+
+    private fun renderDragged(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        if (dragged.isEmpty()) return
+        val label = dragged.singleOrNull()?.displayName ?: Component.translatable("gui.cbbees.construction_planner.drag_count", dragged.size).string
+        val pose = guiGraphics.pose()
+        pose.pushPose()
+        pose.translate(0f, 0f, 400f)
+        AllCCRGuiTextures.PLANNER_ROW_SELECTED.renderNineSlice(guiGraphics, mouseX + 8, mouseY - 4, font.width(label) + 8, 14, 2)
+        guiGraphics.drawString(font, label, mouseX + 12, mouseY - 1, 0xFFFFFF, true)
+        pose.popPose()
     }
 
     private fun renderList(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
@@ -280,12 +365,14 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         }
 
         val hovered = rowAt(mouseX.toDouble(), mouseY.toDouble())
+        val dropRow = hovered.takeIf { dragged.isNotEmpty() && dropTarget(mouseX.toDouble(), mouseY.toDouble()) != null }
         visibleEntries().forEachIndexed { i, entry ->
             val x = rows.x
             val y = rows.y + i * ROW_HEIGHT
+            val highlighted = entry === selectedEntry || entry in marked || entry === dropRow
             when {
-                entry === selectedEntry -> AllCCRGuiTextures.PLANNER_ROW_SELECTED.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
-                entry === hovered -> AllCCRGuiTextures.PLANNER_ROW_HOVER.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
+                highlighted -> AllCCRGuiTextures.PLANNER_ROW_SELECTED.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
+                entry === hovered && dragged.isEmpty() -> AllCCRGuiTextures.PLANNER_ROW_HOVER.renderNineSlice(guiGraphics, x, y, rows.w, ROW_HEIGHT, 2)
             }
             val icon = when (entry.type) {
                 BrowserEntryType.GROUP -> AllCCRGuiTextures.PLANNER_ICON_GROUP
@@ -294,13 +381,13 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             }
             icon?.render(guiGraphics, x + 2, y + 3)
             val color = when {
-                entry === selectedEntry -> 0xFFFFFF
+                highlighted -> 0xFFFFFF
                 entry.type != BrowserEntryType.SCHEMATIC -> 0x88CCFF
                 else -> 0xDDDDDD
             }
             val textX = if (icon != null) x + 16 else x + 4
             val textRight = x + rows.w - 2
-            if (entry === selectedEntry || entry === hovered) {
+            if (highlighted || entry === hovered) {
                 AbstractWidget.renderScrollingString(guiGraphics, font, Component.literal(entry.displayName), textX, textX, y, textRight, y + ROW_HEIGHT, color)
             } else {
                 guiGraphics.drawString(font, font.plainSubstrByWidth(entry.displayName, textRight - textX), textX, y + 5, color, true)
@@ -425,16 +512,23 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
 
         val row = rowAt(mouseX, mouseY)
         if (row != null) {
-            val wasSelected = row === selectedEntry
-            select(row)
-            when {
-                button == 1 && row.type == BrowserEntryType.SCHEMATIC && hasShiftDown() -> instantConstruct(row.value)
-                button == 1 || wasSelected -> activate(row)
+            when (if (isMacCtrlClick(button)) 0 else button) {
+                0 -> {
+                    pressed = row
+                    pressedWasSelected = row === selectedEntry
+                    pressX = mouseX
+                    pressY = mouseY
+                }
+                1 -> {
+                    markOnly(row)
+                    select(row)
+                    if (row.type == BrowserEntryType.SCHEMATIC && hasShiftDown()) instantConstruct(row.value) else activate(row)
+                }
             }
             return true
         }
 
-        if (button == 1) {
+        if (button == 1 && !isMacCtrlClick(button)) {
             val entry = selectedEntry ?: return false
             if (entry.type == BrowserEntryType.SCHEMATIC && hasShiftDown()) instantConstruct(entry.value) else activate(entry)
             return true
@@ -444,7 +538,18 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
 
     override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
         draggingScrollbar = null
-        return super.mouseReleased(mouseX, mouseY, button)
+        val row = pressed
+        if (row == null) return super.mouseReleased(mouseX, mouseY, button)
+        pressed = null
+        if (dragged.isNotEmpty()) {
+            dropTarget(mouseX, mouseY)?.let { moveMarked(dragged, it) }
+            dragged = emptyList()
+        } else {
+            val open = pressedWasSelected && marked.size <= 1 && !multiSelectDown() && !hasShiftDown()
+            click(row)
+            if (open) activate(row)
+        }
+        return true
     }
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
@@ -469,6 +574,16 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             dragScrollbar(it, mouseY)
             return true
         }
+        pressed?.let { row ->
+            if (dragged.isEmpty() && row.markable && hypot(mouseX - pressX, mouseY - pressY) > DRAG_THRESHOLD) {
+                if (row !in marked) {
+                    markOnly(row)
+                    select(row)
+                }
+                dragged = marked.toList()
+            }
+            return true
+        }
         if (button == 0 && selectedSchematic != null && viewport.contains(mouseX, mouseY)) {
             previewRotY += dragX.toFloat()
             previewRotX = (previewRotX - dragY.toFloat()).coerceIn(-90f, 90f)
@@ -484,6 +599,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         when (keyCode) {
             GLFW.GLFW_KEY_BACKSPACE -> if (!searchActive) navigateUp()
             GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> onSelectAction()
+            GLFW.GLFW_KEY_A -> if (multiSelectDown()) markAll() else return super.keyPressed(keyCode, scanCode, modifiers)
             else -> return super.keyPressed(keyCode, scanCode, modifiers)
         }
         return true
@@ -506,6 +622,13 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         private const val ROW_HEIGHT = 18
         private const val SLOT_SIZE = 18
         private const val SLOT_LABEL_SCALE = 0.75f
+        private const val DRAG_THRESHOLD = 4.0
         private val BUTTON_WIDTH = AllCCRGuiTextures.PLANNER_BUTTON.width
+
+        private fun move(items: List<BrowserEntry>, target: String) = SchematicGroupManager.moveInto(
+            items.filter { it.type == BrowserEntryType.SCHEMATIC }.map { it.value },
+            items.filter { it.type == BrowserEntryType.GROUP }.map { it.value },
+            target,
+        )
     }
 }

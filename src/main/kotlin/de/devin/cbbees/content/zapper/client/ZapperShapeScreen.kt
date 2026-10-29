@@ -41,6 +41,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
     private var shape: ZapperShape = ZapperShapes.byId(saved.shape)
     private val values = IntArray(MAX_PARAMS) { saved.params.getOrNull(it) ?: shape.params.getOrNull(it)?.default ?: 1 }
     private var hollow = saved.hollow
+    private var open = saved.open
     private var diagonals = saved.diagonals
     private var fuzzy = saved.fuzzy
     private var tool = zapper.getOrDefault(AllDataComponents.SHAPER_TOOL, TerrainTools.Fill)
@@ -97,7 +98,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         }
 
         if (shape.canBeHollow) {
-            toggle(x + 136, y + 40, AllIcons.I_FX_SURFACE_ON, Component.translatable("gui.cbbees.zapper.hollow"), hollow) { hollow = it }
+            shellToggle(x + 136, y + 40)
         }
 
         if (shape.hasConnectivityOptions) {
@@ -150,6 +151,36 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         button.toolTip += FontHelper.cutTextComponent(description, FontHelper.Palette.ALL_GRAY)
     }
 
+    private fun shellMode(): String = when {
+        open -> "walls"
+        hollow -> "hollow"
+        else -> "solid"
+    }
+
+    private fun shellToggle(x: Int, y: Int) {
+        val indicator = Indicator(x, y - 6, CommonComponents.EMPTY)
+        val button = IconButton(x, y, AllIcons.I_FX_SURFACE_ON)
+        val refresh = {
+            indicator.state = when {
+                open -> Indicator.State.YELLOW
+                hollow -> Indicator.State.ON
+                else -> Indicator.State.OFF
+            }
+            button.setToolTip(Component.translatable("gui.cbbees.zapper.shell.${shellMode()}"))
+        }
+        refresh()
+        button.withCallback<IconButton> {
+            when {
+                open -> { hollow = false; open = false }
+                hollow -> open = true
+                else -> hollow = true
+            }
+            refresh()
+        }
+        shapeWidgets += indicator
+        shapeWidgets += button
+    }
+
     private fun toggle(x: Int, y: Int, icon: AllIcons, tooltip: Component, on: Boolean, onChange: (Boolean) -> Unit) {
         val indicator = Indicator(x, y - 6, CommonComponents.EMPTY).apply { state = if (on) Indicator.State.ON else Indicator.State.OFF }
         val button = IconButton(x, y, icon).apply { setToolTip(tooltip) }
@@ -175,7 +206,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
         val h = AllCCRGuiTextures.SCHEMATIC_ZAPPER.height
         AllCCRGuiTextures.PLANNER_PANEL.renderNineSlice(graphics, x, guiTop, PREVIEW_WIDTH, h, 2)
         AllCCRGuiTextures.PLANNER_VIEWPORT.renderTiled(graphics, x + 2, guiTop + 2, PREVIEW_WIDTH - 4, h - 4)
-        val settings = ShapeSettings(shape.id, values.take(shape.params.size), hollow, diagonals, fuzzy)
+        val settings = ShapeSettings(shape.id, values.take(shape.params.size), hollow, diagonals, fuzzy, open)
         val block = zapper.getOrDefault(AllDataComponents.SHAPER_BLOCK_USED, Blocks.AIR.defaultBlockState())
             .takeUnless { it.isAir } ?: Blocks.STONE.defaultBlockState()
         preview.render(graphics, shape, settings, block, x + 2, guiTop + 2, PREVIEW_WIDTH - 4, h - 4)
@@ -209,7 +240,7 @@ class ZapperShapeScreen(zapper: ItemStack, hand: InteractionHand) :
 
     override fun removed() {
         super.removed()
-        val settings = ShapeSettings(shape.id, values.take(shape.params.size), hollow, diagonals, fuzzy).clampedTo(shape)
+        val settings = ShapeSettings(shape.id, values.take(shape.params.size), hollow, diagonals, fuzzy, open).clampedTo(shape)
         zapper.set(CBBeesDataComponents.ZAPPER_SHAPE.get(), settings)
         PacketDistributor.sendToServer(ConfigureZapperShapePacket(hand, settings))
     }

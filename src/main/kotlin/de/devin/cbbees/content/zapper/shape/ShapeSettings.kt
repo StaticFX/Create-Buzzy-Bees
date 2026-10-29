@@ -12,6 +12,7 @@ data class ShapeSettings(
     val hollow: Boolean = false,
     val diagonals: Boolean = false,
     val fuzzy: Boolean = false,
+    val open: Boolean = false,
 ) {
     fun param(index: Int): Int = params.getOrElse(index) { 1 }
 
@@ -19,6 +20,7 @@ data class ShapeSettings(
         shape = shape.id,
         params = shape.params.mapIndexed { i, param -> param(i).coerceIn(param.min, param.max()) },
         hollow = hollow && shape.canBeHollow,
+        open = open && shape.canBeHollow,
     )
 
     companion object {
@@ -31,6 +33,7 @@ data class ShapeSettings(
                 Codec.BOOL.optionalFieldOf("hollow", false).forGetter(ShapeSettings::hollow),
                 Codec.BOOL.optionalFieldOf("diagonals", false).forGetter(ShapeSettings::diagonals),
                 Codec.BOOL.optionalFieldOf("fuzzy", false).forGetter(ShapeSettings::fuzzy),
+                Codec.BOOL.optionalFieldOf("open", false).forGetter(ShapeSettings::open),
             ).apply(instance, ::ShapeSettings)
         }
 
@@ -40,6 +43,7 @@ data class ShapeSettings(
             ByteBufCodecs.BOOL, ShapeSettings::hollow,
             ByteBufCodecs.BOOL, ShapeSettings::diagonals,
             ByteBufCodecs.BOOL, ShapeSettings::fuzzy,
+            ByteBufCodecs.BOOL, ShapeSettings::open,
             ::ShapeSettings
         )
     }

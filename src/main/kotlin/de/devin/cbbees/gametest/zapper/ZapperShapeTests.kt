@@ -18,7 +18,8 @@ object ZapperShapeTests {
 
     private const val TEMPLATE = "cbbees:gametest/empty3x3"
 
-    private fun settings(shape: String, vararg params: Int, hollow: Boolean = false) = ShapeSettings(shape, params.toList(), hollow)
+    private fun settings(shape: String, vararg params: Int, hollow: Boolean = false, open: Boolean = false) =
+        ShapeSettings(shape, params.toList(), hollow, open = open)
 
     private fun Collection<BlockPos>.neighborsOf(pos: BlockPos) = Direction.entries.map(pos::relative).filter { it in this }
 
@@ -50,6 +51,23 @@ object ZapperShapeTests {
         assertTrue(solid.containsAll(shell), "shell must be part of the solid shape")
         assertTrue(shell.all { solid.neighborsOf(it).size < 6 }, "every shell block touches the outside")
         assertTrue((solid - shell).all { solid.neighborsOf(it).size == 6 }, "every removed block was fully enclosed")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun wallsOnly_dropsCeilingAndFloor(helper: GameTestHelper) = helper.unitTest {
+        val room = ZapperShapes.CUBOID.offsets(settings("cuboid", 5, 5, 5, open = true)).toSet()
+        assertEquals(5 * 16, room.size, "five layers of a 5x5 ring")
+        assertFalse(BlockPos(0, 2, 0) in room, "no ceiling")
+        assertFalse(BlockPos(0, -2, 0) in room, "no floor")
+        assertTrue(BlockPos(2, 2, 2) in room, "walls reach the top corner")
+
+        val shell = ZapperShapes.ELLIPSOID.offsets(settings("ellipsoid", 6, 6, 6, hollow = true)).toSet()
+        val sphere = ZapperShapes.ELLIPSOID.offsets(settings("ellipsoid", 6, 6, 6, open = true)).toSet()
+        assertTrue(shell.containsAll(sphere), "walls are part of the shell")
+        assertFalse(BlockPos(0, 6, 0) in sphere, "sphere is open at the top")
+        assertTrue(BlockPos(6, 0, 0) in sphere, "sphere keeps its equator")
+        assertTrue((-5..5).all { y -> sphere.any { it.y == y } }, "every layer keeps its wall")
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)

@@ -13,7 +13,7 @@ import java.nio.file.Files
 
 @OnlyIn(Dist.CLIENT)
 class SchematicDeleteScreen(
-    private val filename: String,
+    private val filenames: List<String>,
     parentScreen: Screen? = null
 ) : PlannerDialog(Component.translatable("gui.cbbees.schematic_delete.title"), WIDTH, 96, parentScreen) {
 
@@ -23,16 +23,17 @@ class SchematicDeleteScreen(
     }
 
     private fun doDelete() {
-        val path = CreatePaths.SCHEMATICS_DIR.resolve(filename)
-        try {
-            Files.deleteIfExists(path)
-            SchematicGroupManager.removeGroup(filename)
-            CreateClient.SCHEMATIC_SENDER.refresh()
-        } catch (e: Exception) {
-            CreateBuzzyBeez.LOGGER.error("Failed to delete schematic $filename", e)
+        filenames.forEach { filename ->
+            try {
+                Files.deleteIfExists(CreatePaths.SCHEMATICS_DIR.resolve(filename))
+                SchematicGroupManager.removeGroup(filename)
+            } catch (e: Exception) {
+                CreateBuzzyBeez.LOGGER.error("Failed to delete schematic $filename", e)
+            }
         }
+        CreateClient.SCHEMATIC_SENDER.refresh()
 
-        minecraft?.setScreen(ConstructionPlannerScreen())
+        onClose()
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
@@ -41,7 +42,10 @@ class SchematicDeleteScreen(
 
         val textX = left + MARGIN + 22
         val textWidth = WIDTH - MARGIN * 2 - 22
-        val message = font.split(Component.translatable("gui.cbbees.schematic_delete.message", filename.removeSuffix(".nbt")), textWidth)
+        val text = filenames.singleOrNull()
+            ?.let { Component.translatable("gui.cbbees.schematic_delete.message", it.removeSuffix(".nbt")) }
+            ?: Component.translatable("gui.cbbees.schematic_delete.message_many", filenames.size)
+        val message = font.split(text, textWidth)
         val hint = font.split(Component.translatable("gui.cbbees.schematic_delete.hint"), textWidth)
         var y = top + 24
         message.forEach { guiGraphics.drawString(font, it, textX, y, 0xFF5555); y += 10 }

@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.schematics.client
 
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.simibubi.create.foundation.utility.CreatePaths
@@ -25,16 +26,21 @@ object SchematicGroupManager {
 
     /** filename → group path (e.g. "Medieval/Towers"). Empty string = root. */
     private val groups = mutableMapOf<String, String>()
+
+    /** Folders created by hand, kept even while no schematic is in them. */
+    private val folders = sortedSetOf<String>()
     private var loaded = false
 
     fun load() {
         groups.clear()
+        folders.clear()
         if (!Files.exists(groupsFile)) {
             loaded = true
             return
         }
         try {
             val json = JsonParser.parseString(Files.readString(groupsFile)).asJsonObject
+            json.getAsJsonArray("folders")?.forEach { folders += it.asString }
             val groupsObj = json.getAsJsonObject("groups") ?: return
             for ((key, value) in groupsObj.entrySet()) {
                 groups[key] = value.asString
@@ -54,6 +60,7 @@ object SchematicGroupManager {
                 groupsObj.addProperty(key, value)
             }
             json.add("groups", groupsObj)
+            json.add("folders", JsonArray().apply { folders.forEach(::add) })
             Files.createDirectories(groupsFile.parent)
             Files.writeString(groupsFile, gson.toJson(json))
         } catch (e: IOException) {
@@ -74,11 +81,47 @@ object SchematicGroupManager {
     /** Assigns a schematic to a group path. Empty path moves to root (removes entry). */
     fun setGroup(filename: String, groupPath: String) {
         ensureLoaded()
-        val trimmed = groupPath.trim().trimEnd('/')
-        if (trimmed.isEmpty()) {
-            groups.remove(filename)
-        } else {
-            groups[filename] = trimmed
+        assign(filename, groupPath.trim().trimEnd('/'))
+        save()
+    }
+
+    private fun assign(filename: String, groupPath: String) {
+        if (groupPath.isEmpty()) groups.remove(filename) else groups[filename] = groupPath
+    }
+
+    /** Normalizes a typed folder path like " Medieval / Towers/ " to "Medieval/Towers". */
+    fun normalize(path: String): String = path.split('/').map(String::trim).filter(String::isNotEmpty).joinToString("/")
+
+    /** Creates an empty folder at [path]. */
+    fun createFolder(path: String) {
+        ensureLoaded()
+        val folder = normalize(path)
+        if (folder.isEmpty()) return
+        folders += folder
+        save()
+    }
+
+    /** Whether [groupPath] can be moved into [target] without ending up inside itself. */
+    fun canMoveInto(groupPath: String, target: String): Boolean = target != groupPath && !target.startsWith("$groupPath/")
+
+    /** Moves schematics and whole groups (with everything below them) into [target]. */
+    fun moveInto(filenames: Collection<String>, groupPaths: Collection<String>, target: String) {
+        ensureLoaded()
+        val destination = target.trim().trimEnd('/')
+        filenames.forEach { assign(it, destination) }
+        groupPaths.filter { canMoveInto(it, destination) }.forEach { group ->
+            val moved = listOf(destination, group.substringAfterLast('/')).filter(String::isNotEmpty).joinToString("/")
+            val relocate = { path: String ->
+                when {
+                    path == group -> moved
+                    path.startsWith("$group/") -> moved + path.removePrefix(group)
+                    else -> path
+                }
+            }
+            groups.replaceAll { _, path -> relocate(path) }
+            val relocated = folders.map(relocate)
+            folders.clear()
+            folders += relocated
         }
         save()
     }
@@ -132,6 +175,13 @@ object SchematicGroupManager {
         val subgroups = mutableSetOf<String>()
         val schematics = mutableListOf<String>()
 
+        for (folder in folders) {
+            when {
+                groupPath.isEmpty() -> subgroups += folder.substringBefore('/')
+                folder.startsWith(prefix) -> subgroups += folder.removePrefix(prefix).substringBefore('/')
+            }
+        }
+
         for (filename in availableSchematics) {
             val fileGroup = groups[filename] ?: ""
 
@@ -165,7 +215,7 @@ object SchematicGroupManager {
     fun getAllGroupPaths(): Set<String> {
         ensureLoaded()
         val paths = mutableSetOf<String>()
-        for (groupPath in groups.values) {
+        for (groupPath in groups.values + folders) {
             // Add the path and all parent paths
             val parts = groupPath.split("/")
             for (i in parts.indices) {
