@@ -54,7 +54,7 @@ public abstract class ToolSelectionScreenMixin {
 
     @Unique private static final String[] CCR$NAMES = { "gui.cbbees.tool.construct", "gui.cbbees.tool.unselect", "gui.cbbees.tool.program" };
     @Unique private static final String[] CCR$DESCS = { "gui.cbbees.tool.construct.desc", "gui.cbbees.tool.unselect.desc", "gui.cbbees.tool.program.desc" };
-    @Unique private static final AllIcons[] CCR$ICONS = { AllIcons.I_PLAY, AllIcons.I_TRASH, AllCCRIcons.PROGRAM };
+    @Unique private static final AllIcons[] CCR$ICONS = { AllCCRIcons.START_CONSTRUCTION, AllIcons.I_TRASH, AllCCRIcons.PROGRAM };
     @Unique private static final int[] CCR$NAME_COLORS = { 0x88FF88, 0xFFAA88, 0x88CCFF };
     @Unique private static final ConstructionToolState.CustomTool[] CCR$TOOL_ENUM = {
         ConstructionToolState.CustomTool.CONSTRUCT,

@@ -37,6 +37,14 @@ class AllCCRIcons(val iconX: Int, val iconY: Int) : AllIcons(iconX, iconY) {
 
         @JvmField
         val PROGRAM = AllCCRIcons(80, 0)
+
+        val DECONSTRUCT_SELECTION = AllCCRIcons(96, 0)
+
+        @JvmField
+        val START_CONSTRUCTION = AllCCRIcons(112, 0)
+
+        @JvmField
+        val START_DECONSTRUCTION = AllCCRIcons(128, 0)
     }
 
     override fun render(graphics: GuiGraphics, x: Int, y: Int) {

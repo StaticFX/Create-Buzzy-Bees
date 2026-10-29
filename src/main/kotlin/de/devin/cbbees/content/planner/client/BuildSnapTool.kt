@@ -1,12 +1,12 @@
 package de.devin.cbbees.content.planner.client
 
 import com.simibubi.create.AllSpecialTextures
-import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.RemovedGuiUtils
 import com.simibubi.create.foundation.utility.RaycastHelper
 import com.simibubi.create.infrastructure.config.AllConfigs
 import de.devin.cbbees.content.domain.built.client.ClientBuiltSchematic
 import de.devin.cbbees.content.domain.built.client.ClientBuiltSchematics
+import de.devin.cbbees.icons.AllCCRIcons
 import de.devin.cbbees.network.RemoveBuildPacket
 import net.createmod.catnip.gui.element.BoxElement
 import net.createmod.catnip.outliner.Outliner
@@ -20,7 +20,7 @@ import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.HitResult
 import net.neoforged.neoforge.network.PacketDistributor
 
-class BuildSnapTool : AreaPlannerTool("remove_build", AllIcons.I_TARGET, 0xc56868) {
+class BuildSnapTool : AreaPlannerTool("remove_build", AllCCRIcons.DECONSTRUCT_SELECTION, 0xc56868) {
 
     private var target: ClientBuiltSchematic? = null
 

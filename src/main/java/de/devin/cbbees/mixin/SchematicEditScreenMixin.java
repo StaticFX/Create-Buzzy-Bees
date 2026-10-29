@@ -3,8 +3,8 @@ package de.devin.cbbees.mixin;
 import com.simibubi.create.content.schematics.client.SchematicEditScreen;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.CreateClient;
-import com.simibubi.create.foundation.gui.AllIcons;
 import com.simibubi.create.foundation.gui.widget.IconButton;
+import de.devin.cbbees.icons.AllCCRIcons;
 import de.devin.cbbees.content.planner.AllPlanners;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
 import de.devin.cbbees.network.StartConstructionPacket;
@@ -47,7 +47,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         int buttonX = guiLeft + 10;
         int buttonY = guiTop + 90;
 
-        ccr$constructButton = new IconButton(buttonX, buttonY, AllIcons.I_PLAY);
+        ccr$constructButton = new IconButton(buttonX, buttonY, AllCCRIcons.START_CONSTRUCTION);
         ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
         ccr$constructButton.withCallback(() -> {
             // Read from the handler's transformation, not the ItemStack — the ItemStack

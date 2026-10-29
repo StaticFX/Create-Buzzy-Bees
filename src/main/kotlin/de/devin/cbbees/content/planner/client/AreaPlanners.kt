@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.PacketDistributor
 object AreaPlanners {
 
     val DECONSTRUCTION = AreaPlannerController(listOf(
-        AreaTool("deconstruct", AllIcons.I_TRASH, 0xc56868) { a, b -> send(StartDeconstructionPacket(a, b)) },
+        AreaTool("deconstruct", AllCCRIcons.START_DECONSTRUCTION, 0xc56868) { a, b -> send(StartDeconstructionPacket(a, b)) },
         BuildSnapTool(),
         programTool { a, b -> SchematicProgram.Deconstruction(a, b) },
     ))
