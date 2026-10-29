@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.LightTexture
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.phys.Vec3
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
@@ -21,7 +22,7 @@ class AllCCRIcons(val iconX: Int, val iconY: Int) : AllIcons(iconX, iconY) {
 
     companion object {
         @JvmField
-        val ICON_ATLAS = CreateBuzzyBeez.asResource("textures/gui/icons.png")
+        val ICON_ATLAS: ResourceLocation = ResourceLocation.fromNamespaceAndPath(CreateBuzzyBeez.ID, "textures/gui/icons.png")
 
         const val ICON_ATLAS_SIZE = 256
 
