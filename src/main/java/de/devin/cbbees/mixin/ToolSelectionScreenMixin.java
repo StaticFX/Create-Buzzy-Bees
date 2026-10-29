@@ -1,5 +1,7 @@
 package de.devin.cbbees.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.platform.Window;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -20,7 +22,6 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
@@ -132,25 +133,25 @@ public abstract class ToolSelectionScreenMixin {
     /*  Drawing — crash prevention for tooltip                             */
     /* ------------------------------------------------------------------ */
 
-    @Redirect(
+    @WrapOperation(
         method = "draw",
         at = @At(value = "INVOKE",
                  target = "Ljava/util/List;get(I)Ljava/lang/Object;",
                  ordinal = 0)
     )
-    private Object ccr$safeToolGet(List<?> list, int index) {
+    private Object ccr$safeToolGet(List<?> list, int index, Operation<Object> original) {
         if (index >= 0 && index < list.size()) {
-            return list.get(index);
+            return original.call(list, index);
         }
         return null;
     }
 
-    @Redirect(
+    @WrapOperation(
         method = "draw",
         at = @At(value = "INVOKE",
                  target = "Lcom/simibubi/create/content/schematics/client/tools/ToolType;getDescription()Ljava/util/List;")
     )
-    private List<Component> ccr$getDescription(ToolType toolType) {
+    private List<Component> ccr$getDescription(ToolType toolType, Operation<List<Component>> original) {
         if (toolType == null) {
             // Determine which custom tool is selected
             int offset = ccr$customOffset();
@@ -163,7 +164,7 @@ public abstract class ToolSelectionScreenMixin {
                 Component.literal("")
             );
         }
-        return toolType.getDescription();
+        return original.call(toolType);
     }
 
     /* ------------------------------------------------------------------ */
