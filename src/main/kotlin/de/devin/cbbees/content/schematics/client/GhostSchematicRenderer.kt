@@ -16,11 +16,17 @@ import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.util.RandomSource
+import net.minecraft.world.level.BlockAndTintGetter
+import net.minecraft.world.level.LightLayer
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.level.block.RenderShape
 import net.minecraft.world.level.block.entity.BlockEntity
 import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.material.FluidState
+import net.minecraft.world.level.material.Fluids
 import net.neoforged.neoforge.client.model.data.ModelData
 import java.util.BitSet
+import java.util.TreeMap
 
 /**
  * Extends Create's [SchematicRenderer] to render ALL blocks regardless of
@@ -36,17 +42,22 @@ import java.util.BitSet
  *
  * Geometry can be pre-built on a background thread via [prebuildGeometry],
  * eliminating the frame stutter that would otherwise occur on first render.
+ *
+ * With [sliced], geometry is cached per Y layer, each built as if nothing sat above it,
+ * so [render] can hide upper layers without rebuilding and the cut layer stays closed.
  */
 class GhostSchematicRenderer(
     world: SchematicLevel,
     private val origin: BlockPos = BlockPos.ZERO,
     private val renderAllBlockEntities: Boolean = false,
+    private val sliced: Boolean = false,
 ) : SchematicRenderer(world) {
 
     private val anchor: BlockPos = world.anchor
 
     /** Own buffer cache — parent's is private and we need to skip block entity rendering. */
     private val ghostBufferCache = LinkedHashMap<RenderType, SuperByteBuffer>()
+    private val sliceCache = TreeMap<Int, Map<RenderType, SuperByteBuffer>>()
     private var modelOnlyBlockEntities: List<BlockEntity> = emptyList()
     private var needsRedraw = true
 
@@ -56,6 +67,20 @@ class GhostSchematicRenderer(
 
     companion object {
         private val OBJECTS = ThreadLocal.withInitial { Objects() }
+    }
+
+    private class LayerCutLevel(private val level: BlockAndTintGetter, private val maxY: Int) : BlockAndTintGetter by level {
+        override fun getBlockState(pos: BlockPos): BlockState =
+            if (pos.y > maxY) Blocks.AIR.defaultBlockState() else level.getBlockState(pos)
+
+        override fun getFluidState(pos: BlockPos): FluidState =
+            if (pos.y > maxY) Fluids.EMPTY.defaultFluidState() else level.getFluidState(pos)
+
+        override fun getBrightness(layer: LightLayer, pos: BlockPos): Int = level.getBrightness(layer, pos)
+
+        override fun getRawBrightness(pos: BlockPos, amount: Int): Int = level.getRawBrightness(pos, amount)
+
+        override fun canSeeSky(pos: BlockPos): Boolean = level.canSeeSky(pos)
     }
 
     private class Objects {
@@ -82,10 +107,18 @@ class GhostSchematicRenderer(
      */
     fun prebuildGeometry() {
         ghostBufferCache.clear()
-        for (layer in RenderType.chunkBufferLayers()) {
-            val buffer = drawLayer(layer)
-            if (!buffer.isEmpty) {
-                ghostBufferCache[layer] = buffer
+        sliceCache.clear()
+        if (sliced) {
+            schematic.blockMap.entries.groupBy { it.key.y }.forEach { (y, blocks) ->
+                val level = LayerCutLevel(schematic, y + anchor.y)
+                sliceCache[y] = RenderType.chunkBufferLayers().associateWith { tesselate(it, blocks, level) }.filterValues { !it.isEmpty }
+            }
+        } else {
+            for (layer in RenderType.chunkBufferLayers()) {
+                val buffer = drawLayer(layer)
+                if (!buffer.isEmpty) {
+                    ghostBufferCache[layer] = buffer
+                }
             }
         }
         modelOnlyBlockEntities = schematic.renderedBlockEntities.filter { hasNoModel(it.blockState) }
@@ -105,7 +138,10 @@ class GhostSchematicRenderer(
      * [renderAllBlockEntities] add all others, and [CBBeesClientConfig.maxGhostBlockEntities] caps the total. The schematic is passed as
      * the level so Flywheel does not claim block entities that only exist in the preview.
      */
-    override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) {
+    override fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer) = render(ms, buffers, Int.MAX_VALUE)
+
+    /** Renders like [render], hiding every layer above [maxY] (schematic-local) when [sliced]. */
+    fun render(ms: PoseStack, buffers: SuperRenderTypeBuffer, maxY: Int) {
         val mc = Minecraft.getInstance()
         if (mc.level == null || mc.player == null) return
 
@@ -116,11 +152,14 @@ class GhostSchematicRenderer(
         for ((layer, buffer) in ghostBufferCache) {
             buffer.renderInto(ms, buffers.getBuffer(layer))
         }
+        sliceCache.headMap(maxY, true).values.forEach { slice ->
+            for ((layer, buffer) in slice) buffer.renderInto(ms, buffers.getBuffer(layer))
+        }
 
         val candidates = if (renderAllBlockEntities || CBBeesClientConfig.renderGhostBlockEntities.get())
             (modelOnlyBlockEntities + schematic.renderedBlockEntities).distinct()
         else modelOnlyBlockEntities
-        val blockEntities = candidates.take(CBBeesClientConfig.maxGhostBlockEntities.get())
+        val blockEntities = candidates.filter { it.blockPos.y - anchor.y <= maxY }.take(CBBeesClientConfig.maxGhostBlockEntities.get())
         if (blockEntities.isEmpty()) return
 
         val shouldRender = BitSet(blockEntities.size)
@@ -136,7 +175,9 @@ class GhostSchematicRenderer(
         ms.popPose()
     }
 
-    override fun drawLayer(layer: RenderType): SuperByteBuffer {
+    override fun drawLayer(layer: RenderType): SuperByteBuffer = tesselate(layer, schematic.blockMap.entries, schematic)
+
+    private fun tesselate(layer: RenderType, blocks: Collection<Map.Entry<BlockPos, BlockState>>, level: BlockAndTintGetter): SuperByteBuffer {
         val dispatcher = Minecraft.getInstance().blockRenderer
         val renderer = dispatcher.modelRenderer
         val objects = OBJECTS.get()
@@ -154,14 +195,14 @@ class GhostSchematicRenderer(
 
         // Iterate only over blocks that actually exist in the schematic,
         // not the entire bounding volume (which can be orders of magnitude larger)
-        for ((localPos, state) in renderWorld.blockMap) {
+        for ((localPos, state) in blocks) {
             if (state.renderShape == RenderShape.INVISIBLE) continue
 
             val pos = mutableBlockPos.setWithOffset(localPos, anchor)
             val model = dispatcher.getBlockModel(state)
             val blockEntity = renderWorld.getBlockEntity(localPos)
             val modelData = if (blockEntity != null) blockEntity.modelData else ModelData.EMPTY
-            val finalModelData = model.getModelData(renderWorld, pos, state, modelData)
+            val finalModelData = model.getModelData(level, pos, state, modelData)
             val seed = state.getSeed(pos)
             random.setSeed(seed)
             if (model.getRenderTypes(state, random, finalModelData).contains(layer)) {
@@ -173,7 +214,7 @@ class GhostSchematicRenderer(
                 )
 
                 renderer.tesselateBlock(
-                    renderWorld, model, state, pos, poseStack, sbbBuilder, true,
+                    level, model, state, pos, poseStack, sbbBuilder, true,
                     random, seed, OverlayTexture.NO_OVERLAY, finalModelData, layer
                 )
 

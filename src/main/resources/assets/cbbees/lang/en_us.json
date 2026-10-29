@@ -273,6 +273,7 @@
   "gui.cbbees.construction_planner.select_hint": "Select a schematic to preview. Ctrl/Shift+click selects several, drag onto a folder to move",
   "gui.cbbees.construction_planner.drag_count": "%s items",
   "gui.cbbees.construction_planner.new_folder": "New Folder",
+  "gui.cbbees.construction_planner.layer": "Layer %s / %s",
   "gui.cbbees.folder_create.title": "New Folder",
   "gui.cbbees.folder_create.field": "Folder name",
   "gui.cbbees.folder_create.hint": "e.g. Medieval/Towers",

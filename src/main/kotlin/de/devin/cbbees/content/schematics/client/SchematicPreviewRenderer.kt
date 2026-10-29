@@ -116,7 +116,7 @@ object SchematicPreviewRenderer {
         val settings = StructurePlaceSettings().setRotation(Rotation.NONE).setMirror(Mirror.NONE)
         template.placeInWorld(level, BlockPos.ZERO, BlockPos.ZERO, settings, level.random, Block.UPDATE_CLIENTS)
         level.blockEntities.forEach { it.setLevel(level) }
-        val renderer = GhostSchematicRenderer(level, renderAllBlockEntities = true).also { it.prebuildGeometry() }
+        val renderer = GhostSchematicRenderer(level, renderAllBlockEntities = true, sliced = true).also { it.prebuildGeometry() }
         return Preview(renderer, template.size, buildMaterialList(level))
     }
 
@@ -134,11 +134,13 @@ object SchematicPreviewRenderer {
      * @param rotationX  pitch in degrees (default isometric: 30)
      * @param rotationY  yaw in degrees (default isometric: -45)
      * @param zoom       multiplier on the auto-fit scale (1.0 = fit to rect)
+     * @param maxLayer   highest visible Y layer, everything above is hidden
      */
     fun renderPreview(
         filename: String, guiGraphics: GuiGraphics,
         x: Int, y: Int, w: Int, h: Int,
-        rotationX: Float, rotationY: Float, zoom: Float
+        rotationX: Float, rotationY: Float, zoom: Float,
+        maxLayer: Int = Int.MAX_VALUE
     ) {
         val preview = preview(filename)
         if (preview == null) {
@@ -170,7 +172,7 @@ object SchematicPreviewRenderer {
         RenderSystem.enableDepthTest()
         Lighting.setupFor3DItems()
         val buffers = DefaultSuperRenderTypeBuffer.getInstance()
-        preview.renderer.render(pose, buffers)
+        preview.renderer.render(pose, buffers, maxLayer)
         buffers.draw()
         pose.popPose()
         guiGraphics.disableScissor()

@@ -56,6 +56,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private var searchActive = false
 
     private var materialScroll = 0
+    private var hiddenLayers = 0
     private var draggingScrollbar: Area? = null
 
     private var previewRotX = DEFAULT_ROT_X
@@ -74,6 +75,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private var materialsPanel = Area(0, 0, 0, 0)
     private var grid = Area(0, 0, 0, 0)
     private var materialsTrack = Area(0, 0, 0, 0)
+    private var layerTrack = Area(0, 0, 0, 0)
     private var visibleRows = 0
     private var gridColumns = 0
     private var gridRows = 0
@@ -98,6 +100,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
 
         viewport = Area(previewPanel.x + 2, previewPanel.y + 2, previewPanel.w - 4, previewPanel.h - 34)
         info = Area(viewport.x, viewport.bottom + 2, viewport.w, 28)
+        layerTrack = Area(viewport.right - 8, viewport.y + 18, 4, viewport.h - 22)
 
         gridRows = (panelHeight - 18) / SLOT_SIZE
         grid = Area(materialsPanel.x + 4, materialsPanel.y + 14, gridColumns * SLOT_SIZE, gridRows * SLOT_SIZE)
@@ -188,6 +191,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         backButton.visible = currentGroupPath.isNotEmpty() && !searchActive
         if (changed) {
             materialScroll = 0
+            hiddenLayers = 0
             resetView()
         }
     }
@@ -413,8 +417,10 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         SchematicPreviewRenderer.renderPreview(
             schematic.value, guiGraphics,
             viewport.x, viewport.y, viewport.w, viewport.h,
-            previewRotX, previewRotY, previewZoom
+            previewRotX, previewRotY, previewZoom,
+            if (hiddenLayers == 0) Int.MAX_VALUE else layerCount() - 1 - hiddenLayers
         )
+        renderLayerSlider(guiGraphics)
         SchematicPreviewRenderer.renderAxisIndicator(
             guiGraphics, viewport.x, viewport.y, viewport.w, viewport.h, previewRotX, previewRotY
         )
@@ -426,8 +432,25 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         val groupText = if (group.isEmpty()) Component.translatable("gui.cbbees.construction_planner.no_group") else Component.literal(group)
         guiGraphics.drawString(font, groupText, x, y + 9, 0x88CCFF, false)
         val size = SchematicPreviewRenderer.getSize(schematic.value)
-        if (size != Vec3i.ZERO) guiGraphics.drawString(font, "${size.x} x ${size.y} x ${size.z}", x, y + 18, 0x888888, false)
+        if (size != Vec3i.ZERO) {
+            val dimensions = "${size.x} x ${size.y} x ${size.z}"
+            val text = if (hiddenLayers == 0) dimensions
+            else "$dimensions  " + Component.translatable("gui.cbbees.construction_planner.layer", size.y - hiddenLayers, size.y).string
+            guiGraphics.drawString(font, text, x, y + 18, 0x888888, false)
+        }
     }
+
+    private fun renderLayerSlider(guiGraphics: GuiGraphics) {
+        if (layerCount() <= 1) return
+        val pose = guiGraphics.pose()
+        pose.pushPose()
+        pose.translate(0f, 0f, 400f)
+        AllCCRGuiTextures.PLANNER_SCROLL_TRACK.renderNineSlice(guiGraphics, layerTrack.x, layerTrack.y, layerTrack.w, layerTrack.h, 0, 2)
+        renderScrollbar(guiGraphics, layerTrack, hiddenLayers, layerCount() - 1)
+        pose.popPose()
+    }
+
+    private fun layerCount() = selectedSchematic?.let { SchematicPreviewRenderer.getSize(it.value).y } ?: 0
 
     private fun renderMaterials(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
         guiGraphics.drawString(font, Component.translatable("gui.cbbees.construction_planner.materials"), materialsPanel.x + 4, materialsPanel.y + 4, 0xAAAAAA, false)
@@ -496,13 +519,14 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         when (track) {
             listTrack -> listScroll = scrollFromTrack(track, mouseY, maxListScroll())
             materialsTrack -> materialScroll = scrollFromTrack(track, mouseY, maxMaterialScroll(currentMaterialCount()))
+            layerTrack -> hiddenLayers = scrollFromTrack(track, mouseY, layerCount() - 1)
         }
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         if (super.mouseClicked(mouseX, mouseY, button)) return true
 
-        listOf(listTrack, materialsTrack).firstOrNull { it.contains(mouseX, mouseY) }?.let { track ->
+        scrollTracks().firstOrNull { it.contains(mouseX, mouseY) }?.let { track ->
             if (button == 0) {
                 draggingScrollbar = track
                 dragScrollbar(track, mouseY)
@@ -536,6 +560,8 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         return false
     }
 
+    private fun scrollTracks() = listOfNotNull(listTrack, materialsTrack, layerTrack.takeIf { layerCount() > 1 })
+
     override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
         draggingScrollbar = null
         val row = pressed
@@ -555,6 +581,9 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         val delta = scrollY.toInt()
         when {
+            layerCount() > 1 && layerTrack.contains(mouseX, mouseY) ->
+                hiddenLayers = (hiddenLayers - delta).coerceIn(0, layerCount() - 1)
+
             viewport.contains(mouseX, mouseY) && selectedSchematic != null ->
                 previewZoom = (previewZoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
 
