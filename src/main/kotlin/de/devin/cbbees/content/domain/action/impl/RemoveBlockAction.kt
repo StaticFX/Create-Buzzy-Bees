@@ -14,15 +14,22 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.BucketPickup
+import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction
 import net.neoforged.neoforge.fluids.capability.wrappers.BucketPickupHandlerWrapper
+import kotlin.math.ceil
 
 class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
-    override fun getWorkTicks(context: BeeContext): Int = 5
+    override fun getWorkTicks(level: Level, context: BeeContext): Int {
+        if (CBBeesConfig.beeInstantBreaking.get()) return INSTANT_WORK_TICKS
+        val ticks = diamondToolTicks(level, pos, level.getBlockState(pos)) * context.breakSpeedMultiplier.coerceAtLeast(0.0)
+        return ceil(ticks).toInt().coerceAtLeast(INSTANT_WORK_TICKS)
+    }
 
     override fun onTick(worker: BeeWorker, tick: Int) {
         val level = worker.level()
@@ -125,6 +132,21 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
     }
 
     companion object {
+        private const val INSTANT_WORK_TICKS = 5
+
+        private val diamondTools by lazy {
+            listOf(Items.DIAMOND_PICKAXE, Items.DIAMOND_AXE, Items.DIAMOND_SHOVEL, Items.DIAMOND_HOE, Items.SHEARS).map(::ItemStack)
+        }
+
+        fun diamondToolTicks(level: Level, pos: BlockPos, state: BlockState): Double {
+            val hardness = state.getDestroySpeed(level, pos)
+            if (hardness <= 0f) return 0.0
+            val tool = diamondTools.maxBy { it.getDestroySpeed(state) }
+            val harvestable = !state.requiresCorrectToolForDrops() || tool.isCorrectToolForDrops(state)
+            val progressPerTick = tool.getDestroySpeed(state) / hardness / if (harvestable) 30f else 100f
+            return if (progressPerTick >= 1f) 0.0 else ceil(1.0 / progressPerTick)
+        }
+
         fun load(tag: CompoundTag): RemoveBlockAction {
             return RemoveBlockAction(BlockPos(tag.getInt("X"), tag.getInt("Y"), tag.getInt("Z")))
         }

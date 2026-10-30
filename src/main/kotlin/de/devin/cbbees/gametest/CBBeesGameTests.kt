@@ -34,6 +34,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.network.ProviderChoiceTests::class.java,
         de.devin.cbbees.gametest.built.BuiltSchematicTests::class.java,
         de.devin.cbbees.gametest.job.JobPhaseTests::class.java,
+        de.devin.cbbees.gametest.deconstruction.BreakSpeedTests::class.java,
         de.devin.cbbees.gametest.history.BeltHistoryTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperPlanningTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperShapeTests::class.java,

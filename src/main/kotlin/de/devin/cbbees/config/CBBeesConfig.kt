@@ -11,6 +11,7 @@ object CBBeesConfig {
     val maxBeesPerHive: ModConfigSpec.IntValue
     val minActiveBeesAtRpm: ModConfigSpec.IntValue
     val beePickupItems: ModConfigSpec.BooleanValue
+    val beeInstantBreaking: ModConfigSpec.BooleanValue
 
     // Beehive RPM scaling
     val hiveBaseRange: ModConfigSpec.IntValue
@@ -117,6 +118,10 @@ object CBBeesConfig {
         beePickupItems = builder
             .comment("Whether bees pick up item drops when breaking blocks")
             .define("beePickupItems", true)
+
+        beeInstantBreaking = builder
+            .comment("Whether bees break blocks instantly. When false, bees take as long as the best diamond tool would for each block, so obsidian takes much longer than dirt.")
+            .define("beeInstantBreaking", true)
 
         defaultMaxActiveBees = builder
             .comment("Default max active bees before RPM and upgrade scaling. This is the base value that RPM bonuses are added to.")

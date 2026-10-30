@@ -110,6 +110,15 @@ class ClientBeeFlightData(
         }
     }
 
+    fun breakingProgress(): BreakingProgress? {
+        if (waitingAtIdx < 0) return null
+        val checkpoint = checkpoints[waitingAtIdx]
+        if (checkpoint.workTicks <= 0) return null
+        val now = if (isPaused) pauseStartNano else System.nanoTime()
+        val stage = (now - waitStartNano) * BREAK_STAGES / (checkpoint.workTicks * NANOS_PER_TICK)
+        return BreakingProgress(checkpoint.pos, stage.toInt().coerceIn(0, BREAK_STAGES - 1))
+    }
+
     /** Smooth rotation update — call every client tick. */
     fun tickClient() {
         currentYRot = lerpAngle(currentYRot, computeSegmentYRot(), 0.25f)
@@ -220,6 +229,7 @@ class ClientBeeFlightData(
 
     companion object {
         private const val NANOS_PER_TICK = 50_000_000L
+        private const val BREAK_STAGES = 10
 
         private fun lerpAngle(from: Float, to: Float, factor: Float): Float {
             var delta = (to - from) % 360f
@@ -230,10 +240,13 @@ class ClientBeeFlightData(
     }
 }
 
+data class BreakingProgress(val pos: BlockPos, val stage: Int)
+
 data class ClientCheckpoint(
     val pos: BlockPos,
     val pauseTicks: Int = 0,
     /** If true, the client holds the bee at this checkpoint until the server confirms completion. */
     val awaitConfirm: Boolean = false,
     val travelTicks: Long = 0,
+    val workTicks: Int = 0,
 )

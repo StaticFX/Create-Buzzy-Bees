@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.bee.client
 
+import de.devin.cbbees.content.bee.flight.BreakingProgress
 import de.devin.cbbees.content.bee.flight.ClientBeeFlightData
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
@@ -18,6 +19,7 @@ import java.util.UUID
 object BeeClientTracker {
 
     private val flightBees = mutableMapOf<UUID, ClientBeeFlightData>()
+    private val cracks = mutableMapOf<UUID, BreakingProgress>()
 
     @SubscribeEvent
     @JvmStatic
@@ -64,7 +66,29 @@ object BeeClientTracker {
     fun tickClient() {
         flightBees.values.forEach { it.tickClient() }
         flightBees.values.removeAll { it.isComplete && it.id !in previewIds }
+        updateCracks()
     }
+
+    private fun updateCracks() {
+        val level = Minecraft.getInstance().level ?: return
+        flightBees.values.forEach { bee ->
+            val progress = bee.breakingProgress()
+            val shown = cracks[bee.id]
+            if (progress == shown) return@forEach
+            if (shown != null && shown.pos != progress?.pos) level.destroyBlockProgress(crackId(bee.id), shown.pos, -1)
+            if (progress != null) {
+                level.destroyBlockProgress(crackId(bee.id), progress.pos, progress.stage)
+                cracks[bee.id] = progress
+            } else {
+                cracks.remove(bee.id)
+            }
+        }
+        cracks.entries.removeAll { (id, shown) ->
+            (id !in flightBees).also { gone -> if (gone) level.destroyBlockProgress(crackId(id), shown.pos, -1) }
+        }
+    }
+
+    private fun crackId(beeId: UUID) = -(beeId.hashCode() and Int.MAX_VALUE) - 1
 
     // ── Preview bees (spawned via /cbbees preview) ──
 
@@ -80,6 +104,7 @@ object BeeClientTracker {
     }
 
     fun clear() {
+        cracks.clear()
         flightBees.clear()
         previewIds.clear()
     }

@@ -48,6 +48,7 @@ class BeeFlightPlanPacket(
                             pauseTicks = buf.readVarInt(),
                             awaitConfirm = buf.readBoolean(),
                             travelTicks = buf.readVarLong(),
+                            workTicks = buf.readVarInt(),
                         )
                     },
                     startIndex = buf.readVarInt(),
@@ -65,6 +66,7 @@ class BeeFlightPlanPacket(
                         buf.writeVarInt(cp.pauseTicks)
                         buf.writeBoolean(cp.awaitConfirm)
                         buf.writeVarLong(cp.travelTicks)
+                        buf.writeVarInt(cp.workTicks)
                     }
                     buf.writeVarInt(packet.startIndex)
                     buf.writeVarLong(packet.elapsedTicks)

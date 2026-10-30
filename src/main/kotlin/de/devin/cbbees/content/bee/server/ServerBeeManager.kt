@@ -348,7 +348,8 @@ object ServerBeeManager {
                     checkpoint.pos,
                     checkpoint.clientPauseTicks,
                     awaitConfirm = checkpoint.action is ExecuteBeeAction,
-                    travelTicks = plan.segmentTicks[i]
+                    travelTicks = plan.segmentTicks[i],
+                    workTicks = checkpoint.workTicks,
                 )
             },
             startIndex = clientStartIndex ?: bee.currentCheckpointIndex,

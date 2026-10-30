@@ -18,6 +18,7 @@ All config options are in the server config file (`serverconfig/cbbees-server.to
 | Option | Default | Description |
 |--------|---------|-------------|
 | `beePickupItems` | true | Whether bees pick up drops after breaking blocks |
+| `beeInstantBreaking` | true | Whether bees break blocks instantly, or as fast as the best diamond tool |
 | `defaultMaxActiveBees` | 4 | Base max active bees before RPM scaling |
 | `defaultWorkRange` | 32 | Default range for portable beehives |
 

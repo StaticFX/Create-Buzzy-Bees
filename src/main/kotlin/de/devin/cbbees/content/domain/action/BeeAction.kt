@@ -18,7 +18,7 @@ interface BeeAction {
     fun changedPositions(level: Level): List<BlockPos> = changedPositions
     fun inversion(pos: BlockPos, before: BlockSnapshot): BeeAction? = null
     fun inversion(level: Level, pos: BlockPos, before: BlockSnapshot): BeeAction? = inversion(pos, before)
-    fun getWorkTicks(context: BeeContext): Int = 0
+    fun getWorkTicks(level: Level, context: BeeContext): Int = 0
 
     fun onStart(worker: BeeWorker) {}
     fun onTick(worker: BeeWorker, tick: Int) {}

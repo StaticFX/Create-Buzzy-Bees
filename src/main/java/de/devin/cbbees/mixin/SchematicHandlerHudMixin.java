@@ -3,6 +3,8 @@ package de.devin.cbbees.mixin;
 import com.simibubi.create.AllDataComponents;
 import com.simibubi.create.CreateClient;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
+import com.simibubi.create.content.schematics.client.ToolSelectionScreen;
+import com.simibubi.create.content.schematics.client.tools.ToolType;
 import de.devin.cbbees.content.drone.client.DroneViewClientState;
 import de.devin.cbbees.content.planner.AllPlanners;
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
@@ -48,6 +50,14 @@ public abstract class SchematicHandlerHudMixin {
     @Shadow private boolean active;
     @Shadow private ItemStack activeSchematicItem;
     @Shadow public abstract boolean isDeployed();
+    @Shadow private ToolType currentTool;
+    @Shadow private ToolSelectionScreen selectionScreen;
+
+    @Unique
+    private void ccr$clearCustomTool() {
+        ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+        selectionScreen.setSelectedElement(currentTool);
+    }
 
     /* ------------------------------------------------------------------ */
     /*  Construction packet helper                                         */
@@ -99,7 +109,7 @@ public abstract class SchematicHandlerHudMixin {
         // Find the planner (main hand, or inventory during drone view)
         ItemStack mainHand = DroneViewClientState.findSchematicPlanner(mc.player);
         if (mainHand.isEmpty()) {
-            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            ccr$clearCustomTool();
             return;
         }
 
@@ -112,7 +122,7 @@ public abstract class SchematicHandlerHudMixin {
                     .withStyle(style -> style.withColor(0x00FF00)),
                 true
             );
-            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            ccr$clearCustomTool();
             cir.setReturnValue(true);
         } else if (tool == ConstructionToolState.CustomTool.UNSELECT) {
             // Clear both server-side and client-side so Create's SchematicHandler deactivates
@@ -123,7 +133,7 @@ public abstract class SchematicHandlerHudMixin {
                     .withStyle(style -> style.withColor(0xFFAA88)),
                 true
             );
-            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            ccr$clearCustomTool();
             cir.setReturnValue(true);
         } else if (tool == ConstructionToolState.CustomTool.PROGRAM) {
             // Read placement data and send a ProgramSchematicPacket
@@ -144,7 +154,7 @@ public abstract class SchematicHandlerHudMixin {
                     .withStyle(style -> style.withColor(0x88CCFF)),
                 true
             );
-            ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
+            ccr$clearCustomTool();
             cir.setReturnValue(true);
         }
     }
