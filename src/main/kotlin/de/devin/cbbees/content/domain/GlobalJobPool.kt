@@ -244,6 +244,17 @@ object GlobalJobPool : JobPool {
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
 
+            val inWorldNetworks = allNetworks.filter { network ->
+                val firstComp = network.components.firstOrNull()
+                firstComp != null && firstComp.world == job.level
+            }
+            if (inWorldNetworks.isEmpty()) { noWorld++; continue }
+
+            fun networksWithFreeBees() = inWorldNetworks.filter { network ->
+                network.hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }
+            }
+            var withBees = networksWithFreeBees()
+
             for (batch in job.batches) {
                 if (dispatched >= maxDispatchesPerCycle) return
                 if (batch.status != TaskStatus.PENDING) continue
@@ -251,24 +262,14 @@ object GlobalJobPool : JobPool {
                 if (!batch.canRetry()) { noRetry++; continue }
                 if (!batch.isCooldownElapsed(gameTime)) continue
                 if (!job.isPhaseReady(batch.phase)) continue
+                if (withBees.isEmpty()) { noBees++; break }
 
-                val inWorldNetworks = allNetworks.filter { network ->
-                    val firstComp = network.components.firstOrNull()
-                    firstComp != null && firstComp.world == job.level
-                }
-                if (inWorldNetworks.isEmpty()) { noWorld++; continue }
-
-                val inRangeNetworks = inWorldNetworks.filter { it.isInRange(batch.targetPosition) }
+                val inRangeNetworks = withBees.filter { it.isInRange(batch.targetPosition) }
                 if (inRangeNetworks.isEmpty()) { noRange++; continue }
 
-                val withBees = inRangeNetworks.filter { network ->
-                    network.hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }
-                }
-                if (withBees.isEmpty()) { noBees++; continue }
-
                 val withPorts = if (batch.beeType == BeeType.TRANSPORT) {
-                    withBees.filter { it.findDropOff(net.minecraft.world.item.ItemStack.EMPTY) != null }
-                } else withBees
+                    inRangeNetworks.filter { it.findDropOff(net.minecraft.world.item.ItemStack.EMPTY) != null }
+                } else inRangeNetworks
                 if (withPorts.isEmpty()) continue
 
                 val targetNetwork = withPorts.minByOrNull { network ->
@@ -280,6 +281,7 @@ object GlobalJobPool : JobPool {
                 batch.assignedNetworkId = targetNetwork.id
                 if (targetNetwork.dispatchBatch(batch)) {
                     dispatched++
+                    withBees = networksWithFreeBees()
                 } else {
                     noCapacity++
                     batch.assignedNetworkId = null

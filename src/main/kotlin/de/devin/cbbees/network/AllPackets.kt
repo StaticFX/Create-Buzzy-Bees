@@ -166,13 +166,6 @@ object AllPackets {
             DeployerSettingsPacket.Companion::handle
         )
 
-        // Job calculation progress (tick-counted, cached for late joiners)
-        registrar.playToClient(
-            JobProgressPacket.TYPE,
-            JobProgressPacket.STREAM_CODEC,
-            JobProgressPacket.Companion::handle
-        )
-
         // Checkpoint-based bee flight plans
         registrar.playToClient(
             BeeFlightPlanPacket.TYPE,

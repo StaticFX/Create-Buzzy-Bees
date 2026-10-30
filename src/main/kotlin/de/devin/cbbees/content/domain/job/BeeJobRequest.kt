@@ -13,7 +13,7 @@ import java.util.UUID
  *
  * Subclasses provide type-specific validation, job configuration, and task generation
  * via the hook methods below. The shared [submit] template handles the full lifecycle:
- * validate → create job → create progress tracker → generate tasks → dispatch.
+ * validate → create job → generate tasks → dispatch.
  *
  * To add a new planner type:
  * 1. Add a [JobType] entry
@@ -39,15 +39,10 @@ abstract class BeeJobRequest {
         startHistory(job, player)
 
         val server = player.server ?: return
-        val tracker = JobCalculationProgress.newTracker(
-            jobId, player.uuid, progressKey(), estimateWork(player), server
-        )
-        tracker.start()
-
         beforeGenerate(job, player)
 
-        generateTasks(player, job, server, tracker) { batches, centerPos ->
-            JobDispatcher.completeJobSetup(job, batches, centerPos, player, tracker, completionKey())
+        generateTasks(player, job, server) { batches, centerPos ->
+            JobDispatcher.completeJobSetup(job, batches, centerPos, player, completionKey())
         }
     }
 
@@ -55,17 +50,11 @@ abstract class BeeJobRequest {
 
     protected abstract fun jobType(): JobType
 
-    /** Translation key for the progress toast (e.g. "cbbees.progress.processing_area"). */
-    protected abstract fun progressKey(): String
-
-    /** Translation key for the completion toast (e.g. "cbbees.deconstruction.started"). */
+    /** Translation key for the message shown once the job starts (e.g. "cbbees.deconstruction.started"). */
     protected abstract fun completionKey(): String
 
     /** Create the uniqueness key to prevent duplicate jobs. */
     protected abstract fun createUniquenessKey(player: ServerPlayer): Any
-
-    /** Estimate the amount of work for progress tracking (e.g. volume in blocks). */
-    protected abstract fun estimateWork(player: ServerPlayer): Int
 
     /** Type-specific validation before job creation. Return false to abort. */
     protected open fun validate(player: ServerPlayer): Boolean = true
@@ -89,7 +78,6 @@ abstract class BeeJobRequest {
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (batches: List<TaskBatch>, centerPos: BlockPos) -> Unit
     )
 }

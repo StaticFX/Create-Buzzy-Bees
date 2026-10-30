@@ -4,7 +4,6 @@ import com.simibubi.create.content.schematics.requirement.ItemRequirement
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.BeeJobRequest
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -30,13 +29,10 @@ class ZapperJobRequest(
     private lateinit var changes: Map<BlockPos, BlockState>
 
     override fun jobType() = JobType.Shaping
-    override fun progressKey() = "cbbees.progress.processing_brush"
     override fun completionKey() = "cbbees.shaping.started"
 
     override fun createUniquenessKey(player: ServerPlayer) =
         SchematicJobKey(player.uuid, "zapper", origin.x, origin.y, origin.z)
-
-    override fun estimateWork(player: ServerPlayer) = changes.size
 
     override fun validate(player: ServerPlayer): Boolean {
         val level = player.level()
@@ -51,7 +47,6 @@ class ZapperJobRequest(
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         val level = player.level()
@@ -65,7 +60,6 @@ class ZapperJobRequest(
             if (!target.isAir) placements += placementBatch(pos, target, job)
         }
 
-        tracker.advance(changes.size)
         onComplete(removals + placements, origin)
     }
 

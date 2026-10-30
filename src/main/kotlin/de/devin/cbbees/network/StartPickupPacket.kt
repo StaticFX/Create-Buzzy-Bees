@@ -2,7 +2,6 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
@@ -37,22 +36,15 @@ class StartPickupPacket(
     }
 
     override fun jobType() = JobType.Pickup
-    override fun progressKey() = "cbbees.progress.scanning_items"
     override fun completionKey() = "cbbees.pickup.started"
 
     override fun createUniquenessKey(player: ServerPlayer) =
         SchematicJobKey(player.uuid, "pickup_area", pos1.x, pos1.y, pos1.z)
 
-    override fun estimateWork(player: ServerPlayer): Int {
-        // Item scan is instant — estimate from results at generation time
-        return 1
-    }
-
     override fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         val bridge = SchematicCreateBridge(player.level())

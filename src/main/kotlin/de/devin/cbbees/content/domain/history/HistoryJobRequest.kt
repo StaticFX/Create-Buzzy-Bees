@@ -6,7 +6,6 @@ import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.BeeJobRequest
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -32,13 +31,10 @@ class HistoryJobRequest(
         HistoryDirection.REDO -> JobType.Redo
     }
 
-    override fun progressKey() = "cbbees.progress.processing_history"
     override fun completionKey() = direction.startedKey
 
     override fun createUniquenessKey(player: ServerPlayer) =
         SchematicJobKey(player.uuid, "history:${entry.jobId}", 0, 0, 0)
-
-    override fun estimateWork(player: ServerPlayer) = edits.size
 
     override fun validate(player: ServerPlayer): Boolean {
         val level = player.level()
@@ -72,10 +68,8 @@ class HistoryJobRequest(
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
-        tracker.advance(edits.size)
         onComplete(reverseBatches(player.level(), edits, job), edits.keys.first())
     }
 

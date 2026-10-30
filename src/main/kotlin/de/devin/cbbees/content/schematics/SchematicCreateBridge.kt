@@ -14,7 +14,6 @@ import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.util.ServerTickScheduler
@@ -136,24 +135,19 @@ class SchematicCreateBridge(
     /**
      * Generates build tasks spread across multiple server ticks.
      *
-     * Processes [blocksPerTick] blocks per tick, advances [progress] between chunks,
+     * Processes blocks until [budgetMs] is spent each tick
      * and invokes [onComplete] with the final batch list when done. This prevents
      * the server from freezing on large schematics.
      *
      * @param job the parent job
      * @param server the Minecraft server (for scheduling)
-     * @param blocksPerTick how many blocks to process per tick (default 500)
-     * @param progress optional tracker advanced once per chunk; the caller is
-     *                 responsible for calling [JobCalculationProgress.Tracker.start] before
-     *                 and [JobCalculationProgress.Tracker.complete]/[JobCalculationProgress.Tracker.fail]
-     *                 after based on [onComplete] result
+     * @param budgetMs milliseconds of server time to spend per tick
      * @param onComplete called when all blocks are processed
      */
     fun generateBuildTasksAsync(
         job: BeeJob,
         server: MinecraftServer,
-        blocksPerTick: Int = 500,
-        progress: JobCalculationProgress.Tracker? = null,
+        budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
     ) {
         if (!isLoaded) {
@@ -166,9 +160,10 @@ class SchematicCreateBridge(
         val batches = mutableListOf<TaskBatch>()
 
         fun processChunk() {
+            val deadline = deadlineAfter(budgetMs)
             var blocksThisChunk = 0
             var hasMore = true
-            while (blocksThisChunk < blocksPerTick) {
+            while (System.nanoTime() < deadline) {
                 if (!printer.isLoaded || printer.isErrored || !printer.advanceCurrentPos()) {
                     hasMore = false
                     break
@@ -176,8 +171,6 @@ class SchematicCreateBridge(
                 blocksThisChunk++
                 processCurrentBlock(job, batches)
             }
-
-            progress?.advance(blocksThisChunk)
 
             if (hasMore) {
                 ServerTickScheduler.nextTick { processChunk() }
@@ -248,25 +241,21 @@ class SchematicCreateBridge(
     /**
      * Generates removal tasks spread across multiple server ticks.
      *
-     * @param progress optional tracker advanced once per chunk; the caller starts
-     *                 and completes/fails it.
      */
     fun generateRemovalTasksAsync(
         corner1: BlockPos,
         corner2: BlockPos,
         job: BeeJob,
         server: MinecraftServer,
-        blocksPerTick: Int = 1000,
-        progress: JobCalculationProgress.Tracker? = null,
+        budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
-    ) = generateRemovalTasksAsync(buildRemovalPositions(corner1, corner2), job, server, blocksPerTick, progress, onComplete)
+    ) = generateRemovalTasksAsync(buildRemovalPositions(corner1, corner2), job, server, budgetMs, onComplete)
 
     fun generateRemovalTasksAsync(
         positions: List<BlockPos>,
         job: BeeJob,
         server: MinecraftServer,
-        blocksPerTick: Int = 1000,
-        progress: JobCalculationProgress.Tracker? = null,
+        budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
     ) {
         val batches = mutableListOf<TaskBatch>()
@@ -276,14 +265,11 @@ class SchematicCreateBridge(
         var index = 0
 
         fun processChunk() {
-            val chunkStart = index
-            val end = (index + blocksPerTick).coerceAtMost(total)
-            while (index < end) {
+            val deadline = deadlineAfter(budgetMs)
+            while (index < total && System.nanoTime() < deadline) {
                 processRemovalBlock(ordered[index], maxY, job, batches)
                 index++
             }
-            progress?.advance(index - chunkStart)
-
             if (index < total) {
                 ServerTickScheduler.nextTick { processChunk() }
             } else {
@@ -519,6 +505,8 @@ class SchematicCreateBridge(
     }
 
     companion object {
+        private fun deadlineAfter(budgetMs: Double) = System.nanoTime() + (budgetMs * 1_000_000).toLong()
+
         fun removalBatch(pos: BlockPos, state: BlockState, maxY: Int, job: BeeJob): TaskBatch {
             val priority = BlockPlacementClassifier.calculateRemovalPriority(pos, state, maxY)
             val removeTask = BeeTask.remove(pos = pos, priority = priority, job = job)

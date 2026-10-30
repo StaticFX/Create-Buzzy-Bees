@@ -5,12 +5,13 @@ import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.network.HiveJobsSyncPacket
 import net.minecraft.core.BlockPos
+import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 
 /**
  * Shared dispatch logic for bee jobs.
  * Handles the common tail after task generation: setting center position,
- * adding batches, reconnecting portable hive, dispatching, syncing, and completing the tracker.
+ * adding batches, reconnecting portable hive, dispatching, syncing, and telling the player.
  */
 object JobDispatcher {
 
@@ -19,11 +20,10 @@ object JobDispatcher {
         batches: List<TaskBatch>,
         centerPos: BlockPos,
         player: ServerPlayer?,
-        tracker: JobCalculationProgress.Tracker?,
         completionKey: String,
     ) {
         if (batches.isEmpty()) {
-            tracker?.fail()
+            player?.displayClientMessage(Component.translatable("cbbees.job.nothing_to_do"), true)
             return
         }
         job.centerPos = centerPos
@@ -36,6 +36,6 @@ object JobDispatcher {
         }
         GlobalJobPool.dispatchNewJob(job)
         player?.let { HiveJobsSyncPacket.sendPlayerSnapshotTo(it) }
-        tracker?.complete(completionKey, batches.size)
+        player?.displayClientMessage(Component.translatable(completionKey), true)
     }
 }

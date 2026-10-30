@@ -4,7 +4,6 @@ import com.simibubi.create.AllDataComponents
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -66,7 +65,6 @@ class InstantConstructionPacket(
     private lateinit var bridge: SchematicCreateBridge
 
     override fun jobType() = JobType.Construction
-    override fun progressKey() = "cbbees.progress.processing_schematic"
     override fun completionKey() = "cbbees.construction.started"
 
     override fun validate(player: ServerPlayer): Boolean {
@@ -110,11 +108,6 @@ class InstantConstructionPacket(
         return SchematicJobKey(player.uuid, schematicName, anchor.x, anchor.y, anchor.z)
     }
 
-    override fun estimateWork(player: ServerPlayer): Int {
-        val bounds = plannerStack.get(AllDataComponents.SCHEMATIC_BOUNDS)
-        return bounds?.let { it.x * it.y * it.z } ?: 0
-    }
-
     override fun configureJob(job: BeeJob, player: ServerPlayer) {
         job.schematicPlacement = SchematicPlacement(
             file = schematicName,
@@ -132,11 +125,10 @@ class InstantConstructionPacket(
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
-        val blocksPerTick = CBBeesConfig.taskGenerationBlocksPerTick.get()
-        bridge.generateBuildTasksAsync(job, server, blocksPerTick, tracker) { batches ->
+        val budgetMs = CBBeesConfig.taskGenerationBudgetMs.get()
+        bridge.generateBuildTasksAsync(job, server, budgetMs) { batches ->
             val center = bridge.getAnchor() ?: batches.firstOrNull()?.targetPosition ?: BlockPos.ZERO
             onComplete(batches, center)
         }

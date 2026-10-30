@@ -5,7 +5,6 @@ import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.domain.built.BuiltSchematics
 import de.devin.cbbees.content.domain.built.BuiltSchematics.isNear
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
@@ -36,13 +35,10 @@ class RemoveBuildPacket(val buildId: UUID) : BeeJobPacket() {
     }
 
     override fun jobType() = JobType.Deconstruction
-    override fun progressKey() = "cbbees.progress.processing_area"
     override fun completionKey() = "cbbees.deconstruction.started"
 
     override fun createUniquenessKey(player: ServerPlayer) =
         SchematicJobKey(player.uuid, "remove_build:$buildId", center.x, center.y, center.z)
-
-    override fun estimateWork(player: ServerPlayer) = positions.size
 
     override fun validate(player: ServerPlayer): Boolean {
         val data = BuiltSchematics.data(player.server)
@@ -73,11 +69,10 @@ class RemoveBuildPacket(val buildId: UUID) : BeeJobPacket() {
         player: ServerPlayer,
         job: BeeJob,
         server: MinecraftServer,
-        tracker: JobCalculationProgress.Tracker,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         SchematicCreateBridge(player.level()).generateRemovalTasksAsync(
-            positions, job, server, CBBeesConfig.taskGenerationBlocksPerTick.get(), tracker
+            positions, job, server, CBBeesConfig.taskGenerationBudgetMs.get()
         ) { batches -> onComplete(batches, center) }
     }
 

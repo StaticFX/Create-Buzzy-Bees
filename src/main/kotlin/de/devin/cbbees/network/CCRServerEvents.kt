@@ -4,7 +4,6 @@ import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.TransportDispatcher
-import de.devin.cbbees.content.domain.job.JobCalculationProgress
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.drone.DroneViewManager
 import de.devin.cbbees.content.logistics.storage.AutocraftRequester
@@ -45,10 +44,6 @@ object CCRServerEvents {
         profiler.push("beeManager")
         ServerBeeManager.init(overworld)
         ServerBeeManager.tickAll(overworld, gameTime)
-        profiler.pop()
-
-        profiler.push("jobEvictions")
-        JobCalculationProgress.tickEvictions(server.tickCount)
         profiler.pop()
 
         profiler.push("jobPoolInit")

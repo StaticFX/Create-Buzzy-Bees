@@ -59,7 +59,7 @@ object CBBeesConfig {
 
     // Performance settings
     val blockOperationBudgetMs: ModConfigSpec.DoubleValue
-    val taskGenerationBlocksPerTick: ModConfigSpec.IntValue
+    val taskGenerationBudgetMs: ModConfigSpec.DoubleValue
     val maxCheckpointsPerTick: ModConfigSpec.IntValue
     val redispatchInterval: ModConfigSpec.IntValue
 
@@ -282,9 +282,9 @@ object CBBeesConfig {
             .comment("Milliseconds per server tick all bees together may spend placing and breaking blocks. Cheap blocks fit many per tick, heavy ones fewer. Lower values reduce TPS impact with many bees.")
             .defineInRange("blockOperationBudgetMs", 5.0, 0.5, 40.0)
 
-        taskGenerationBlocksPerTick = builder
-            .comment("Maximum schematic blocks scanned per server tick when generating build/removal tasks. Lower values reduce server hitches on large schematics; higher values finish calculation faster.")
-            .defineInRange("taskGenerationBlocksPerTick", 500, 50, 10000)
+        taskGenerationBudgetMs = builder
+            .comment("Milliseconds per server tick spent scanning schematics and areas when planning build/removal jobs. Higher values finish planning faster; lower values reduce TPS impact.")
+            .defineInRange("taskGenerationBudgetMs", 15.0, 1.0, 40.0)
 
         maxCheckpointsPerTick = builder
             .comment("Maximum bee waypoint arrivals (gathering, drop-off, entering the hive) processed per server tick. Block placing and breaking is limited by blockOperationBudgetMs instead.")
