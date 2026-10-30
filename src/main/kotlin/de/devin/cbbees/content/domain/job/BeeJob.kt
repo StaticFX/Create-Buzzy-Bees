@@ -61,8 +61,16 @@ data class BeeJob(
      * support blocks during deconstruction.
      */
     fun isPhaseReady(phase: Int): Boolean {
-        return batches.none { it.phase < phase && !it.isPrimaryActionDone() }
+        val checkedAt = level.gameTime to batches.size
+        if (checkedAt != phaseCheckedAt) {
+            phaseCheckedAt = checkedAt
+            lowestOpenPhase = batches.filterNot { it.isPrimaryActionDone() }.minOfOrNull { it.phase } ?: Int.MAX_VALUE
+        }
+        return phase <= lowestOpenPhase
     }
+
+    private var phaseCheckedAt: Pair<Long, Int>? = null
+    private var lowestOpenPhase = Int.MAX_VALUE
 
     /**
      * Adds a task to this job.

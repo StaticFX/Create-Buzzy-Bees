@@ -25,6 +25,7 @@ import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
 import de.devin.cbbees.content.schematics.client.JobLookOverlay
+import de.devin.cbbees.content.schematics.client.SharedSchematicClientCommand
 import de.devin.cbbees.content.domain.events.PlayerTickEvent
 import de.devin.cbbees.content.domain.history.client.JobHistoryClientEvents
 import de.devin.cbbees.content.drone.client.DroneRangeRenderer
@@ -57,6 +58,7 @@ import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent
@@ -122,6 +124,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeeNetworkClientEvents::class.java)
             NeoForge.EVENT_BUS.register(PlannerClientEvents::class.java)
             NeoForge.EVENT_BUS.register(ConstructionPlannerClientEvents::class.java)
+            NeoForge.EVENT_BUS.addListener<RegisterClientCommandsEvent> { SharedSchematicClientCommand.register(it.dispatcher) }
             NeoForge.EVENT_BUS.register(BeeClientTracker::class.java)
             NeoForge.EVENT_BUS.register(de.devin.cbbees.content.bee.client.BeeWorldRenderer::class.java)
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)

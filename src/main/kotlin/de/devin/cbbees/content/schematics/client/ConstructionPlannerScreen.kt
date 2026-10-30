@@ -6,6 +6,7 @@ import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.schematics.external.ExternalSchematicSource
 import de.devin.cbbees.icons.AllCCRGuiTextures
 import de.devin.cbbees.network.InstantConstructionPacket
+import de.devin.cbbees.network.ShareSchematicPacket
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.AbstractWidget
@@ -37,6 +38,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private lateinit var groupButton: PlannerButton
     private lateinit var backButton: PlannerIconButton
     private lateinit var renameButton: PlannerIconButton
+    private lateinit var shareButton: PlannerIconButton
     private lateinit var deleteButton: PlannerIconButton
     private lateinit var resetViewButton: PlannerIconButton
     private lateinit var searchBox: EditBox
@@ -141,6 +143,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         addRenderableWidget(PlannerButton(width - MARGIN - BUTTON_WIDTH, buttonY, Component.translatable("gui.done"), ::onClose))
 
         backButton = addRenderableWidget(PlannerIconButton(listPanel.x + 2, listPanel.y + 2, AllCCRGuiTextures.PLANNER_GLYPH_BACK, Component.translatable("gui.cbbees.construction_planner.back"), ::navigateUp))
+        shareButton = addRenderableWidget(PlannerIconButton(width - MARGIN - 40, 5, AllCCRGuiTextures.PLANNER_GLYPH_SHARE, Component.translatable("gui.cbbees.construction_planner.share"), ::onShareAction))
         renameButton = addRenderableWidget(PlannerIconButton(width - MARGIN - 26, 5, AllCCRGuiTextures.PLANNER_GLYPH_RENAME, Component.translatable("gui.cbbees.construction_planner.rename"), ::onRenameAction))
         deleteButton = addRenderableWidget(PlannerIconButton(width - MARGIN - 12, 5, AllCCRGuiTextures.PLANNER_GLYPH_DELETE, Component.translatable("gui.cbbees.construction_planner.delete"), ::onDeleteAction))
         resetViewButton = addWidget(PlannerIconButton(viewport.right - 14, viewport.y + 2, AllCCRGuiTextures.PLANNER_GLYPH_RESET_VIEW, Component.translatable("gui.cbbees.construction_planner.reset_view"), ::resetView))
@@ -185,8 +188,9 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         val isSchematic = selectedSchematic != null
         selectButton.active = entry != null
         groupButton.active = marked.isNotEmpty()
-        renameButton.visible = isSchematic && marked.size <= 1
-        deleteButton.visible = marked.any { it.type == BrowserEntryType.SCHEMATIC }
+        renameButton.visible = entry != null && entry.type != BrowserEntryType.PARENT && marked.size <= 1
+        shareButton.visible = isSchematic && marked.size <= 1
+        deleteButton.visible = marked.isNotEmpty()
         resetViewButton.visible = isSchematic
         backButton.visible = currentGroupPath.isNotEmpty() && !searchActive
         if (changed) {
@@ -267,12 +271,25 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     }
 
     private fun onRenameAction() {
-        selectedSchematic?.let { minecraft?.setScreen(SchematicRenameScreen(it.value, this)) }
+        val entry = selectedEntry ?: return
+        when (entry.type) {
+            BrowserEntryType.SCHEMATIC -> minecraft?.setScreen(SchematicRenameScreen(entry.value, this))
+            BrowserEntryType.GROUP -> minecraft?.setScreen(FolderRenameScreen(entry.value, this))
+            BrowserEntryType.PARENT -> {}
+        }
+    }
+
+    private fun onShareAction() {
+        val filename = selectedSchematic?.value ?: return
+        SchematicUploader.startUpload(filename) { PacketDistributor.sendToServer(ShareSchematicPacket(filename)) }
+        onClose()
     }
 
     private fun onDeleteAction() {
-        val filenames = marked.filter { it.type == BrowserEntryType.SCHEMATIC }.map { it.value }.ifEmpty { return }
-        minecraft?.setScreen(SchematicDeleteScreen(filenames, this))
+        if (marked.isEmpty()) return
+        val filenames = marked.filter { it.type == BrowserEntryType.SCHEMATIC }.map { it.value }
+        val folders = marked.filter { it.type == BrowserEntryType.GROUP }.map { it.value }
+        minecraft?.setScreen(SchematicDeleteScreen(filenames, folders, this))
     }
 
     private fun onAssignGroup() {
@@ -628,6 +645,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         when (keyCode) {
             GLFW.GLFW_KEY_BACKSPACE -> if (!searchActive) navigateUp()
             GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> onSelectAction()
+            GLFW.GLFW_KEY_DELETE -> onDeleteAction()
             GLFW.GLFW_KEY_A -> if (multiSelectDown()) markAll() else return super.keyPressed(keyCode, scanCode, modifiers)
             else -> return super.keyPressed(keyCode, scanCode, modifiers)
         }

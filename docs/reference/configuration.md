@@ -55,7 +55,7 @@ All config options are in the server config file (`serverconfig/cbbees-server.to
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `maxBlockOperationsPerTick` | 20 | Max block operations per server tick |
+| `blockOperationBudgetMs` | 5.0 | Milliseconds per tick bees may spend placing and breaking blocks |
 | `taskGenerationBlocksPerTick` | 500 | Schematic blocks scanned per tick |
-| `maxCheckpointsPerTick` | 30 | Max bee checkpoint actions per tick |
+| `maxCheckpointsPerTick` | 30 | Max other bee waypoint arrivals per tick |
 | `redispatchInterval` | 4 | Redispatch cycles between attempts |

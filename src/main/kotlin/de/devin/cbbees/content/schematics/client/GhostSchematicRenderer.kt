@@ -76,6 +76,9 @@ class GhostSchematicRenderer(
         override fun getFluidState(pos: BlockPos): FluidState =
             if (pos.y > maxY) Fluids.EMPTY.defaultFluidState() else level.getFluidState(pos)
 
+        override fun getBlockEntity(pos: BlockPos): BlockEntity? =
+            if (pos.y > maxY) null else level.getBlockEntity(pos)
+
         override fun getBrightness(layer: LightLayer, pos: BlockPos): Int = level.getBrightness(layer, pos)
 
         override fun getRawBrightness(pos: BlockPos, amount: Int): Int = level.getRawBrightness(pos, amount)

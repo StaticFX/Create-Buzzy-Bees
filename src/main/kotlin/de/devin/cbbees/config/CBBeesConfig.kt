@@ -58,7 +58,7 @@ object CBBeesConfig {
     val springRechargeTicks: ModConfigSpec.IntValue
 
     // Performance settings
-    val maxBlockOperationsPerTick: ModConfigSpec.IntValue
+    val blockOperationBudgetMs: ModConfigSpec.DoubleValue
     val taskGenerationBlocksPerTick: ModConfigSpec.IntValue
     val maxCheckpointsPerTick: ModConfigSpec.IntValue
     val redispatchInterval: ModConfigSpec.IntValue
@@ -278,16 +278,16 @@ object CBBeesConfig {
         builder.comment("Performance Tuning")
             .push("performance")
 
-        maxBlockOperationsPerTick = builder
-            .comment("Maximum number of block place/break operations all bees can perform per server tick. Lower values reduce TPS impact with many bees.")
-            .defineInRange("maxBlockOperationsPerTick", 20, 1, 200)
+        blockOperationBudgetMs = builder
+            .comment("Milliseconds per server tick all bees together may spend placing and breaking blocks. Cheap blocks fit many per tick, heavy ones fewer. Lower values reduce TPS impact with many bees.")
+            .defineInRange("blockOperationBudgetMs", 5.0, 0.5, 40.0)
 
         taskGenerationBlocksPerTick = builder
             .comment("Maximum schematic blocks scanned per server tick when generating build/removal tasks. Lower values reduce server hitches on large schematics; higher values finish calculation faster.")
             .defineInRange("taskGenerationBlocksPerTick", 500, 50, 10000)
 
         maxCheckpointsPerTick = builder
-            .comment("Maximum bee checkpoint actions (block place/break arrivals) processed per server tick. Higher values let more bees work simultaneously but increase per-tick server load.")
+            .comment("Maximum bee waypoint arrivals (gathering, drop-off, entering the hive) processed per server tick. Block placing and breaking is limited by blockOperationBudgetMs instead.")
             .defineInRange("maxCheckpointsPerTick", 30, 1, 500)
 
         redispatchInterval = builder

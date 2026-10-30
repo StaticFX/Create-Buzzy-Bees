@@ -1,15 +1,11 @@
 package de.devin.cbbees.content.zapper.client
 
-import com.mojang.blaze3d.platform.Lighting
-import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.math.Axis
 import de.devin.cbbees.content.schematics.client.GhostSchematicRenderer
+import de.devin.cbbees.content.schematics.client.SpinningPreview
 import de.devin.cbbees.content.zapper.shape.ShapeSettings
 import de.devin.cbbees.content.zapper.shape.SolidShape
 import de.devin.cbbees.content.zapper.shape.ZapperShape
-import net.createmod.catnip.animation.AnimationTickHolder
 import net.createmod.catnip.levelWrappers.SchematicLevel
-import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer
 import net.minecraft.Util
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -22,11 +18,6 @@ import net.minecraft.world.level.block.state.BlockState
 import net.minecraft.world.level.levelgen.structure.BoundingBox
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 @OnlyIn(Dist.CLIENT)
 class ZapperShapePreview {
@@ -80,27 +71,8 @@ class ZapperShapePreview {
     }
 
     private fun renderShape(graphics: GuiGraphics, ready: Ready, x: Int, y: Int, w: Int, h: Int) {
-        val size = ready.size
-        val pitch = Math.toRadians(PITCH.toDouble())
-        val spread = sqrt((size.x * size.x + size.z * size.z).toDouble())
-        val height = size.y * cos(pitch) + spread * sin(pitch)
-        val scale = (min(w / spread, h / height) * FILL).toFloat()
-
         graphics.enableScissor(x, y, x + w, y + h)
-        val pose = graphics.pose()
-        pose.pushPose()
-        pose.translate(x + w / 2.0, y + h / 2.0, 150.0)
-        pose.scale(scale, -scale, scale)
-        pose.mulPose(Axis.XP.rotationDegrees(PITCH))
-        pose.mulPose(Axis.YP.rotationDegrees(AnimationTickHolder.getRenderTime() * SPIN_SPEED % 360f))
-        pose.translate(-size.x / 2.0, -size.y / 2.0, -size.z / 2.0)
-
-        RenderSystem.enableDepthTest()
-        Lighting.setupFor3DItems()
-        val buffers = DefaultSuperRenderTypeBuffer.getInstance()
-        ready.renderer.render(pose, buffers)
-        buffers.draw()
-        pose.popPose()
+        SpinningPreview.render(graphics, ready.renderer, ready.size, x, y, w, h)
         graphics.disableScissor()
     }
 
@@ -113,9 +85,6 @@ class ZapperShapePreview {
     }
 
     private companion object {
-        const val PITCH = 30f
-        const val SPIN_SPEED = 1.5f
-        const val FILL = 0.85
         const val MAX_BLOCKS = 40_000
         const val REBUILD_DELAY_MS = 150L
     }

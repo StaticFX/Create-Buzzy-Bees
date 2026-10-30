@@ -224,7 +224,7 @@ object FlightPlanComputer {
                         Checkpoint(
                             task.targetPos,
                             ExecuteBeeAction(action, task),
-                            clientPauseTicks = action.getWorkTicks(bee.getBeeContext())
+                            workTicks = action.getWorkTicks(bee.getBeeContext())
                         )
                     )
                     lastCheckpointPos = task.targetPos

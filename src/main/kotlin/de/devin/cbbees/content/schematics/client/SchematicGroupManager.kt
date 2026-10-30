@@ -110,19 +110,39 @@ object SchematicGroupManager {
         val destination = target.trim().trimEnd('/')
         filenames.forEach { assign(it, destination) }
         groupPaths.filter { canMoveInto(it, destination) }.forEach { group ->
-            val moved = listOf(destination, group.substringAfterLast('/')).filter(String::isNotEmpty).joinToString("/")
-            val relocate = { path: String ->
-                when {
-                    path == group -> moved
-                    path.startsWith("$group/") -> moved + path.removePrefix(group)
-                    else -> path
-                }
-            }
-            groups.replaceAll { _, path -> relocate(path) }
-            val relocated = folders.map(relocate)
-            folders.clear()
-            folders += relocated
+            relocate(group, listOf(destination, group.substringAfterLast('/')).filter(String::isNotEmpty).joinToString("/"))
         }
+        save()
+    }
+
+    fun renameFolder(groupPath: String, newName: String) {
+        ensureLoaded()
+        relocate(groupPath, normalize("${groupPath.substringBeforeLast('/', "")}/$newName"))
+        save()
+    }
+
+    private fun relocate(group: String, moved: String) {
+        val move = { path: String ->
+            when {
+                path == group -> moved
+                path.startsWith("$group/") -> moved + path.removePrefix(group)
+                else -> path
+            }
+        }
+        groups.replaceAll { _, path -> move(path) }
+        val relocated = folders.map(move)
+        folders.clear()
+        folders += relocated
+    }
+
+    fun filesIn(groupPath: String): List<String> {
+        ensureLoaded()
+        return groups.filterValues { it == groupPath || it.startsWith("$groupPath/") }.keys.toList()
+    }
+
+    fun deleteFolder(groupPath: String) {
+        ensureLoaded()
+        folders.removeIf { it == groupPath || it.startsWith("$groupPath/") }
         save()
     }
 

@@ -1,9 +1,14 @@
 package de.devin.cbbees.gametest.flight
 
 import de.devin.cbbees.content.bee.flight.Checkpoint
+import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlyThrough
 import de.devin.cbbees.content.bee.server.BeeType
+import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
+import de.devin.cbbees.content.domain.job.BeeJob
+import de.devin.cbbees.content.domain.job.JobType
+import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.gametest.dsl.assertLongArrayEquals
 import de.devin.cbbees.gametest.dsl.unitTest
 import net.minecraft.core.BlockPos
@@ -124,5 +129,42 @@ object FlightPlanTests {
             null
         )
         assertEquals(p.estimatedDurationTicks, p.computeArrivalTicks().last(), "last arrival = duration")
+    }
+
+    private fun actionPlan(helper: GameTestHelper, vararg targets: BlockPos): FlightPlan {
+        val job = BeeJob(UUID.randomUUID(), BlockPos.ZERO, helper.level, JobType.Construction)
+        val actions = targets.map { target ->
+            val action = RemoveBlockAction(target)
+            Checkpoint(target, ExecuteBeeAction(action, BeeTask(action, job)), workTicks = 5)
+        }
+        return plan(Checkpoint(BlockPos(0, 0, 0), FlyThrough), *actions.toTypedArray())
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun workTicks_comeBeforeTheAction(helper: GameTestHelper) = helper.unitTest {
+        val p = actionPlan(helper, BlockPos(10, 0, 0))
+        assertEquals(15L, p.ticksToReach(1), "travel plus work")
+        assertEquals(p.estimatedDurationTicks, p.computeArrivalTicks().last(), "duration includes the work")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun scheduling_freeSlot_keepsThePlan(helper: GameTestHelper) = helper.unitTest {
+        val p = actionPlan(helper, BlockPos(10, 0, 0), BlockPos(20, 0, 0))
+        assertEquals(p, p.scheduled(100) { it }, "nothing changes when every slot is free")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun scheduling_lateSlot_slowsTheFlightThenWaits(helper: GameTestHelper) = helper.unitTest {
+        val p = actionPlan(helper, BlockPos(10, 0, 0), BlockPos(12, 0, 0))
+        val slots = listOf(140L, 160L)
+        var call = 0
+        val scheduled = p.scheduled(100) { maxOf(it, slots[call++]) }
+        assertEquals(20L, scheduled.segmentTicks[1], "a 25 tick delay slows the 10 tick flight to at most half speed")
+        assertEquals(15, scheduled.checkpoints[0].clientPauseTicks, "the rest is waited before leaving")
+        assertEquals(40L, scheduled.computeArrivalTicks()[1], "first action lands on its slot")
+        assertEquals(60L, scheduled.computeArrivalTicks()[2], "second action lands on its slot")
     }
 }

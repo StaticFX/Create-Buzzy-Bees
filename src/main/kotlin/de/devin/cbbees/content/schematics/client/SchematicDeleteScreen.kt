@@ -13,9 +13,12 @@ import java.nio.file.Files
 
 @OnlyIn(Dist.CLIENT)
 class SchematicDeleteScreen(
-    private val filenames: List<String>,
+    private val looseFiles: List<String>,
+    private val folders: List<String> = emptyList(),
     parentScreen: Screen? = null
 ) : PlannerDialog(Component.translatable("gui.cbbees.schematic_delete.title"), WIDTH, 96, parentScreen) {
+
+    private val filenames = (looseFiles + folders.flatMap(SchematicGroupManager::filesIn)).distinct()
 
     override fun init() {
         super.init()
@@ -31,6 +34,7 @@ class SchematicDeleteScreen(
                 CreateBuzzyBeez.LOGGER.error("Failed to delete schematic $filename", e)
             }
         }
+        folders.forEach(SchematicGroupManager::deleteFolder)
         CreateClient.SCHEMATIC_SENDER.refresh()
 
         onClose()
@@ -42,9 +46,13 @@ class SchematicDeleteScreen(
 
         val textX = left + MARGIN + 22
         val textWidth = WIDTH - MARGIN * 2 - 22
-        val text = filenames.singleOrNull()
-            ?.let { Component.translatable("gui.cbbees.schematic_delete.message", it.removeSuffix(".nbt")) }
-            ?: Component.translatable("gui.cbbees.schematic_delete.message_many", filenames.size)
+        val text = when {
+            folders.size == 1 && looseFiles.isEmpty() ->
+                Component.translatable("gui.cbbees.schematic_delete.message_folder", folders.single().substringAfterLast('/'), filenames.size)
+            folders.isNotEmpty() -> Component.translatable("gui.cbbees.schematic_delete.message_mixed", folders.size, filenames.size)
+            filenames.size == 1 -> Component.translatable("gui.cbbees.schematic_delete.message", filenames.single().removeSuffix(".nbt"))
+            else -> Component.translatable("gui.cbbees.schematic_delete.message_many", filenames.size)
+        }
         val message = font.split(text, textWidth)
         val hint = font.split(Component.translatable("gui.cbbees.schematic_delete.hint"), textWidth)
         var y = top + 24

@@ -75,6 +75,21 @@ object AllPackets {
             NetworkSyncPacket.Companion::handle
         )
         registrar.playToServer(
+            ShareSchematicPacket.TYPE,
+            ShareSchematicPacket.STREAM_CODEC,
+            ShareSchematicPacket.Companion::handle
+        )
+        registrar.playToServer(
+            RequestSharedSchematicPacket.TYPE,
+            RequestSharedSchematicPacket.STREAM_CODEC,
+            RequestSharedSchematicPacket.Companion::handle
+        )
+        registrar.playToClient(
+            SharedSchematicPacket.TYPE,
+            SharedSchematicPacket.STREAM_CODEC,
+            SharedSchematicPacket.Companion::handle
+        )
+        registrar.playToServer(
             SelectSchematicPacket.TYPE,
             SelectSchematicPacket.STREAM_CODEC,
             SelectSchematicPacket.Companion::handle

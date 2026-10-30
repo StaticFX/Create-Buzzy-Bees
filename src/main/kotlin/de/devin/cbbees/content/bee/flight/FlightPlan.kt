@@ -39,7 +39,7 @@ data class FlightPlan(
 ) {
     /** Estimated total flight ticks (sum of distances / speed + pause ticks). */
     val estimatedDurationTicks: Long
-        get() = (1 until checkpoints.size).sumOf { segmentTicks[it] + checkpoints[it - 1].clientPauseTicks }
+        get() = (1 until checkpoints.size).sumOf(::ticksToReach)
 
     /**
      * Pre-computes cumulative arrival ticks for each checkpoint.
@@ -49,9 +49,28 @@ data class FlightPlan(
     fun computeArrivalTicks(): LongArray = LongArray(checkpoints.size).also { arr ->
         var cumulative = 0L
         for (i in 1 until checkpoints.size) {
-            cumulative += segmentTicks[i] + checkpoints[i - 1].clientPauseTicks
+            cumulative += ticksToReach(i)
             arr[i] = cumulative
         }
+    }
+
+    fun ticksToReach(index: Int): Long = segmentTicks[index] + checkpoints[index].workTicks + checkpoints[index - 1].clientPauseTicks
+
+    fun scheduled(startTick: Long, reserve: (Long) -> Long): FlightPlan {
+        val waypoints = checkpoints.toMutableList()
+        val segments = segmentTicks.toMutableList()
+        var tick = startTick
+        for (i in 1 until waypoints.size) {
+            tick += segments[i] + waypoints[i].workTicks + waypoints[i - 1].clientPauseTicks
+            if (waypoints[i].action !is ExecuteBeeAction) continue
+            val delay = reserve(tick) - tick
+            if (delay <= 0) continue
+            val stretch = minOf(delay, segments[i])
+            segments[i] += stretch
+            waypoints[i - 1] = waypoints[i - 1].let { it.copy(clientPauseTicks = it.clientPauseTicks + (delay - stretch).toInt()) }
+            tick += delay
+        }
+        return copy(checkpoints = waypoints, segmentTicks = segments)
     }
 
     companion object {
@@ -89,6 +108,7 @@ data class Checkpoint(
     val action: CheckpointAction,
     /** How long the client should visually pause at this checkpoint (ticks). */
     val clientPauseTicks: Int = 0,
+    val workTicks: Int = 0,
 )
 
 /**

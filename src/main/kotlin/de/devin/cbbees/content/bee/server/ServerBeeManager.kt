@@ -2,6 +2,7 @@ package de.devin.cbbees.content.bee.server
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
+import de.devin.cbbees.content.bee.flight.ActionThrottle
 import de.devin.cbbees.content.bee.flight.ClientCheckpoint
 import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
@@ -108,9 +109,18 @@ object ServerBeeManager {
     private var isTicking = false
 
     private val maxCheckpointsPerTick: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
+    private val reservedActions = HashMap<Long, Int>()
+
+    private fun reserveAction(earliest: Long): Long {
+        val limit = ActionThrottle.capacityPerTick
+        val tick = generateSequence(earliest) { it + 1 }.first { (reservedActions[it] ?: 0) < limit }
+        reservedActions.merge(tick, 1, Int::plus)
+        return tick
+    }
 
     fun tickAll(serverLevel: ServerLevel, gameTime: Long) {
         isTicking = true
+        reservedActions.keys.removeIf { it < gameTime }
         pendingRemovals.clear()
         pendingReturns.clear()
         val profiler = serverLevel.profiler
@@ -128,11 +138,13 @@ object ServerBeeManager {
             if (plan == null || bee.currentCheckpointIndex >= plan.checkpoints.size) continue
 
             if (gameTime < bee.nextCheckpointArrivalTick) continue
-            if (checkpointsThisTick >= maxCheckpointsPerTick) continue
+            val checkpoint = plan.checkpoints[bee.currentCheckpointIndex]
+            if (checkpoint.action !is ExecuteBeeAction) {
+                if (checkpointsThisTick >= maxCheckpointsPerTick) continue
+                checkpointsThisTick++
+            }
 
             profiler.push("arrival")
-            checkpointsThisTick++
-            val checkpoint = plan.checkpoints[bee.currentCheckpointIndex]
             bee.pos = Vec3.atCenterOf(checkpoint.pos)
 
             val beeLevel = bee._level as? ServerLevel ?: serverLevel
@@ -180,7 +192,8 @@ object ServerBeeManager {
         pendingReturns.clear()
     }
 
-    fun startPlan(bee: ServerBeeData, plan: FlightPlan, gameTime: Long, network: BeeNetwork? = null) {
+    fun startPlan(bee: ServerBeeData, computed: FlightPlan, gameTime: Long, network: BeeNetwork? = null) {
+        val plan = computed.scheduled(gameTime, ::reserveAction)
         val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
         if (gatherAction != null && network != null) {
             network.ports.firstOrNull { it.id == gatherAction.providerId }?.reserve(bee.id, gatherAction.items, gameTime)
@@ -190,12 +203,13 @@ object ServerBeeManager {
         bee.currentCheckpointIndex = 0
         if (plan.checkpoints.size > 1) {
             bee.currentCheckpointIndex = 1
-            bee.nextCheckpointArrivalTick = gameTime + plan.segmentTicks[1]
+            bee.nextCheckpointArrivalTick = gameTime + plan.ticksToReach(1)
         }
         broadcastFlightPlan(bee, plan, clientStartIndex = 0)
     }
 
-    fun redirect(bee: ServerBeeData, plan: FlightPlan, gameTime: Long) {
+    fun redirect(bee: ServerBeeData, computed: FlightPlan, gameTime: Long) {
+        val plan = computed.scheduled(gameTime, ::reserveAction)
         bee.flightPlan = plan
         bee.planStartTick = gameTime
         bee.currentCheckpointIndex = 0
@@ -204,13 +218,11 @@ object ServerBeeManager {
 
     private fun advanceCheckpoint(bee: ServerBeeData, gameTime: Long) {
         val plan = bee.flightPlan ?: return
-        val prevIndex = bee.currentCheckpointIndex
         bee.currentCheckpointIndex++
 
         if (bee.currentCheckpointIndex >= plan.checkpoints.size) return
 
-        val from = plan.checkpoints[prevIndex]
-        bee.nextCheckpointArrivalTick = gameTime + plan.segmentTicks[bee.currentCheckpointIndex] + from.clientPauseTicks
+        bee.nextCheckpointArrivalTick = gameTime + plan.ticksToReach(bee.currentCheckpointIndex)
     }
 
     /**
@@ -304,7 +316,7 @@ object ServerBeeManager {
             bee.currentCheckpointIndex = 0
             if (plan.checkpoints.size > 1) {
                 bee.currentCheckpointIndex = 1
-                bee.nextCheckpointArrivalTick = beeWorld.gameTime + plan.segmentTicks[1]
+                bee.nextCheckpointArrivalTick = beeWorld.gameTime + plan.ticksToReach(1)
             }
             broadcastFlightPlan(bee, plan, clientStartIndex = 0)
         }

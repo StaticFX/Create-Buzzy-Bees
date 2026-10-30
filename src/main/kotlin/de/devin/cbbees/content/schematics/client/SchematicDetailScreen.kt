@@ -12,7 +12,6 @@ import net.minecraft.network.chat.Component
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.minecraft.Util
-import java.io.File
 import java.net.URI
 import java.util.concurrent.CompletableFuture
 import kotlin.math.min
@@ -25,8 +24,8 @@ import kotlin.math.min
  */
 @OnlyIn(Dist.CLIENT)
 class SchematicDetailScreen(
-    private val source: ExternalSchematicSource,
-    private val parentScreen: Screen,
+    private val source: ExternalSchematicSource?,
+    private val parentScreen: Screen?,
     private val schematic: RemoteSchematic,
     private val bytesCache: MutableMap<String, ByteArray>,
     private val savedFiles: MutableMap<String, String>
@@ -88,10 +87,11 @@ class SchematicDetailScreen(
         downloadButton.active = !savedFiles.containsKey(schematic.id)
         addRenderableWidget(downloadButton)
 
-        val openWebButton = Button.builder(Component.translatable("gui.cbbees.browse_online.open_web")) {
-            Util.getPlatform().openUri(URI.create("${source.baseUrl}/schematics/${schematic.id}"))
-        }.bounds(MARGIN, buttonY, 120, 20).build()
-        addRenderableWidget(openWebButton)
+        source?.let { online ->
+            addRenderableWidget(Button.builder(Component.translatable("gui.cbbees.browse_online.open_web")) {
+                Util.getPlatform().openUri(URI.create("${online.baseUrl}/schematics/${schematic.id}"))
+            }.bounds(MARGIN, buttonY, 120, 20).build())
+        }
 
         val backButton = Button.builder(Component.translatable("gui.back")) {
             minecraft?.setScreen(parentScreen)
@@ -114,11 +114,12 @@ class SchematicDetailScreen(
             return
         }
 
+        val online = source ?: return
         previewLoading = true
         statusMessage = Component.translatable("gui.cbbees.browse_online.loading_preview")
             .withStyle(ChatFormatting.YELLOW)
 
-        source.downloadBytes(schematic).thenAccept { nbtBytes ->
+        online.downloadBytes(schematic).thenAccept { nbtBytes ->
             Minecraft.getInstance().execute {
                 bytesCache[id] = nbtBytes
                 val key = "preview:$id"
@@ -153,11 +154,12 @@ class SchematicDetailScreen(
             return
         }
 
+        val online = source ?: return
         downloadButton.active = false
         statusMessage = Component.translatable("gui.cbbees.browse_online.downloading")
             .withStyle(ChatFormatting.YELLOW)
 
-        source.download(schematic).thenAccept { filename ->
+        online.download(schematic).thenAccept { filename ->
             Minecraft.getInstance().execute {
                 savedFiles[schematic.id] = filename
                 statusMessage = Component.translatable("gui.cbbees.browse_online.downloaded", filename)
@@ -176,21 +178,7 @@ class SchematicDetailScreen(
 
     private fun saveToDisk(nbtBytes: ByteArray) {
         CompletableFuture.supplyAsync {
-            val mc = Minecraft.getInstance()
-            val schematicsDir = File(mc.gameDirectory, "schematics")
-            schematicsDir.mkdirs()
-
-            val slug = schematic.id
-            var filename = "$slug.nbt"
-            var targetFile = File(schematicsDir, filename)
-            var counter = 1
-            while (targetFile.exists()) {
-                filename = "${slug}_$counter.nbt"
-                targetFile = File(schematicsDir, filename)
-                counter++
-            }
-            targetFile.writeBytes(nbtBytes)
-            filename
+            SchematicFiles.saveUnique(schematic.id, nbtBytes)
         }.thenAccept { filename ->
             Minecraft.getInstance().execute {
                 CreateClient.SCHEMATIC_SENDER.refresh()
@@ -207,8 +195,10 @@ class SchematicDetailScreen(
 
         // Title
         guiGraphics.drawCenteredString(font, schematic.name, width / 2, 6, 0xFFFF55)
-        val subtitle = Component.translatable("gui.cbbees.browse_online.author", schematic.author)
-        guiGraphics.drawCenteredString(font, subtitle, width / 2, 18, 0xAAAAAA)
+        if (schematic.author.isNotEmpty()) {
+            val subtitle = Component.translatable("gui.cbbees.browse_online.author", schematic.author)
+            guiGraphics.drawCenteredString(font, subtitle, width / 2, 18, 0xAAAAAA)
+        }
 
         // Preview area background
         guiGraphics.fill(previewLeft - 1, previewTop - 1, previewLeft + previewW + 1, previewTop + previewH + 1, 0x40FFFFFF)
@@ -270,13 +260,15 @@ class SchematicDetailScreen(
         y += 12
 
         // Downloads + Views
-        val dlText = Component.translatable("gui.cbbees.browse_online.downloads", formatNumber(schematic.downloads))
-        guiGraphics.drawString(font, dlText, x, y, labelColor, false)
-        if (schematic.views > 0) {
-            val viewsText = Component.translatable("gui.cbbees.browse_online.views", formatNumber(schematic.views))
-            guiGraphics.drawString(font, viewsText, x + font.width(dlText) + 10, y, labelColor, false)
+        if (source != null) {
+            val dlText = Component.translatable("gui.cbbees.browse_online.downloads", formatNumber(schematic.downloads))
+            guiGraphics.drawString(font, dlText, x, y, labelColor, false)
+            if (schematic.views > 0) {
+                val viewsText = Component.translatable("gui.cbbees.browse_online.views", formatNumber(schematic.views))
+                guiGraphics.drawString(font, viewsText, x + font.width(dlText) + 10, y, labelColor, false)
+            }
+            y += 12
         }
-        y += 12
 
         // Rating
         if (schematic.rating.isNotEmpty() && schematic.ratingCount > 0) {
