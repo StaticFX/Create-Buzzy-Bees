@@ -6,16 +6,11 @@ import com.simibubi.create.CreateClient;
 import com.simibubi.create.foundation.gui.widget.IconButton;
 import de.devin.cbbees.icons.AllCCRIcons;
 import de.devin.cbbees.content.planner.AllPlanners;
-import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
-import de.devin.cbbees.network.StartConstructionPacket;
+import de.devin.cbbees.content.schematics.client.ConstructPrompt;
 import net.createmod.catnip.gui.AbstractSimiScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -50,16 +45,7 @@ public abstract class SchematicEditScreenMixin extends AbstractSimiScreen {
         ccr$constructButton = new IconButton(buttonX, buttonY, AllCCRIcons.START_CONSTRUCTION);
         ccr$constructButton.setToolTip(Component.translatable("gui.cbbees.schematic.start_construction"));
         ccr$constructButton.withCallback(() -> {
-            // Read from the handler's transformation, not the ItemStack — the ItemStack
-            // only has the initial deploy position, while the transformation tracks moves/rotates.
-            var transform = handler.getTransformation();
-            var settings = transform.toSettings();
-            BlockPos anchor = transform.getAnchor();
-            Rotation rotation = settings.getRotation();
-            Mirror mirror = settings.getMirror();
-            PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
-            // Clear client state immediately so Create deactivates cleanly
-            ConstructionPlannerItem.Companion.releaseSchematic(activeItem);
+            ConstructPrompt.construct(activeItem);
             if (Minecraft.getInstance().screen != null) {
                 Minecraft.getInstance().screen.onClose();
             }

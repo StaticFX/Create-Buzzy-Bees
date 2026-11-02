@@ -141,6 +141,33 @@ object DockPortTests {
         }
     }
 
+    @GameTest(template = TEMPLATE, timeoutTicks = 200, setupTicks = 20)
+    @JvmStatic
+    fun reservedFluid_isNotOfferedToOtherBees(helper: GameTestHelper) = helper.beeTest {
+        scanStructure {}
+        setupNetwork()
+        val tankPos = helper.absolutePos(TANK_POS)
+        placeDockPort(tankPos, PortType.EXTRACT)
+        val water = FluidStack(Fluids.WATER, ServerBeeData.FLUID_CAPACITY)
+        val first = UUID.randomUUID()
+        val second = UUID.randomUUID()
+
+        helper.runAfterDelay(5) {
+            fillTank(tankPos, 1000)
+            val network = jobPool.network
+            val dock = network.findFluidProvider(water, first)
+            helper.assertTrue(dock != null, "The full tank should be offered")
+
+            dock!!.reserve(first, listOf(water), level.gameTime)
+            helper.assertTrue(network.findFluidProvider(water, second) == null, "Reserved water must not be offered to another bee")
+            helper.assertTrue(network.findFluidProvider(water, first) == dock, "The bee that reserved it should still find it")
+
+            network.releaseReservations(first)
+            helper.assertTrue(network.findFluidProvider(water, second) == dock, "Released water should be offered again")
+            helper.succeed()
+        }
+    }
+
     private fun BeeTestScope.placeDockPort(tankPos: BlockPos, type: PortType) {
         level.setBlockAndUpdate(tankPos, CreateAllBlocks.FLUID_TANK.defaultState)
         val portPos = tankPos.above()

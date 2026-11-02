@@ -5,7 +5,9 @@
   "compatibilityLevel": "JAVA_21",
   "refmap": "cbbees.refmap.json",
   "mixins": [
-    "ServerSchematicLoaderMixin"
+    "ServerSchematicLoaderMixin",
+    "StructureTemplateAccessor",
+    "StructureTemplateMixin"
   ],
   "client": [
     "ChatComponentMixin",

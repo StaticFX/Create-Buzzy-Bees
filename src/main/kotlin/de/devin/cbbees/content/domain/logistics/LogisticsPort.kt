@@ -7,9 +7,9 @@ import net.minecraft.world.item.ItemStack
 /**
  * Port used by construction bees to pick up and drop off materials.
  *
- * Extends [ReservablePort] for shared item handling and reservation support.
+ * Extends [ItemPort] for shared item handling and reservation support.
  */
-interface LogisticsPort : ReservablePort {
+interface LogisticsPort : ItemPort {
 
     fun getPortType(): PortType
 

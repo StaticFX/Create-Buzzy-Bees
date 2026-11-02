@@ -46,6 +46,14 @@ class AllCCRIcons(val iconX: Int, val iconY: Int) : AllIcons(iconX, iconY) {
 
         @JvmField
         val START_DECONSTRUCTION = AllCCRIcons(128, 0)
+
+        val BACK = AllCCRIcons(0, 16)
+
+        val REPLACE = AllCCRIcons(16, 16)
+
+        val KEEP = AllCCRIcons(32, 16)
+
+        val CLEAR = AllCCRIcons(48, 16)
     }
 
     override fun render(graphics: GuiGraphics, x: Int, y: Int) {

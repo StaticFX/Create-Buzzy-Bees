@@ -5,7 +5,7 @@ import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
-import de.devin.cbbees.content.domain.logistics.PortReservationManager
+import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.logistics.ports.PortType
@@ -43,7 +43,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     private val activeBeesByJob = mutableMapOf<UUID, MutableSet<UUID>>()
 
     /** Tracks item reservations made by bees picking up from the player's inventory. */
-    private val reservationManager = PortReservationManager()
+    private val reservationManager = ReservationManager.forItems()
 
     override fun getActiveBeeCount(): Int = activeBeesByJob.values.sumOf { it.size }
 
@@ -268,7 +268,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean {
         if (player.isCreative) return true
         val physical = countItem(stack)
-        val reserved = reservationManager.getReservedCount(stack, excludeBeeId)
+        val reserved = reservationManager.getReservedAmount(stack, excludeBeeId)
         return physical - reserved >= stack.count
     }
 
@@ -302,8 +302,8 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         return count
     }
 
-    override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
-        reservationManager.reserve(beeId, items, tick)
+    override fun reserve(beeId: UUID, resources: List<ItemStack>, tick: Long) {
+        reservationManager.reserve(beeId, resources, tick)
     }
 
     override fun releaseReservation(beeId: UUID) {

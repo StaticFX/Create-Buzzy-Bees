@@ -7,7 +7,7 @@ import de.devin.cbbees.content.bee.flight.ClientCheckpoint
 import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
-import de.devin.cbbees.content.bee.flight.GatherFromPort
+import de.devin.cbbees.content.bee.flight.ReservesStock
 import de.devin.cbbees.content.bee.state.*
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -194,10 +194,7 @@ object ServerBeeManager {
 
     fun startPlan(bee: ServerBeeData, computed: FlightPlan, gameTime: Long, network: BeeNetwork? = null) {
         val plan = computed.scheduled(gameTime, ::reserveAction)
-        val gatherAction = plan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
-        if (gatherAction != null && network != null) {
-            network.ports.firstOrNull { it.id == gatherAction.providerId }?.reserve(bee.id, gatherAction.items, gameTime)
-        }
+        if (network != null) reserveStock(bee, plan, network, gameTime)
         bee.flightPlan = plan
         bee.planStartTick = gameTime
         bee.currentCheckpointIndex = 0
@@ -206,6 +203,10 @@ object ServerBeeManager {
             bee.nextCheckpointArrivalTick = gameTime + plan.ticksToReach(1)
         }
         broadcastFlightPlan(bee, plan, clientStartIndex = 0)
+    }
+
+    fun reserveStock(bee: ServerBeeData, plan: FlightPlan, network: BeeNetwork, gameTime: Long) {
+        plan.checkpoints.map { it.action }.filterIsInstance<ReservesStock>().forEach { it.reserve(bee.id, network, gameTime) }
     }
 
     fun redirect(bee: ServerBeeData, computed: FlightPlan, gameTime: Long) {

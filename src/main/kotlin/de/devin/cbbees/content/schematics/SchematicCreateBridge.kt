@@ -41,7 +41,8 @@ import de.devin.cbbees.util.ServerSide
  */
 @ServerSide
 class SchematicCreateBridge(
-    private val level: Level
+    private val level: Level,
+    private val buildMode: BuildMode = BuildModes.REPLACE,
 ) {
     private val printer = SchematicPrinter()
     private var isLoaded = false
@@ -190,11 +191,18 @@ class SchematicCreateBridge(
         val items = getItemsFromRequirement(requirement)
 
         printer.handleCurrentTarget({ pos, state, blockEntity ->
-            if (state == null || state.isAir) return@handleCurrentTarget
+            val existing = level.getBlockState(pos)
+            if (state == null || state.isAir) {
+                if (buildMode.clearsEmptySpots) clearSpot(pos, existing, job, batches)
+                return@handleCurrentTarget
+            }
             if (handledPositions.contains(pos)) return@handleCurrentTarget
             if (state.fluidState.isSource) handleFluid(pos, state, job, batches)
             if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
-            if (level.getBlockState(pos) == BlockPlacementClassifier.withoutFluid(state)) return@handleCurrentTarget
+            if (existing == BlockPlacementClassifier.withoutFluid(state)) return@handleCurrentTarget
+            if (requirement.isInvalid) return@handleCurrentTarget
+            if (BuildModes.isOccupied(existing) && !buildMode.replacesBlocks) return@handleCurrentTarget
+            clearSpot(pos, existing, job, batches)
 
             if (AllBlocks.BELT.has(state)) {
                 handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
@@ -204,6 +212,11 @@ class SchematicCreateBridge(
         }, { _, _ ->
             // TODO Add entity handling (armor stands, item frames, etc.)
         })
+    }
+
+    private fun clearSpot(pos: BlockPos, existing: BlockState, job: BeeJob, batches: MutableList<TaskBatch>) {
+        if (!BuildModes.isOccupied(existing) || existing.getDestroySpeed(level, pos) < 0) return
+        batches.add(removalBatch(pos, existing, level.maxBuildHeight, job))
     }
 
     /**
@@ -373,13 +386,13 @@ class SchematicCreateBridge(
             job = job
         )
 
-        batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos))
+        batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos, BUILD_PHASE))
     }
 
     private fun handleFluid(pos: BlockPos, state: BlockState, job: BeeJob, batches: MutableList<TaskBatch>) {
         val fluid = FluidStack(state.fluidState.type, ServerBeeData.FLUID_CAPACITY)
         val task = BeeTask.placeFluid(pos, fluid, BlockPlacementClassifier.calculatePriority(pos, state), job)
-        batches.add(TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.FLUID_PHASE))
+        batches.add(TaskBatch(listOf(task), job, pos, BUILD_PHASE + BlockPlacementClassifier.FLUID_PHASE))
     }
 
     private fun handleBeltPlacement(
@@ -467,7 +480,7 @@ class SchematicCreateBridge(
         if (startShaftTask != null) startShaftPos.let(handledPositions::add)
         if (endShaftTask != null) endShaftPos.let(handledPositions::add)
 
-        batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos))
+        batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos, BUILD_PHASE))
     }
 
     private fun createShaftTaskIfPresent(
@@ -505,6 +518,8 @@ class SchematicCreateBridge(
     }
 
     companion object {
+        private const val BUILD_PHASE = 4
+
         private fun deadlineAfter(budgetMs: Double) = System.nanoTime() + (budgetMs * 1_000_000).toLong()
 
         fun removalBatch(pos: BlockPos, state: BlockState, maxY: Int, job: BeeJob): TaskBatch {

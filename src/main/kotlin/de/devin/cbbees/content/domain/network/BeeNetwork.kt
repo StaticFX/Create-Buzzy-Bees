@@ -6,7 +6,8 @@ import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.logistics.DockPort
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
-import de.devin.cbbees.content.domain.logistics.ReservablePort
+import de.devin.cbbees.content.domain.logistics.NetworkPort
+import de.devin.cbbees.content.domain.logistics.Reservable
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -52,7 +53,7 @@ class BeeNetwork(
     private var _hives: List<BeeHive>? = null
     private var _ownPorts: List<LogisticsPort>? = null
     private var _ownTransportPorts: List<TransportPort>? = null
-    private var _ownReservablePorts: List<ReservablePort>? = null
+    private var _ownReservablePorts: List<NetworkPort>? = null
     private var _ownTransportPortsByPos: Map<BlockPos, TransportPort>? = null
     private var _ownDockPorts: List<DockPort>? = null
 
@@ -108,8 +109,8 @@ class BeeNetwork(
         get() = _ownPorts ?: components.filterIsInstance<LogisticsPort>().also { _ownPorts = it }
     val ownTransportPorts: List<TransportPort>
         get() = _ownTransportPorts ?: components.filterIsInstance<TransportPort>().also { _ownTransportPorts = it }
-    val ownReservablePorts: List<ReservablePort>
-        get() = _ownReservablePorts ?: components.filterIsInstance<ReservablePort>().also { _ownReservablePorts = it }
+    val ownReservablePorts: List<NetworkPort>
+        get() = _ownReservablePorts ?: components.filterIsInstance<NetworkPort>().filter { it is Reservable<*> }.also { _ownReservablePorts = it }
     val ownDockPorts: List<DockPort>
         get() = _ownDockPorts ?: components.filterIsInstance<DockPort>().also { _ownDockPorts = it }
 
@@ -149,12 +150,12 @@ class BeeNetwork(
             }
         }
 
-    val reservablePorts: List<ReservablePort>
+    val reservablePorts: List<Reservable<*>>
         get() {
-            if (_linkedNetworks.isEmpty()) return ownReservablePorts
-            return ownReservablePorts + _linkedNetworks.flatMap { linked ->
+            val visible = if (_linkedNetworks.isEmpty()) ownReservablePorts else ownReservablePorts + _linkedNetworks.flatMap { linked ->
                 linked.ownReservablePorts.filter { port -> hives.any { it.isInWorkRange(port.pos) } }
             }
+            return visible.filterIsInstance<Reservable<*>>()
         }
 
     /**
@@ -220,8 +221,8 @@ class BeeNetwork(
     private fun LogisticsPort.detour(from: BlockPos?, to: BlockPos?): Double =
         listOfNotNull(from, to).sumOf { sqrt(world.worldDistanceSqr(pos, it)) }
 
-    fun findFluidProvider(fluid: FluidStack): DockPort? {
-        return dockPorts.filter { it.isValidForPickup() && it.testFilter(fluid) && it.hasFluid(fluid) }
+    fun findFluidProvider(fluid: FluidStack, excludeBeeId: UUID? = null): DockPort? {
+        return dockPorts.filter { it.isValidForPickup() && it.testFilter(fluid) && it.hasAvailableFluid(fluid, excludeBeeId) }
             .maxByOrNull { it.priority() }
     }
 

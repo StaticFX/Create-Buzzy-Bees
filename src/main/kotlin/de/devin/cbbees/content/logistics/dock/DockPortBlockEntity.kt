@@ -6,6 +6,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.domain.logistics.DockPort
+import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.logistics.ports.PortBlock
 import de.devin.cbbees.content.logistics.ports.LogisticsPortFilterValueBox
@@ -50,6 +51,8 @@ class DockPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockS
     var priority = 0
 
     private var busyUntilTick: Long = 0L
+
+    private val reservationManager = ReservationManager.forFluids()
 
     fun getFluidHandler(level: Level): IFluidHandler? {
         val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
@@ -113,6 +116,28 @@ class DockPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: BlockS
     override fun hasFluid(fluid: FluidStack): Boolean {
         val handler = getFluidHandler(world) ?: return false
         return handler.drain(fluid, FluidAction.SIMULATE).amount >= fluid.amount
+    }
+
+    override fun hasAvailableFluid(fluid: FluidStack, excludeBeeId: UUID?): Boolean {
+        val handler = getFluidHandler(world) ?: return false
+        val reserved = reservationManager.getReservedAmount(fluid, excludeBeeId)
+        return handler.drain(fluid.copyWithAmount(fluid.amount + reserved), FluidAction.SIMULATE).amount >= fluid.amount + reserved
+    }
+
+    override fun reserve(beeId: UUID, resources: List<FluidStack>, tick: Long) {
+        reservationManager.reserve(beeId, resources, tick)
+    }
+
+    override fun releaseReservation(beeId: UUID) {
+        reservationManager.release(beeId)
+    }
+
+    override fun cleanupReservations(currentTick: Long, maxAge: Long) {
+        reservationManager.cleanup(currentTick, maxAge)
+    }
+
+    override fun clearReservations() {
+        reservationManager.clear()
     }
 
     override fun drainFluid(fluid: FluidStack): Boolean {

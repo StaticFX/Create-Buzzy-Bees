@@ -21,6 +21,7 @@ import de.devin.cbbees.content.planner.client.MasterPlannerDecorator
 import de.devin.cbbees.content.beehive.client.BeehiveRangeHandler
 import de.devin.cbbees.content.domain.network.client.NetworkHighlightHandler
 import de.devin.cbbees.content.logistics.transport.client.CargoPortLinkRenderer
+import de.devin.cbbees.content.schematics.client.ConstructPrompt
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerClientEvents
 import de.devin.cbbees.content.schematics.client.ConstructionPlannerHUD
 import de.devin.cbbees.content.schematics.client.ConstructionRenderer
@@ -130,6 +131,7 @@ object CreateBuzzyBeez {
             NeoForge.EVENT_BUS.register(BeehiveRangeHandler::class.java)
             NeoForge.EVENT_BUS.register(NetworkHighlightHandler::class.java)
             NeoForge.EVENT_BUS.register(ConstructionRenderer::class.java)
+            NeoForge.EVENT_BUS.register(ConstructPrompt::class.java)
             NeoForge.EVENT_BUS.register(CargoPortLinkRenderer::class.java)
             NeoForge.EVENT_BUS.register(ZapperOutlineRenderer::class.java)
             NeoForge.EVENT_BUS.register(DroneViewClientEvents::class.java)

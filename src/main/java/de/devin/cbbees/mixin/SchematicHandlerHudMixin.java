@@ -1,29 +1,15 @@
 package de.devin.cbbees.mixin;
 
-import com.simibubi.create.AllDataComponents;
-import com.simibubi.create.CreateClient;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.simibubi.create.content.schematics.client.SchematicHandler;
 import com.simibubi.create.content.schematics.client.ToolSelectionScreen;
 import com.simibubi.create.content.schematics.client.tools.ToolType;
-import de.devin.cbbees.content.drone.client.DroneViewClientState;
-import de.devin.cbbees.content.planner.AllPlanners;
-import de.devin.cbbees.content.schematics.ConstructionPlannerItem;
-import de.devin.cbbees.content.schematics.client.ConstructionToolState;
-import de.devin.cbbees.items.AllItems;
-import de.devin.cbbees.content.deployer.SchematicProgram;
-import de.devin.cbbees.network.PrintSchematicPacket;
-import de.devin.cbbees.network.ProgramSchematicPacket;
-import de.devin.cbbees.network.StartConstructionPacket;
-import de.devin.cbbees.network.StopTasksPacket;
-import de.devin.cbbees.network.UnselectSchematicPacket;
-import de.devin.cbbees.registry.AllKeys;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
+import de.devin.cbbees.content.schematics.client.BuildModeBar;
+import de.devin.cbbees.content.schematics.client.ConstructPrompt;
+import de.devin.cbbees.content.schematics.client.PlannerToolInput;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -33,161 +19,57 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Mixin for {@link SchematicHandler} providing:
- * <ul>
- *   <li>RMB interception for the custom Construct / Unselect tools (state 3 only)</li>
- *   <li>R-key shortcut for construction (Construction Planner only)</li>
- *   <li>Backspace shortcut for stopping tasks</li>
- * </ul>
- *
- * <p>Note: During state 2 (browsing preview), Create's SchematicHandler is dormant
- * (no data on the item), so none of these injections fire. They only apply to
- * state 3 (deployed) when Create is active.</p>
+ * Hooks the planner's own tools, shortcuts and the build mode bar into Create's schematic overlay.
+ * The behaviour lives in {@link PlannerToolInput}, {@link ConstructPrompt} and {@link BuildModeBar}.
  */
 @Mixin(value = SchematicHandler.class, remap = false)
 public abstract class SchematicHandlerHudMixin {
 
     @Shadow private boolean active;
     @Shadow private ItemStack activeSchematicItem;
-    @Shadow public abstract boolean isDeployed();
     @Shadow private ToolType currentTool;
     @Shadow private ToolSelectionScreen selectionScreen;
+    @Shadow public abstract boolean isDeployed();
 
     @Unique
-    private void ccr$clearCustomTool() {
-        ConstructionToolState.setActiveTool(ConstructionToolState.CustomTool.NONE);
-        selectionScreen.setSelectedElement(currentTool);
+    private boolean ccr$isPlacing() {
+        return active && isDeployed();
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  Construction packet helper                                         */
-    /* ------------------------------------------------------------------ */
+    @Inject(method = "onMouseInput", at = @At("HEAD"), cancellable = true)
+    private void ccr$rightClick(int button, boolean pressed, CallbackInfoReturnable<Boolean> cir) {
+        if (!ccr$isPlacing() || !pressed || button != 1) return;
+        if (!PlannerToolInput.rightClick()) return;
+        selectionScreen.setSelectedElement(currentTool);
+        cir.setReturnValue(true);
+    }
 
-    /**
-     * Reads placement data from the SchematicHandler's transformation and sends a
-     * StartConstructionPacket. Only used in state 3 (deployed).
-     */
-    @Unique
-    private void ccr$sendConstructionPacket(ItemStack stack) {
-        var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
-        var settings = transform.toSettings();
-        BlockPos anchor = transform.getAnchor();
-        Rotation rotation = settings.getRotation();
-        Mirror mirror = settings.getMirror();
-        PacketDistributor.sendToServer(new StartConstructionPacket(anchor, rotation, mirror));
+    @Inject(method = "onKeyInput", at = @At("HEAD"))
+    private void ccr$keyPressed(int key, boolean pressed, CallbackInfo ci) {
+        if (ccr$isPlacing() && pressed) PlannerToolInput.keyPressed(key);
     }
 
     @Inject(method = "printInstantly", at = @At("HEAD"), cancellable = true)
     private void ccr$printWithPlanner(CallbackInfo ci) {
-        ItemStack stack = activeSchematicItem;
-        if (stack == null || AllPlanners.schematicPlannerOf(stack) == null) return;
-
-        var transform = CreateClient.SCHEMATIC_HANDLER.getTransformation();
-        var settings = transform.toSettings();
-        PacketDistributor.sendToServer(new PrintSchematicPacket(transform.getAnchor(), settings.getRotation(), settings.getMirror()));
-        ConstructionPlannerItem.Companion.releaseSchematic(stack);
-        ci.cancel();
+        if (PlannerToolInput.printInstantly(activeSchematicItem)) ci.cancel();
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  RMB — custom tool actions (state 3 only)                           */
-    /* ------------------------------------------------------------------ */
-
-    /**
-     * Intercepts right-click when a custom Construction Planner tool is active.
-     */
-    @Inject(method = "onMouseInput", at = @At("HEAD"), cancellable = true)
-    private void ccr$handleCustomToolRMB(int button, boolean pressed, CallbackInfoReturnable<Boolean> cir) {
-        if (!active || !isDeployed() || !pressed || button != 1) return;
-
-        ConstructionToolState.CustomTool tool = ConstructionToolState.getActiveTool();
-        if (tool == ConstructionToolState.CustomTool.NONE) return;
-
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.player.isShiftKeyDown()) return;
-
-        // Find the planner (main hand, or inventory during drone view)
-        ItemStack mainHand = DroneViewClientState.findSchematicPlanner(mc.player);
-        if (mainHand.isEmpty()) {
-            ccr$clearCustomTool();
-            return;
-        }
-
-        if (tool == ConstructionToolState.CustomTool.CONSTRUCT) {
-            ccr$sendConstructionPacket(mainHand);
-            // Clear client state immediately so Create deactivates cleanly
-            ConstructionPlannerItem.Companion.releaseSchematic(mainHand);
-            mc.player.displayClientMessage(
-                Component.translatable("gui.cbbees.schematic.construction_started")
-                    .withStyle(style -> style.withColor(0x00FF00)),
-                true
-            );
-            ccr$clearCustomTool();
-            cir.setReturnValue(true);
-        } else if (tool == ConstructionToolState.CustomTool.UNSELECT) {
-            // Clear both server-side and client-side so Create's SchematicHandler deactivates
-            PacketDistributor.sendToServer(UnselectSchematicPacket.Companion.getINSTANCE());
-            ConstructionPlannerItem.Companion.clearSchematic(mainHand);
-            mc.player.displayClientMessage(
-                Component.translatable("gui.cbbees.tool.unselect.done")
-                    .withStyle(style -> style.withColor(0xFFAA88)),
-                true
-            );
-            ccr$clearCustomTool();
-            cir.setReturnValue(true);
-        } else if (tool == ConstructionToolState.CustomTool.PROGRAM) {
-            // Read placement data and send a ProgramSchematicPacket
-            String schematicFile = mainHand.get(AllDataComponents.SCHEMATIC_FILE);
-            String owner = mainHand.get(AllDataComponents.SCHEMATIC_OWNER);
-            if (schematicFile == null || owner == null) return;
-
-            BlockPos anchor = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ANCHOR, BlockPos.ZERO);
-            Rotation rotation = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_ROTATION, Rotation.NONE);
-            Mirror mirror = mainHand.getOrDefault(AllDataComponents.SCHEMATIC_MIRROR, Mirror.NONE);
-
-            SchematicProgram program = new SchematicProgram.Construction(
-                schematicFile, anchor, rotation, mirror, owner
-            );
-            PacketDistributor.sendToServer(new ProgramSchematicPacket(program));
-            mc.player.displayClientMessage(
-                Component.translatable("cbbees.schematic.programmed")
-                    .withStyle(style -> style.withColor(0x88CCFF)),
-                true
-            );
-            ccr$clearCustomTool();
-            cir.setReturnValue(true);
-        }
+    @WrapOperation(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+        at = @At(value = "INVOKE", target = "Lcom/simibubi/create/content/schematics/client/ToolSelectionScreen;renderPassive(Lnet/minecraft/client/gui/GuiGraphics;F)V"))
+    private void ccr$renderBuildModeBar(ToolSelectionScreen screen, GuiGraphics graphics, float partialTicks, Operation<Void> original) {
+        if (ccr$isPlacing() && ConstructPrompt.isOpen()) BuildModeBar.render(graphics);
+        else original.call(screen, graphics, partialTicks);
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  Key shortcuts (state 3 only)                                       */
-    /* ------------------------------------------------------------------ */
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void ccr$tickBuildModeBar(CallbackInfo ci) {
+        BuildModeBar.update();
+    }
 
-    @Inject(method = "onKeyInput", at = @At("HEAD"))
-    private void ccr$handleKeys(int key, boolean pressed, CallbackInfo ci) {
-        if (!active || !isDeployed() || !pressed) return;
-
-        // R key — construction shortcut (Construction Planner only)
-        if (AllKeys.INSTANCE.getSTART_ACTION().matches(key, 0)) {
-            Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
-                ItemStack mainHand = DroneViewClientState.findSchematicPlanner(mc.player);
-                if (!mainHand.isEmpty()) {
-                    ccr$sendConstructionPacket(mainHand);
-                    // Clear client state immediately so Create deactivates cleanly
-                    ConstructionPlannerItem.Companion.releaseSchematic(mainHand);
-                    mc.player.displayClientMessage(
-                        Component.translatable("gui.cbbees.schematic.construction_started")
-                            .withStyle(style -> style.withColor(0x00FF00)),
-                        true
-                    );
-                }
-            }
-        }
-
-        // Backspace — stop tasks (any item)
-        if (AllKeys.INSTANCE.getSTOP_ACTION().matches(key, 0)) {
-            PacketDistributor.sendToServer(StopTasksPacket.getINSTANCE());
-        }
+    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
+    private void ccr$cycleBuildModeBar(double delta, CallbackInfoReturnable<Boolean> cir) {
+        if (!ccr$isPlacing() || !ConstructPrompt.isOpen()) return;
+        BuildModeBar.cycle((int) Math.signum(delta));
+        cir.setReturnValue(true);
     }
 }

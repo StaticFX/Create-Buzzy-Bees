@@ -203,7 +203,7 @@ object FlightPlanComputer {
         }
         val missingFluid = computeMissingFluid(bee, batch)
         if (!missingFluid.isEmpty) {
-            val dock = network.findFluidProvider(missingFluid) ?: return null
+            val dock = network.findFluidProvider(missingFluid, bee.id) ?: return null
             add(Checkpoint(dock.gatherPos(), GatherFluidFromDock(missingFluid, dock.id), clientPauseTicks = GATHER_PAUSE_TICKS))
         }
         val remainingTasks = batch.getRemainingTasks()

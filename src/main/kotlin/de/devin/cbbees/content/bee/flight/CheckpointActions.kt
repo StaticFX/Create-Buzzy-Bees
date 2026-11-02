@@ -12,6 +12,7 @@ import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.history.JobHistoryRecorder
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.TransportPort
+import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
@@ -48,7 +49,15 @@ object FlyThrough : CheckpointAction {
  * @param providerId the UUID of the logistics port selected by the flight planner
  * @see CheckpointAction
  */
-class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : CheckpointAction {
+fun interface ReservesStock {
+    fun reserve(beeId: UUID, network: BeeNetwork, tick: Long)
+}
+
+class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : CheckpointAction, ReservesStock {
+
+    override fun reserve(beeId: UUID, network: BeeNetwork, tick: Long) {
+        network.ports.firstOrNull { it.id == providerId }?.reserve(beeId, items, tick)
+    }
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
         val log = CreateBuzzyBeez.LOGGER
@@ -95,7 +104,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         }
 
         // Release the reservation regardless of outcome — items are now in the bee's inventory or gone
-        network.releaseReservations(bee.id)
+        targetPort?.releaseReservation(bee.id)
 
         if (allGathered) {
             log.debug("[GatherFromPort] All items gathered successfully")
@@ -106,12 +115,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         val newPlan = FlightPlanComputer.replanFrom(bee, bee.currentTask, bee.network(), level)
         if (newPlan != null) {
             log.debug("[GatherFromPort] Replanning flight for bee ${bee.id.toString().substring(0, 6)}")
-            // Reserve items at the new gather port
-            val newGather = newPlan.checkpoints.map { it.action }.filterIsInstance<GatherFromPort>().firstOrNull()
-            if (newGather != null) {
-                val port = network.ports.firstOrNull { it.id == newGather.providerId }
-                port?.reserve(bee.id, newGather.items, gameTime)
-            }
+            ServerBeeManager.reserveStock(bee, newPlan, network, gameTime)
             bee.flightPlan = newPlan
             bee.planStartTick = gameTime
             bee.currentCheckpointIndex = 0
@@ -131,16 +135,22 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
  * @param portId the UUID of the Dock Port selected by the flight planner
  * @see CheckpointAction
  */
-class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointAction {
+class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointAction, ReservesStock {
+
+    override fun reserve(beeId: UUID, network: BeeNetwork, tick: Long) {
+        network.dockPorts.firstOrNull { it.id == portId }?.reserve(beeId, listOf(fluid), tick)
+    }
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
         val network = bee.network() ?: return bee.abandonTask()
 
         if (!FluidStack.isSameFluidSameComponents(bee.carriedFluid, fluid)) bee.returnCarriedFluid()
 
-        val port = network.dockPorts.firstOrNull { it.id == portId && it.hasFluid(fluid) }
-            ?: network.findFluidProvider(fluid)
-        if (port != null && port.drainFluid(fluid)) {
+        val planned = network.dockPorts.firstOrNull { it.id == portId }
+        val port = planned?.takeIf { it.hasFluid(fluid) } ?: network.findFluidProvider(fluid, bee.id)
+        val drained = port != null && port.drainFluid(fluid)
+        planned?.releaseReservation(bee.id)
+        if (drained) {
             bee.carriedFluid = fluid.copyWithAmount(bee.carriedFluid.amount + fluid.amount)
             bee.consumeSpring(CBBeesConfig.springDrainPickup.get())
             return true

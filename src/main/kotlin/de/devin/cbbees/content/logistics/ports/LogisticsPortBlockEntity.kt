@@ -9,6 +9,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringB
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
+import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
 import de.devin.cbbees.content.logistics.storage.PortStorage
 import de.devin.cbbees.content.logistics.storage.PortStorages
@@ -52,7 +53,7 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         private set
     var priority = 0
 
-    private val reservationManager = de.devin.cbbees.content.domain.logistics.PortReservationManager()
+    private val reservationManager = ReservationManager.forItems()
 
     fun getInventory(level: Level): IItemHandler? {
         val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
@@ -194,10 +195,10 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
     }
 
     override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean =
-        (storage()?.count(stack) ?: 0) - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
+        (storage()?.count(stack) ?: 0) - reservationManager.getReservedAmount(stack, excludeBeeId) >= stack.count
 
-    override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
-        reservationManager.reserve(beeId, items, tick)
+    override fun reserve(beeId: UUID, resources: List<ItemStack>, tick: Long) {
+        reservationManager.reserve(beeId, resources, tick)
         updateBusyState()
     }
 

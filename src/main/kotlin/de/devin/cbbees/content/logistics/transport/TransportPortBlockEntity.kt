@@ -6,7 +6,7 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
-import de.devin.cbbees.content.domain.logistics.PortReservationManager
+import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
@@ -47,7 +47,7 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
 
     var priority = 0
 
-    private val reservationManager = PortReservationManager()
+    private val reservationManager = ReservationManager.forItems()
 
     override fun isProvider(): Boolean =
         blockState.getValue(TransportPortBlock.TRANSPORT_MODE) == TransportMode.PROVIDER
@@ -128,14 +128,14 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
     override fun hasItemStack(stack: ItemStack): Boolean = (storage()?.count(stack) ?: 0) > 0
 
     override fun hasAvailableItemStack(stack: ItemStack, excludeBeeId: UUID?): Boolean =
-        (storage()?.count(stack) ?: 0) - reservationManager.getReservedCount(stack, excludeBeeId) >= stack.count
+        (storage()?.count(stack) ?: 0) - reservationManager.getReservedAmount(stack, excludeBeeId) >= stack.count
 
     override fun removeItemStack(stack: ItemStack): Boolean = storage()?.extract(stack) ?: false
 
     override fun addItemStack(stack: ItemStack): ItemStack = storage()?.insert(stack) ?: stack
 
-    override fun reserve(beeId: UUID, items: List<ItemStack>, tick: Long) {
-        reservationManager.reserve(beeId, items, tick)
+    override fun reserve(beeId: UUID, resources: List<ItemStack>, tick: Long) {
+        reservationManager.reserve(beeId, resources, tick)
         updateBusyState()
     }
 

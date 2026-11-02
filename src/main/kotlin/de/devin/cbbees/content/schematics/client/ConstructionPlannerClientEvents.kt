@@ -33,10 +33,10 @@ object ConstructionPlannerClientEvents {
         ConstructionPlannerHUD.update()
         JobLookOverlay.tick()
 
-        if (ConstructionToolState.activeTool != ConstructionToolState.CustomTool.NONE) {
+        if (PlacementTools.active != null) {
             val player = Minecraft.getInstance().player
             if (player == null || DroneViewClientState.findSchematicPlanner(player).isEmpty) {
-                ConstructionToolState.activeTool = ConstructionToolState.CustomTool.NONE
+                PlacementTools.active = null
             }
         }
 

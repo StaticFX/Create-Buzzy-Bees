@@ -12,9 +12,9 @@ import com.simibubi.create.content.redstone.link.LinkBehaviour
  * Ports with no frequency set only connect to other ports with no frequency set.
  * Ports with matching frequency pairs connect to each other.
  *
- * Extends [ReservablePort] for shared item handling and reservation support.
+ * Extends [ItemPort] for shared item handling and reservation support.
  */
-interface TransportPort : ReservablePort {
+interface TransportPort : ItemPort {
 
     fun isProvider(): Boolean
 

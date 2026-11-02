@@ -1,12 +1,21 @@
 package de.devin.cbbees.content.planner.client
 
+import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
 object AreaSelection {
     var firstPos: BlockPos? = null
+        set(value) {
+            field = value
+            dimension = Minecraft.getInstance().level?.dimension()
+        }
     var secondPos: BlockPos? = null
+
+    private var dimension: ResourceKey<Level>? = null
 
     var selectedPos: BlockPos? = null
 
@@ -15,6 +24,10 @@ object AreaSelection {
     fun discard() {
         firstPos = null
         secondPos = null
+    }
+
+    fun discardIfLeft(level: Level) {
+        if (firstPos != null && dimension != level.dimension()) discard()
     }
 
     fun getSelectionBox(): AABB? {

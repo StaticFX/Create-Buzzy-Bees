@@ -8,6 +8,8 @@ object RefinedStorageCompat {
     val isLoaded: Boolean by lazy { ModList.get().isLoaded("refinedstorage") }
 
     fun register() {
-        if (isLoaded) PortStorages.register(RSPortStorage)
+        if (!isLoaded) return
+        PortStorages.register(RSPortStorage)
+        RefinedStorageSchematics.register()
     }
 }

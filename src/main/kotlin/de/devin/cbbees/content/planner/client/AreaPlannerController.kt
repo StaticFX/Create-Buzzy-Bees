@@ -80,7 +80,7 @@ class AreaPlannerController(
 
     override fun onDeactivated(next: PlannerController?) {
         toolbar.reset()
-        if (next !is AreaPlannerController || !CBBeesClientConfig.keepSelectionBetweenPlanners.get()) AreaSelection.discard()
+        if (!CBBeesClientConfig.keepSelectionBetweenPlanners.get()) AreaSelection.discard()
     }
 
     override fun onScroll(delta: Double) = toolbar.onScroll(delta) || toolbar.selected.onScroll(delta)

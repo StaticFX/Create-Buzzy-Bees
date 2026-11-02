@@ -8,6 +8,8 @@ object AE2Compat {
     val isLoaded: Boolean by lazy { ModList.get().isLoaded("ae2") }
 
     fun register() {
-        if (isLoaded) PortStorages.register(MEPortStorage)
+        if (!isLoaded) return
+        PortStorages.register(MEPortStorage)
+        CableBusSchematics.register()
     }
 }

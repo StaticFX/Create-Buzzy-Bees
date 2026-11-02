@@ -1,6 +1,8 @@
 package de.devin.cbbees.gametest
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.ae2.AE2Compat
+import de.devin.cbbees.compat.refinedstorage.RefinedStorageCompat
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.gametest.framework.TestFunction
@@ -26,6 +28,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.logistics.WagglePortTests::class.java,
         de.devin.cbbees.gametest.construction.ConstructionTests::class.java,
         de.devin.cbbees.gametest.construction.MissingMaterialsTests::class.java,
+        de.devin.cbbees.gametest.construction.BuildModeTests::class.java,
         de.devin.cbbees.gametest.dock.DockPortTests::class.java,
         de.devin.cbbees.gametest.planner.MasterPlannerTests::class.java,
         de.devin.cbbees.gametest.transport.TransportTests::class.java,
@@ -43,6 +46,12 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.copy.CopyPlannerTests::class.java,
     )
 
+    private val compatTestHolders: List<Class<*>>
+        get() = listOfNotNull(
+            de.devin.cbbees.gametest.compat.AE2SchematicTests::class.java.takeIf { AE2Compat.isLoaded },
+            de.devin.cbbees.gametest.compat.RefinedStorageSchematicTests::class.java.takeIf { RefinedStorageCompat.isLoaded },
+        )
+
     fun onRegisterGameTests(event: RegisterGameTestsEvent) {
         event.register(CBBeesGameTests::class.java)
         NeoForge.EVENT_BUS.addListener(GameTestSandbox::onServerAboutToStart)
@@ -51,7 +60,7 @@ object CBBeesGameTests {
     @net.minecraft.gametest.framework.GameTestGenerator
     @JvmStatic
     fun generateTests(): Collection<TestFunction> {
-        return testHolders.flatMap { holder ->
+        return (testHolders.toList() + compatTestHolders).flatMap { holder ->
             holder.declaredMethods
                 .filter { it.isAnnotationPresent(GameTest::class.java) }
                 .map { toTestFunction(it) }

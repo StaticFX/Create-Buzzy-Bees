@@ -58,7 +58,7 @@ object CBBeesClientConfig {
         builder.comment("Planners").push("planners")
 
         keepSelectionBetweenPlanners = builder
-            .comment("Keep the current area selection when switching between planners that select areas (e.g. Deconstruction and Pickup)")
+            .comment("Keep the area selection when you switch to another item or planner and back")
             .define("keepSelectionBetweenPlanners", true)
 
         builder.pop()

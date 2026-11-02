@@ -106,6 +106,7 @@ object AreaSelector {
 
     fun tick(color: Int) {
         val player = Minecraft.getInstance().player ?: return
+        AreaSelection.discardIfLeft(player.level())
 
         if (AreaSelection.secondPos == null) {
             AreaSelection.selectedPos = if (isFreeAimDown()) {

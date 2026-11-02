@@ -7,6 +7,8 @@ import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.content.schematics.BuildMode
+import de.devin.cbbees.content.schematics.BuildModes
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
@@ -31,7 +33,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext
 class StartConstructionPacket(
     val anchor: BlockPos,
     val rotation: Rotation,
-    val mirror: Mirror
+    val mirror: Mirror,
+    val buildMode: BuildMode = BuildModes.REPLACE,
 ) : BeeJobPacket() {
 
     companion object {
@@ -42,12 +45,14 @@ class StartConstructionPacket(
                 buf.writeBlockPos(pkt.anchor)
                 buf.writeEnum(pkt.rotation)
                 buf.writeEnum(pkt.mirror)
+                buf.writeUtf(pkt.buildMode.id)
             },
             { buf ->
                 StartConstructionPacket(
                     buf.readBlockPos(),
                     buf.readEnum(Rotation::class.java),
-                    buf.readEnum(Mirror::class.java)
+                    buf.readEnum(Mirror::class.java),
+                    BuildModes.byId(buf.readUtf())
                 )
             }
         )
@@ -87,7 +92,7 @@ class StartConstructionPacket(
             ensureSchematicUploaded(owner, file)
         }
 
-        val b = SchematicCreateBridge(player.level())
+        val b = SchematicCreateBridge(player.level(), buildMode)
         if (!b.loadSchematic(mainHand)) {
             player.displayClientMessage(Component.translatable("cbbees.construction.load_failed"), true)
             return false
