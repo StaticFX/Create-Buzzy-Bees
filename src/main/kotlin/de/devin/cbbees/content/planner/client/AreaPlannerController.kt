@@ -69,8 +69,6 @@ class AreaPlannerController(
     private val toolbar = PlannerToolbar(tools)
     private val shortcuts = tools.filter { it.shortcut != null }
 
-    val selectedTool: AreaPlannerTool get() = toolbar.selected
-
     override fun handles(stack: ItemStack) = handles.invoke(stack)
 
     override fun tick() {
