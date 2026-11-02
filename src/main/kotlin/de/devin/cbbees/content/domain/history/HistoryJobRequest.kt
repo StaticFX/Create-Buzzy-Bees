@@ -14,7 +14,6 @@ import de.devin.cbbees.content.schematics.SchematicCreateBridge
 import de.devin.cbbees.content.schematics.SchematicJobKey
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.state.BlockState
@@ -67,7 +66,6 @@ class HistoryJobRequest(
     override fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
-        server: MinecraftServer,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         onComplete(reverseBatches(player.level(), edits, job), edits.keys.first())

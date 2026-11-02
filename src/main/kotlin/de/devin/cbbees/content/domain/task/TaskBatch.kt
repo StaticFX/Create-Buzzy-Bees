@@ -69,10 +69,6 @@ class TaskBatch(
 
     private var currentIndex = 0
 
-    val primaryTask: BeeTask? get() = tasks.firstOrNull()
-
-    fun getCurrentTask(): BeeTask? = if (currentIndex < tasks.size) tasks[currentIndex] else null
-
     fun advance(): Boolean {
         currentIndex++
         if (currentIndex >= tasks.size) {
@@ -83,8 +79,6 @@ class TaskBatch(
     }
 
     fun getRemainingTasks(): List<BeeTask> = tasks.subList(currentIndex, tasks.size)
-
-    fun isComplete(): Boolean = currentIndex >= tasks.size
 
     /**
      * True once the primary action (first task) has finished, even if follow-up

@@ -80,34 +80,10 @@ data class BeeJob(
     }
 
     /**
-     * Adds multiple tasks to this job.
-     */
-    fun addTasks(newTasks: List<BeeTask>) {
-        newTasks.forEach { addTask(it) }
-    }
-
-    /**
      * Adds multiple batches to this job.
      */
     fun addBatches(newBatches: List<TaskBatch>) {
         batches.addAll(newBatches)
-    }
-
-    /**
-     * Gets the next pending task and assigns it to a bee.
-     */
-    @Synchronized
-    fun claimNextTaskBatch(beeId: UUID, gameTime: Long): TaskBatch? {
-        val batch = batches.firstOrNull { it.status == TaskStatus.PENDING }
-        batch?.assignToBee(beeId, gameTime)
-        return batch
-    }
-
-    /**
-     * Gets the next pending task, if any.
-     */
-    fun getNextTask(): BeeTask? {
-        return tasks.firstOrNull { it.status == TaskStatus.PENDING }
     }
 
     /**
@@ -147,22 +123,6 @@ data class BeeJob(
                 it.cancel()
             }
         }
-    }
-
-    /**
-     * Gets the progress of this job as a percentage (0.0 to 1.0).
-     */
-    fun getProgress(): Float {
-        if (tasks.isEmpty()) return 1.0f
-        val completed = tasks.count { it.status == TaskStatus.COMPLETED }
-        return completed.toFloat() / tasks.size.toFloat()
-    }
-
-    /**
-     * Gets the number of remaining tasks.
-     */
-    fun getRemainingTaskCount(): Int {
-        return tasks.count { it.status == TaskStatus.PENDING || it.status == TaskStatus.IN_PROGRESS }
     }
 
     fun save(registries: HolderLookup.Provider): CompoundTag {

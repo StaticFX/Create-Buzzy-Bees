@@ -26,12 +26,6 @@ class AllCCRIcons(val iconX: Int, val iconY: Int) : AllIcons(iconX, iconY) {
 
         const val ICON_ATLAS_SIZE = 256
 
-        val LP_PICK_UP = AllCCRIcons(0, 0)
-
-        val LP_DROP_OFF = AllCCRIcons(16, 0)
-
-        val LP_FORCE_PICKUP = AllCCRIcons(32, 0)
-
         val COPY = AllCCRIcons(48, 0)
 
         val CUT = AllCCRIcons(64, 0)

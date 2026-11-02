@@ -4,11 +4,9 @@ import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.topology.DefaultAnchorTopology
 import de.devin.cbbees.content.domain.network.topology.NetworkTopology
 import net.minecraft.core.BlockPos
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.*
 import de.devin.cbbees.util.ServerSide
@@ -245,18 +243,10 @@ object ServerBeeNetworkManager {
         }
     }
 
-    fun registerPort(port: LogisticsPort) = registerComponent(port)
-
     /** Adds a pre-built network directly. Used by gametests to bypass spatial scanning. */
     fun addNetwork(network: BeeNetwork) {
         networks.add(network)
         rebuildIndexes()
-    }
-
-    fun unregisterPort(port: LogisticsPort) = unregisterComponent(port)
-
-    fun getNetworkAt(level: Level, pos: BlockPos): BeeNetwork? {
-        return networks.find { it.level == level && it.isInRange(pos) }
     }
 
     fun getNetworkFor(component: INetworkComponent): BeeNetwork? {
@@ -275,11 +265,6 @@ object ServerBeeNetworkManager {
     fun getNetwork(id: UUID, level: Level): BeeNetwork? {
         val net = networkById[id] ?: return null
         return if (net.level == null || net.level == level) net else null
-    }
-
-    fun findProviderFor(level: Level, stack: ItemStack, startPos: BlockPos): LogisticsPort? {
-        val network = getNetworkAt(level, startPos)
-        return network?.findProvider(stack)
     }
 
     fun findPortableHive(playerId: UUID): PortableBeeHive? {
@@ -456,13 +441,4 @@ object ClientBeeNetworkManager {
         networks.removeAll { it.components.isEmpty() }
     }
 
-    /**
-     * Returns the server-authoritative network ID for a position, if known.
-     */
-    fun getServerNetworkId(pos: BlockPos): UUID? {
-        for ((netId, positions) in serverSnapshot) {
-            if (pos in positions) return netId
-        }
-        return null
-    }
 }

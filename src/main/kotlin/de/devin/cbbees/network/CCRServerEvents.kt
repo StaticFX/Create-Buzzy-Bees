@@ -24,7 +24,6 @@ object CCRServerEvents {
 
     private var tickCounter = 0
     private var syncCounter = 0
-    private var beeSyncCounter = 0
 
     @SubscribeEvent
     @JvmStatic
@@ -64,7 +63,7 @@ object CCRServerEvents {
             profiler.pop()
 
             profiler.push("transportDispatcher")
-            TransportDispatcher.tick(gameTime)
+            TransportDispatcher.tick()
             profiler.pop()
 
             profiler.push("autocraftRequester")

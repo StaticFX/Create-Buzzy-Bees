@@ -1,7 +1,6 @@
 package de.devin.cbbees.content.domain.logistics
 
 import com.simibubi.create.content.logistics.BigItemStack
-import de.devin.cbbees.content.logistics.ports.PortType
 import net.minecraft.world.item.ItemStack
 
 /**
@@ -10,10 +9,6 @@ import net.minecraft.world.item.ItemStack
  * Extends [ItemPort] for shared item handling and reservation support.
  */
 interface LogisticsPort : ItemPort {
-
-    fun getPortType(): PortType
-
-    fun getFilter(): ItemStack
 
     fun isValidForPickup(): Boolean
 

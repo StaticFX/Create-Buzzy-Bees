@@ -33,7 +33,7 @@ object TransportDispatcher : SavedData() {
         scanCounter = 0
     }
 
-    fun tick(gameTime: Long = 0L) {
+    fun tick() {
         scanCounter++
         if (scanCounter < SCAN_INTERVAL) return
         scanCounter = 0

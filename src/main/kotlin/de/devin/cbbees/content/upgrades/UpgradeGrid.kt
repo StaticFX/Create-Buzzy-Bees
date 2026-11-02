@@ -85,7 +85,7 @@ class UpgradeGrid {
      */
     fun removeAt(x: Int, y: Int): UpgradePlacement? {
         if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return null
-        val occupant = occupied[y][x] ?: return null
+        if (occupied[y][x] == null) return null
 
         // Find the placement that covers this cell
         val placement = placements.find { p ->

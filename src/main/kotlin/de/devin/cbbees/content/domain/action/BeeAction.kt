@@ -20,15 +20,9 @@ interface BeeAction {
     fun inversion(level: Level, pos: BlockPos, before: BlockSnapshot): BeeAction? = inversion(pos, before)
     fun getWorkTicks(level: Level, context: BeeContext): Int = 0
 
-    fun onStart(worker: BeeWorker) {}
-    fun onTick(worker: BeeWorker, tick: Int) {}
-
     /** Called when this action's task becomes the current task in its batch. */
     fun onActivate(worker: BeeWorker) {}
 
     fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean
 
-    fun shouldReturnAfter(context: BeeContext): Boolean = true
-    fun getPriorityOffset(): Int = 0
-    fun getDescription(): String
 }

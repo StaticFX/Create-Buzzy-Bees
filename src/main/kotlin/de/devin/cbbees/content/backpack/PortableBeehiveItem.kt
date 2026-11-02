@@ -93,15 +93,12 @@ class PortableBeehiveItem(properties: Properties) : ArmorItem(ArmorMaterials.IRO
 
     companion object {
         const val BEE_SLOTS = 2
-        const val UPGRADE_SLOTS = 0
         const val TOTAL_SLOTS = BEE_SLOTS
 
         // NBT keys for the container
-        const val TAG_INVENTORY = "BackpackInventory"
 
         /** Legacy slot count for migration from old flat upgrade layout */
         const val LEGACY_TOTAL_SLOTS = 6
-        const val LEGACY_UPGRADE_SLOTS = 4
 
         /**
          * One-time migration: reads old upgrades from CONTAINER slots 2-5,

@@ -15,7 +15,6 @@ import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.chat.Component
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
@@ -68,11 +67,10 @@ class RemoveBuildPacket(val buildId: UUID) : BeeJobPacket() {
     override fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
-        server: MinecraftServer,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         SchematicCreateBridge(player.level()).generateRemovalTasksAsync(
-            positions, job, server, CBBeesConfig.taskGenerationBudgetMs.get()
+            positions, job, CBBeesConfig.taskGenerationBudgetMs.get()
         ) { batches -> onComplete(batches, center) }
     }
 

@@ -3,19 +3,14 @@ package de.devin.cbbees.content.domain.beehive
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservationManager
-import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.content.logistics.ports.PortType
 import de.devin.cbbees.content.logistics.storage.PortStorage
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.core.BlockPos
-import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -62,14 +57,14 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
         CreateBuzzyBeez.LOGGER.debug("[PortableHive] Spawning bee for batch at ${batch.targetPosition}")
-        val spawned = spawnBee(beeItem, batch)
+        val spawned = spawnBee(batch)
         if (!spawned) {
             addBee(beeItem)
         }
         return spawned
     }
 
-    private fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
+    private fun spawnBee(batch: TaskBatch): Boolean {
         val ctx = getBeeContext()
         val honeyCost = (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
         consumeHoney(honeyCost)
@@ -89,10 +84,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         return true
     }
 
-    override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
-        onBeeRemovedById(bee.uuid)
-    }
-
     override fun onBeeRemovedById(beeId: UUID) {
         val iter = activeBeesByJob.iterator()
         while (iter.hasNext()) {
@@ -109,23 +100,12 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
      * Called by the watchdog to prevent ghost bee counts from blocking new dispatches.
      */
     fun cleanupOrphanedBees() {
-        val level = player.level() as? ServerLevel ?: return
         val iter = activeBeesByJob.iterator()
         while (iter.hasNext()) {
             val (_, bees) = iter.next()
-            bees.removeIf { beeId ->
-                ServerBeeManager.getBee(beeId) == null &&
-                    ((level.getEntity(beeId)?.isAlive) != true)
-            }
+            bees.removeIf { ServerBeeManager.getBee(it) == null }
             if (bees.isEmpty()) iter.remove()
         }
-    }
-
-    override fun notifyTaskCompleted(task: BeeTask, beeId: UUID): TaskBatch? {
-        if (!isValid()) return null
-        val nextBatch = GlobalJobPool.workBacklog(this)
-        nextBatch?.assignToBee(beeId, player.level().gameTime)
-        return nextBatch
     }
 
     override val id: UUID get() = player.uuid
@@ -216,10 +196,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         return addBee(item)
     }
 
-    override fun walkTarget(): WalkTarget {
-        return WalkTarget(player.blockPosition().above(2), 1.0f, 1)
-    }
-
     override fun gatherPos(): BlockPos = player.blockPosition().above(3)
 
     override fun approachPos(): BlockPos = player.blockPosition().above(3)
@@ -235,10 +211,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     override fun isInWorkRange(pos: BlockPos): Boolean = isInRange(pos)
 
     override fun sync() {}
-
-    override fun getPortType(): PortType = PortType.INSERT // Both, but INSERT as default
-
-    override fun getFilter(): ItemStack = ItemStack.EMPTY
 
     override fun isValidForPickup(): Boolean = true
 
@@ -380,12 +352,6 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         }
         return copy
     }
-
-    /**
-     * Returns true if the player still has the portable beehive equipped
-     * (in Curios back slot or chestplate slot).
-     */
-    fun isValid(): Boolean = !getBackpackStack().isEmpty
 
     private fun getBackpackStack(): ItemStack {
         val curiosStack = CuriosCompat.findFirstCurio(player) { it.item is PortableBeehiveItem }

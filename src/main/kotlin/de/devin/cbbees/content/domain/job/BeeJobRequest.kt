@@ -4,7 +4,6 @@ import de.devin.cbbees.content.domain.history.HistoryEntry
 import de.devin.cbbees.content.domain.history.JobHistory
 import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
 
@@ -38,10 +37,9 @@ abstract class BeeJobRequest {
         configureJob(job, player)
         startHistory(job, player)
 
-        val server = player.server ?: return
         beforeGenerate(job, player)
 
-        generateTasks(player, job, server) { batches, centerPos ->
+        generateTasks(player, job) { batches, centerPos ->
             JobDispatcher.completeJobSetup(job, batches, centerPos, player, completionKey())
         }
     }
@@ -77,7 +75,6 @@ abstract class BeeJobRequest {
     protected abstract fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
-        server: MinecraftServer,
         onComplete: (batches: List<TaskBatch>, centerPos: BlockPos) -> Unit
     )
 }

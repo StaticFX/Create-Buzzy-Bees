@@ -2,7 +2,6 @@ package de.devin.cbbees.content.schematics.client
 
 import com.simibubi.create.AllBlocks
 import de.devin.cbbees.content.drone.client.DroneViewClientState
-import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.WriteMissingToClipboardPacket
 import de.devin.cbbees.registry.AllKeys
 import net.minecraft.client.Minecraft

@@ -2,7 +2,6 @@ package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.BeehiveContainer
-import de.devin.cbbees.content.upgrades.UpgradeGrid
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllDataComponents
 import net.minecraft.network.RegistryFriendlyByteBuf

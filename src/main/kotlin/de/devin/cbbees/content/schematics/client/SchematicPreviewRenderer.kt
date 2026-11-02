@@ -121,14 +121,6 @@ object SchematicPreviewRenderer {
     }
 
     /**
-     * Renders an isometric 3D preview of the given schematic in the specified GUI rectangle.
-     * Uses fixed isometric angles (30° X, -45° Y) and auto-fit zoom.
-     */
-    fun renderPreview(filename: String, guiGraphics: GuiGraphics, x: Int, y: Int, w: Int, h: Int) {
-        renderPreview(filename, guiGraphics, x, y, w, h, 30f, -45f, 1f)
-    }
-
-    /**
      * Renders a 3D preview with custom rotation and zoom.
      *
      * @param rotationX  pitch in degrees (default isometric: 30)

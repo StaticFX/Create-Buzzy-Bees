@@ -175,12 +175,6 @@ object SchematicUploader {
 
     fun isUploading(): Boolean = activeUpload != null && activeUpload?.finished != true
 
-    fun getProgress(): Float {
-        val upload = activeUpload ?: return 0f
-        if (upload.totalSize <= 0) return 0f
-        return (upload.bytesSent.toFloat() / upload.totalSize).coerceIn(0f, 1f)
-    }
-
     fun cancel() {
         activeUpload?.let {
             runCatching { it.inputStream.close() }

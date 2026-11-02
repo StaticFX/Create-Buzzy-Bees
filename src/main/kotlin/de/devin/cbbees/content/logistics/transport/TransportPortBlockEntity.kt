@@ -19,7 +19,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -122,8 +121,6 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
     }
 
     private fun portState() = blockState.getValue(TransportPortBlock.PORT_STATE)
-
-    override fun walkTarget(): WalkTarget = WalkTarget(blockPos, 1.0f, 1)
 
     override fun hasItemStack(stack: ItemStack): Boolean = (storage()?.count(stack) ?: 0) > 0
 

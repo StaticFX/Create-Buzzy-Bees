@@ -53,9 +53,6 @@ class DropOffItemsAction(initialPos: BlockPos) : BeeAction {
         return true
     }
 
-    override fun shouldReturnAfter(context: BeeContext) = false
-    override fun getDescription() = "Dropping off items at (${pos.x}, ${pos.y}, ${pos.z})"
-
     fun save(): CompoundTag {
         val tag = CompoundTag()
         tag.putInt("X", _pos.x)

@@ -6,10 +6,8 @@ import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.upgrades.BeeContext
@@ -23,8 +21,6 @@ import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
 import net.minecraft.nbt.Tag
 import net.minecraft.network.chat.Component
-import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -53,8 +49,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     private val activeBeesByJob = mutableMapOf<UUID, MutableSet<UUID>>()
 
     override fun getActiveBeeCount(): Int = activeBeesByJob.values.sumOf { it.size }
-
-    fun getActiveBeeCountForJob(jobId: UUID): Int = activeBeesByJob[jobId]?.size ?: 0
 
     val beeInventory = object : ItemStackHandler(1) {
         override fun onContentsChanged(slot: Int) = sync()
@@ -90,7 +84,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         super.destroy()
     }
 
-    fun spawnBee(beeItem: ItemStack, batch: TaskBatch): Boolean {
+    fun spawnBee(batch: TaskBatch): Boolean {
         val spawnPos = Vec3.atCenterOf(blockPos.above()).add(
             BeeSeparation.spawnOffset(level!!.random)
         )
@@ -117,7 +111,7 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         this.setChanged()
         val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
-        return spawnBee(beeItem, batch)
+        return spawnBee(batch)
     }
 
     /**
@@ -132,16 +126,6 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
     fun trackTransportBee(beeId: UUID) {
         activeBeesByJob.getOrPut(TRANSPORT_JOB_ID) { mutableSetOf() }.add(beeId)
         sync()
-    }
-
-    override fun notifyTaskCompleted(task: BeeTask, beeId: UUID): TaskBatch? {
-        val nextBatch = GlobalJobPool.workBacklog(this)
-        nextBatch?.assignToBee(beeId, level!!.gameTime)
-        return nextBatch
-    }
-
-    override fun onBeeRemoved(bee: net.minecraft.world.entity.Entity) {
-        onBeeRemovedById(bee.uuid)
     }
 
     override fun onBeeRemovedById(beeId: UUID) {
@@ -163,30 +147,15 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
      * Called by the watchdog to prevent ghost bee counts from blocking new dispatches.
      */
     fun cleanupOrphanedBees() {
-        val level = this.level ?: return
         var cleaned = false
         val iter = activeBeesByJob.iterator()
         while (iter.hasNext()) {
             val (_, bees) = iter.next()
-            val beeIter = bees.iterator()
-            while (beeIter.hasNext()) {
-                val beeId = beeIter.next()
-                val existsAsEntity = (level as? ServerLevel)?.getEntity(beeId)?.isAlive == true
-                val existsAsData = ServerBeeManager.getBee(beeId) != null
-                if (!existsAsEntity && !existsAsData) {
-                    beeIter.remove()
-                    cleaned = true
-                }
-            }
+            if (bees.removeIf { ServerBeeManager.getBee(it) == null }) cleaned = true
             if (bees.isEmpty()) iter.remove()
         }
         if (cleaned) sync()
     }
-
-    override fun walkTarget(): WalkTarget {
-        return WalkTarget(Vec3.atCenterOf(blockPos.above()), 1.0f, 2)
-    }
-
 
     override var networkId: UUID? = UUID.randomUUID()
         set(value) {
@@ -425,10 +394,4 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         return AllItems.MECHANICAL_BEE.asStack()
     }
 
-    fun getMaterialSource(): MaterialSource {
-        return WirelessMaterialSource(
-            world,
-            listOf(pos.below(), pos.north(), pos.south(), pos.east(), pos.west())
-        )
-    }
 }

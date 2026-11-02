@@ -38,9 +38,6 @@ class PlaceFluidAction(
 
     override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
-    override fun getDescription(): String =
-        "Placing ${fluid.hoverName.string} at (${pos.x}, ${pos.y}, ${pos.z})"
-
     fun save(registries: HolderLookup.Provider): CompoundTag {
         val tag = CompoundTag()
         tag.putInt("X", pos.x)

@@ -13,8 +13,6 @@ import com.simibubi.create.content.kinetics.belt.BeltBlockEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.ListTag
-import net.minecraft.nbt.Tag
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.fluids.FluidStack
@@ -34,9 +32,6 @@ data class BeeTask(
 ) {
     var status: TaskStatus = TaskStatus.PENDING
     var assignedBeeId: UUID? = null
-    var assignedNetworkId: UUID? = null
-
-    var requirement: (task: BeeTask) -> Boolean = { true }
 
     val targetPos: BlockPos get() = action.pos
     val jobId: UUID get() = job.jobId
@@ -52,14 +47,6 @@ data class BeeTask(
     fun complete() {
         status = TaskStatus.COMPLETED
         job.checkCompletion()
-    }
-
-    /**
-     * Mark this task as failed
-     */
-    fun fail() {
-        status = TaskStatus.FAILED
-        assignedBeeId = null
     }
 
     /**

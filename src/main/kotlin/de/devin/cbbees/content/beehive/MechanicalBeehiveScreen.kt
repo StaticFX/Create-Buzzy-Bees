@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.beehive
 
-import com.simibubi.create.foundation.gui.AllGuiTextures
 import com.simibubi.create.foundation.gui.AllIcons
 import com.simibubi.create.foundation.gui.menu.AbstractSimiContainerScreen
 import com.simibubi.create.foundation.gui.widget.IconButton
@@ -10,8 +9,6 @@ import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.network.client.JobHighlightHandler
 import de.devin.cbbees.network.CancelJobPacket
 import de.devin.cbbees.network.RequestHiveJobsPacket
-import net.createmod.catnip.lang.Lang
-import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.player.Inventory

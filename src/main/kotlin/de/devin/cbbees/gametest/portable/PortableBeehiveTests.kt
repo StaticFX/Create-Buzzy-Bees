@@ -1,6 +1,5 @@
 package de.devin.cbbees.gametest.portable
 
-import de.devin.cbbees.gametest.GameTestSetup
 import de.devin.cbbees.gametest.dsl.beeTest
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper

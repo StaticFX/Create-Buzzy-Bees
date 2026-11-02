@@ -27,13 +27,6 @@ class UnitTestScope(val helper: GameTestHelper) {
         }
     }
 
-    fun assertNotEquals(unexpected: Any?, actual: Any?, label: String = "") {
-        if (unexpected == actual) {
-            val prefix = if (label.isNotEmpty()) "$label: " else ""
-            fail("${prefix}expected value different from $unexpected")
-        }
-    }
-
     fun assertTrue(condition: Boolean, message: String = "Expected true") {
         if (!condition) fail(message)
     }

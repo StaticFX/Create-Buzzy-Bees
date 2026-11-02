@@ -11,7 +11,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
@@ -45,13 +44,12 @@ class StartDeconstructionPacket(
     override fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
-        server: MinecraftServer,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         CreateBuzzyBeez.LOGGER.info("Received deconstruction request from ${player.name.string} for area $pos1 to $pos2")
         val bridge = SchematicCreateBridge(player.level())
         val budgetMs = CBBeesConfig.taskGenerationBudgetMs.get()
-        bridge.generateRemovalTasksAsync(pos1, pos2, job, server, budgetMs) { batches ->
+        bridge.generateRemovalTasksAsync(pos1, pos2, job, budgetMs) { batches ->
             val center = BlockPos(
                 (pos1.x + pos2.x) / 2,
                 (pos1.y + pos2.y) / 2,

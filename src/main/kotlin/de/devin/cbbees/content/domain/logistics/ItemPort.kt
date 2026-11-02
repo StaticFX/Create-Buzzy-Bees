@@ -2,7 +2,6 @@ package de.devin.cbbees.content.domain.logistics
 
 import de.devin.cbbees.content.logistics.storage.PortStorage
 import net.minecraft.core.BlockPos
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.UUID
@@ -19,8 +18,6 @@ interface ItemPort : NetworkPort, Reservable<ItemStack> {
     override val pos: BlockPos
 
     fun storage(): PortStorage?
-
-    fun walkTarget(): WalkTarget
 
     fun hasItemStack(stack: ItemStack): Boolean
 

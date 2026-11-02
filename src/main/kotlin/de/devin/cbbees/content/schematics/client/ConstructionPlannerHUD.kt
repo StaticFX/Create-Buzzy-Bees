@@ -9,7 +9,6 @@ import net.minecraft.network.chat.Component
 import de.devin.cbbees.registry.AllKeys
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
-import org.lwjgl.glfw.GLFW
 import kotlin.math.abs
 
 /**

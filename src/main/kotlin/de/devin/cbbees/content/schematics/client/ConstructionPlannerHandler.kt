@@ -6,7 +6,6 @@ import com.simibubi.create.content.schematics.SchematicItem
 import de.devin.cbbees.content.drone.client.DroneViewClientState
 import de.devin.cbbees.content.schematics.ConstructionPlannerItem
 import com.simibubi.create.foundation.utility.RaycastHelper
-import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.InstantConstructionPacket
 import de.devin.cbbees.network.SelectSchematicPacket
 import net.minecraft.client.Minecraft
@@ -16,7 +15,6 @@ import net.minecraft.world.level.block.Rotation
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
 import net.neoforged.neoforge.network.PacketDistributor
-import org.lwjgl.glfw.GLFW
 
 /**
  * Client-side handler for the Construction Planner's inline schematic selector HUD.
@@ -433,9 +431,6 @@ object ConstructionPlannerHandler {
         isBrowsingPreview = false
         return true
     }
-
-    /** Returns the currently selected entry, if any. */
-    fun getSelectedEntry(): HudEntry? = currentItems.getOrNull(selectedIndex)
 
     private fun isAltDown(): Boolean = de.devin.cbbees.registry.AllKeys.SCHEMATIC_MODIFIER.isDown
 

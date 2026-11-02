@@ -45,8 +45,6 @@ class PickupItemsAction(private val targetPos: BlockPos) : BeeAction {
         return true
     }
 
-    override fun getDescription() = "Picking up items at (${targetPos.x}, ${targetPos.y}, ${targetPos.z})"
-
     fun save(): CompoundTag {
         val tag = CompoundTag()
         tag.putInt("X", targetPos.x)

@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.domain.network.client
 
-import net.minecraft.network.chat.Component
 import de.devin.cbbees.content.domain.network.ClientBeeNetworkManager
 import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft

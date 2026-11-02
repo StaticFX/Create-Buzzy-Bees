@@ -20,10 +20,6 @@ interface TransportPort : ItemPort {
 
     val linkBehaviour: LinkBehaviour
 
-    fun frequenciesMatch(other: TransportPort): Boolean {
-        return linkBehaviour.networkKey == other.linkBehaviour.networkKey
-    }
-
     fun isValidProvider(): Boolean
 
     fun isValidRequester(): Boolean

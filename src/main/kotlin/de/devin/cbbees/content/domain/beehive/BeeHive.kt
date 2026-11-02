@@ -5,12 +5,9 @@ import de.devin.cbbees.compat.sable.toWorld
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.network.INetworkComponent
-import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
-import net.minecraft.world.entity.Entity
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import java.util.UUID
@@ -98,11 +95,6 @@ interface BeeHive : INetworkComponent {
      */
     fun acceptBatch(batch: TaskBatch): Boolean
 
-    /**
-     * Returns a walk target for this beehive.
-     */
-    fun walkTarget(): WalkTarget
-
     /** Position where a flight-plan bee should hover when approaching or returning to this hive. */
     fun approachPos(): BlockPos = pos.above()
 
@@ -110,12 +102,6 @@ interface BeeHive : INetworkComponent {
      * Gets the number of bees currently active from this source.
      */
     fun getActiveBeeCount(): Int
-
-    /**
-     * Marks the given task as completed by the given bee.
-     * @return optionally next task batch to be processed, or null if all tasks are completed.
-     */
-    fun notifyTaskCompleted(task: BeeTask, beeId: java.util.UUID): TaskBatch?
 
     /**
      * Called when a bee arrives at the hive to recharge its spring.
@@ -139,16 +125,6 @@ interface BeeHive : INetworkComponent {
      * @param ctx the bee context providing fuel multipliers
      */
     fun chargeReturnFuel(springDeficit: Float, ctx: BeeContext) {}
-
-    /**
-     * Called when a bee from this source is spawned.
-     */
-    fun onBeeSpawned(bee: Entity) {}
-
-    /**
-     * Called when a bee from this source is removed/returned.
-     */
-    fun onBeeRemoved(bee: Entity) {}
 
     /**
      * Called when a bee from this source is removed by UUID.

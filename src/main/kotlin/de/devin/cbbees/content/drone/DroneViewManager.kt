@@ -5,7 +5,6 @@ import de.devin.cbbees.content.upgrades.UpgradeType
 import de.devin.cbbees.network.DroneViewSyncPacket
 import de.devin.cbbees.registry.AllEntityTypes
 import de.devin.cbbees.util.ServerSide
-import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
@@ -102,8 +101,6 @@ object DroneViewManager {
             beehiveItem.addBee(backpack, ItemStack(de.devin.cbbees.items.AllItems.MECHANICAL_BEE.get(), 1))
         }
     }
-
-    fun isActive(player: ServerPlayer): Boolean = activeDrones.containsKey(player.uuid)
 
     fun getDroneUUID(player: ServerPlayer): UUID? = activeDrones[player.uuid]
 

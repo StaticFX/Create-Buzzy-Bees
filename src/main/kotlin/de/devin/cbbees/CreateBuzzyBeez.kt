@@ -58,7 +58,6 @@ import net.neoforged.fml.common.Mod
 import net.neoforged.fml.config.ModConfig
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent
-import net.neoforged.fml.event.lifecycle.FMLDedicatedServerSetupEvent
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent
@@ -238,13 +237,6 @@ object CreateBuzzyBeez {
         ExternalSchematicSource.active = CreateModSchematicSource(
             hmacSecret = "5a0841453e5c2588583da1fb215f4af88a5a7d4ee86a720aea4ae27c4065dace"
         )
-    }
-
-    /**
-     * Fired on the global Forge bus.
-     */
-    private fun onServerSetup(event: FMLDedicatedServerSetupEvent) {
-        LOGGER.log(Level.INFO, "Server starting...")
     }
 
     private fun onCommonSetup(event: FMLCommonSetupEvent) {

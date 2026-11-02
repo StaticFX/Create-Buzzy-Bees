@@ -6,7 +6,6 @@ import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.minecraft.core.BlockPos
-import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.state.BlockState
 
 /**

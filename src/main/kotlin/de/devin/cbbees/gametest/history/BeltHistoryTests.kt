@@ -14,7 +14,6 @@ import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Blocks
@@ -44,7 +43,6 @@ object BeltHistoryTests {
         override fun isInventoryEmpty() = inventory.isEmpty()
         override fun consumeSpring(baseDrain: Double) = true
         override fun getBeeContext() = BeeContext()
-        override fun getOwnerPlayer(): Player? = null
         override fun network(): BeeNetwork? = null
         override fun getWorkerX() = 0.0
         override fun getWorkerY() = 0.0

@@ -63,23 +63,5 @@ data class UpgradeShape(val cells: List<Pair<Int, Int>>) {
          */
         val SQUARE_2X2 = UpgradeShape(listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1))
 
-        /** S-shape: 4 cells
-         * ```
-         *  ██
-         * ██
-         * ```
-         */
-        val S_SHAPE = UpgradeShape(listOf(1 to 0, 2 to 0, 0 to 1, 1 to 1))
-
-        /** 3x3 square: 9 cells
-         * ```
-         * ███
-         * ███
-         * ███
-         * ```
-         */
-        val SQUARE_3X3 = UpgradeShape(
-            (0..2).flatMap { x -> (0..2).map { y -> x to y } }
-        )
     }
 }

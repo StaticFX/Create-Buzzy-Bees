@@ -46,7 +46,6 @@ import kotlin.math.sin
 @OnlyIn(Dist.CLIENT)
 object SchematicHoverPreview {
 
-    private const val GHOST_ALPHA = 0.5f
     private const val OUTLINE_COLOR = 0x6886c5
 
     private var currentSchematic: String? = null

@@ -2,7 +2,6 @@ package de.devin.cbbees.gametest.dsl
 
 import com.mojang.authlib.GameProfile
 import de.devin.cbbees.content.backpack.PortableBeehiveItem
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.domain.beehive.PortableBeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.network.BeeNetwork
@@ -16,13 +15,11 @@ import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTestAssertException
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.server.level.ServerLevel
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.capabilities.Capabilities
 import net.neoforged.neoforge.common.util.FakePlayerFactory
 import net.neoforged.neoforge.items.ItemHandlerHelper
-import net.minecraft.world.level.block.state.BlockState
 import java.util.UUID
 
 /**
@@ -66,7 +63,7 @@ class BeeTestScope(
     ): TestJobPool {
         val hive = scan.beehive
             ?: throw GameTestAssertException("No mechanical beehive found in structure")
-        jobPool = GameTestSetup.setupBeehiveNetwork(hive, scan.ports, scan.transportPorts, level, beeCount)
+        jobPool = GameTestSetup.setupBeehiveNetwork(hive, scan.ports, scan.transportPorts, beeCount = beeCount)
         return jobPool
     }
 
@@ -156,12 +153,6 @@ class BeeTestScope(
 
     // ── Transport Port Queries ──
 
-    fun transportPortsByPriority(): List<TransportPortWithVault> {
-        return scan.transportPorts
-            .sortedByDescending { it.priority() }
-            .map { TransportPortWithVault(it, it.blockPos.below()) }
-    }
-
     fun providerPorts(): List<TransportPortWithVault> {
         return scan.transportPorts
             .filter { it.isValidProvider() }
@@ -230,15 +221,6 @@ class AssertionScope(
         }
     }
 
-    fun assertAllBlocks(positions: List<BlockPos>, label: String = "block", predicate: (BlockState) -> Boolean) {
-        for (pos in positions) {
-            val state = level.getBlockState(pos)
-            if (!predicate(state)) {
-                throw GameTestAssertException("$label failed at $pos: ${state.block}")
-            }
-        }
-    }
-
     fun assertItemCount(positions: List<BlockPos>, item: Item, atLeast: Int) {
         var total = 0
         for (pos in positions) {
@@ -256,15 +238,6 @@ class AssertionScope(
         if (count < atLeast) {
             throw GameTestAssertException(
                 "Expected at least $atLeast ${item.description.string} at $pos, found $count"
-            )
-        }
-    }
-
-    fun assertNoItems(pos: BlockPos, item: Item) {
-        val count = GameTestSetup.countItem(level, pos, item)
-        if (count > 0) {
-            throw GameTestAssertException(
-                "Expected no ${item.description.string} at $pos, found $count"
             )
         }
     }

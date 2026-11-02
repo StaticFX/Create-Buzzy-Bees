@@ -94,10 +94,6 @@ class PlaceBeltAction(
 
     override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
-    override fun getDescription(): String {
-        return "Placing belt from (${pos.x}, ${pos.y}, ${pos.z}) to (${end.x}, ${end.y}, ${end.z})"
-    }
-
     fun save(registries: HolderLookup.Provider): CompoundTag {
         val tag = CompoundTag()
         tag.putInt("X", pos.x)

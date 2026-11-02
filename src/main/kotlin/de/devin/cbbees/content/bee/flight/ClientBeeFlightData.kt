@@ -26,8 +26,6 @@ class ClientBeeFlightData(
     val speed: Float,
     val checkpoints: List<ClientCheckpoint>,
     startIndex: Int = 0,
-    /** Unused — kept for packet compat. Sync uses startIndex instead. */
-    elapsedNanoOffset: Long = 0,
     var carriedItem: ItemStack = ItemStack.EMPTY,
 ) {
     private val arrivalNanos: LongArray = LongArray(checkpoints.size).also { arr ->

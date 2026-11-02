@@ -25,7 +25,7 @@ object AllMenuTypes {
         "mechanical_beehive",
         { type, containerId, inv, buf -> 
             val be = inv.player.level().getBlockEntity(buf!!.readBlockPos()) as de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
-            MechanicalBeehiveMenu(containerId, inv, be) 
+            MechanicalBeehiveMenu(containerId, be) 
         },
         { ScreenFactory { menu, inv, title -> MechanicalBeehiveScreen(menu, inv, title) } }
     )

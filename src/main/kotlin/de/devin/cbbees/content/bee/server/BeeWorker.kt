@@ -2,7 +2,6 @@ package de.devin.cbbees.content.bee.server
 
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
-import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.neoforged.neoforge.fluids.FluidStack
@@ -33,9 +32,6 @@ interface BeeWorker {
 
     fun consumeSpring(baseDrain: Double): Boolean
     fun getBeeContext(): BeeContext
-
-    /** Returns the owner player (for portable beehive bees), or null. */
-    fun getOwnerPlayer(): Player?
 
     /** Look up this bee's network. */
     fun network(): de.devin.cbbees.content.domain.network.BeeNetwork?

@@ -19,8 +19,6 @@ object BeeDebug {
         return enabled
     }
 
-    fun isEnabled(player: ServerPlayer): Boolean = player.uuid in enabledPlayers
-
     fun clear() = enabledPlayers.clear()
 
     /**

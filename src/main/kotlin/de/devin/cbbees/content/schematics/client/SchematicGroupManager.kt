@@ -78,13 +78,6 @@ object SchematicGroupManager {
         return groups[filename] ?: ""
     }
 
-    /** Assigns a schematic to a group path. Empty path moves to root (removes entry). */
-    fun setGroup(filename: String, groupPath: String) {
-        ensureLoaded()
-        assign(filename, groupPath.trim().trimEnd('/'))
-        save()
-    }
-
     private fun assign(filename: String, groupPath: String) {
         if (groupPath.isEmpty()) groups.remove(filename) else groups[filename] = groupPath
     }
@@ -173,19 +166,6 @@ object SchematicGroupManager {
     }
 
     /**
-     * Returns items at the given group level.
-     * @return Pair of (subgroup display names, schematic filenames)
-     */
-    fun getItemsAtLevel(groupPath: String): Pair<List<String>, List<String>> {
-        ensureLoaded()
-        val prefix = if (groupPath.isEmpty()) "" else "$groupPath/"
-        val subgroups = mutableSetOf<String>()
-        val schematics = mutableListOf<String>()
-
-        return Pair(subgroups.toList().sorted(), schematics)
-    }
-
-    /**
      * Returns items at the given group level from a provided list of available schematics.
      * @return Pair of (subgroup display names, schematic filenames)
      */
@@ -245,9 +225,4 @@ object SchematicGroupManager {
         return paths
     }
 
-    /** Returns all raw group assignments (for display/debugging). */
-    fun getAllAssignments(): Map<String, String> {
-        ensureLoaded()
-        return groups.toMap()
-    }
 }

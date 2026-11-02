@@ -47,8 +47,6 @@ import java.util.UUID
 @ClientSide
 object ConstructionRenderer {
 
-    private const val GHOST_ALPHA = 0.5f
-
     private const val NORMAL_COLOR = 0x6886c5
     private const val STUCK_COLOR = 0xFF5555
 

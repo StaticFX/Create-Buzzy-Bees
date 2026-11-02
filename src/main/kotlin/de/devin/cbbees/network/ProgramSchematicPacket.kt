@@ -5,15 +5,12 @@ import de.devin.cbbees.content.deployer.SchematicProgram
 import de.devin.cbbees.content.planner.PlannerSounds
 import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.registry.AllDataComponents
-import net.minecraft.core.BlockPos
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.chat.Component
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.Mirror
-import net.minecraft.world.level.block.Rotation
 import net.neoforged.neoforge.network.handling.IPayloadContext
 
 /**

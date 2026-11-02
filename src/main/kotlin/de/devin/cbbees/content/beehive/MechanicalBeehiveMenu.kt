@@ -1,21 +1,14 @@
 package de.devin.cbbees.content.beehive
 
 import de.devin.cbbees.blocks.AllBlocks
-import de.devin.cbbees.content.bee.MechanicalBeeItem
-import de.devin.cbbees.content.upgrades.BeeUpgradeItem
 import de.devin.cbbees.registry.AllMenuTypes
-import net.minecraft.world.entity.player.Inventory
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.inventory.AbstractContainerMenu
 import net.minecraft.world.inventory.ContainerLevelAccess
-import net.minecraft.world.inventory.Slot
 import net.minecraft.world.item.ItemStack
-import net.neoforged.neoforge.items.ItemStackHandler
-import net.neoforged.neoforge.items.SlotItemHandler
 
 class MechanicalBeehiveMenu(
     containerId: Int,
-    val playerInventory: Inventory,
     val content: MechanicalBeehiveBlockEntity
 ) : AbstractContainerMenu(AllMenuTypes.MECHANICAL_BEEHIVE.get(), containerId) {
 

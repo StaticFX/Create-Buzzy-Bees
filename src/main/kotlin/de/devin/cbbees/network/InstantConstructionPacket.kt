@@ -16,7 +16,6 @@ import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.chat.Component
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Mirror
@@ -124,11 +123,10 @@ class InstantConstructionPacket(
     override fun generateTasks(
         player: ServerPlayer,
         job: BeeJob,
-        server: MinecraftServer,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
         val budgetMs = CBBeesConfig.taskGenerationBudgetMs.get()
-        bridge.generateBuildTasksAsync(job, server, budgetMs) { batches ->
+        bridge.generateBuildTasksAsync(job, budgetMs) { batches ->
             val center = bridge.getAnchor() ?: batches.firstOrNull()?.targetPosition ?: BlockPos.ZERO
             onComplete(batches, center)
         }

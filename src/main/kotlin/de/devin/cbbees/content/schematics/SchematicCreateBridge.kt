@@ -18,7 +18,6 @@ import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.util.ServerTickScheduler
 import net.minecraft.core.BlockPos
-import net.minecraft.server.MinecraftServer
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
@@ -115,7 +114,7 @@ class SchematicCreateBridge(
     /**
      * Generates build tasks synchronously (blocking). Used for small schematics.
      */
-    fun generateBuildTasks(job: BeeJob, onProgress: ((processed: Int, total: Int) -> Unit)? = null): List<TaskBatch> {
+    fun generateBuildTasks(job: BeeJob): List<TaskBatch> {
         if (!isLoaded) {
             CreateBuzzyBeez.LOGGER.warn("No schematic loaded")
             return emptyList()
@@ -141,13 +140,11 @@ class SchematicCreateBridge(
      * the server from freezing on large schematics.
      *
      * @param job the parent job
-     * @param server the Minecraft server (for scheduling)
      * @param budgetMs milliseconds of server time to spend per tick
      * @param onComplete called when all blocks are processed
      */
     fun generateBuildTasksAsync(
         job: BeeJob,
-        server: MinecraftServer,
         budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
     ) {
@@ -205,7 +202,7 @@ class SchematicCreateBridge(
             clearSpot(pos, existing, job, batches)
 
             if (AllBlocks.BELT.has(state)) {
-                handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, items, job, batches)
+                handleBeltPlacement(pos, state, blockEntity as? BeltBlockEntity, job, batches)
             } else {
                 handleRegularBlock(pos, state, blockEntity, items, job, batches)
             }
@@ -238,13 +235,11 @@ class SchematicCreateBridge(
         corner1: BlockPos,
         corner2: BlockPos,
         job: BeeJob,
-        onProgress: ((processed: Int, total: Int) -> Unit)? = null,
     ): List<TaskBatch> {
         val batches = mutableListOf<TaskBatch>()
         val positions = buildRemovalPositions(corner1, corner2)
 
-        positions.forEachIndexed { index, pos ->
-            onProgress?.let { if (index % 2_000 == 0) it(index, positions.size) }
+        positions.forEach { pos ->
             processRemovalBlock(pos, maxOf(corner1.y, corner2.y), job, batches)
         }
 
@@ -259,15 +254,13 @@ class SchematicCreateBridge(
         corner1: BlockPos,
         corner2: BlockPos,
         job: BeeJob,
-        server: MinecraftServer,
         budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
-    ) = generateRemovalTasksAsync(buildRemovalPositions(corner1, corner2), job, server, budgetMs, onComplete)
+    ) = generateRemovalTasksAsync(buildRemovalPositions(corner1, corner2), job, budgetMs, onComplete)
 
     fun generateRemovalTasksAsync(
         positions: List<BlockPos>,
         job: BeeJob,
-        server: MinecraftServer,
         budgetMs: Double,
         onComplete: (List<TaskBatch>) -> Unit,
     ) {
@@ -399,7 +392,6 @@ class SchematicCreateBridge(
         pos: BlockPos,
         state: BlockState,
         beltBE: BeltBlockEntity?,
-        items: List<ItemStack>,
         job: BeeJob,
         batches: MutableList<TaskBatch>
     ) {
@@ -533,25 +525,5 @@ class SchematicCreateBridge(
             return TaskBatch(tasks, job, pos, BlockPlacementClassifier.removalPhase(state))
         }
 
-        /**
-         * Check if an ItemStack is a valid Create schematic
-         */
-        fun isValidSchematic(stack: ItemStack): Boolean {
-            return stack.has(AllDataComponents.SCHEMATIC_FILE)
-        }
-
-        /**
-         * Check if a schematic is deployed (placed in world)
-         */
-        fun isSchematicDeployed(stack: ItemStack): Boolean {
-            return stack.getOrDefault(AllDataComponents.SCHEMATIC_DEPLOYED, false)
-        }
-
-        /**
-         * Get the schematic file name
-         */
-        fun getSchematicName(stack: ItemStack): String? {
-            return stack.get(AllDataComponents.SCHEMATIC_FILE)
-        }
     }
 }

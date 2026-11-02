@@ -12,7 +12,6 @@ import de.devin.cbbees.network.DeployerSettingsPacket
 import de.devin.cbbees.registry.AllDataComponents
 import net.createmod.catnip.gui.AbstractSimiScreen
 import net.createmod.catnip.platform.CatnipServices
-import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.core.BlockPos
 import net.minecraft.network.chat.Component

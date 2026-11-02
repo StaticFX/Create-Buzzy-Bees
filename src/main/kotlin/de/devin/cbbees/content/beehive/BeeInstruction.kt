@@ -1,6 +1,5 @@
 package de.devin.cbbees.content.beehive
 
-import net.minecraft.core.BlockPos
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.chat.Component
 

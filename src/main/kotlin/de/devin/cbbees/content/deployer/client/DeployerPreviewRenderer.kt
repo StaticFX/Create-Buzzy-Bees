@@ -55,8 +55,6 @@ object DeployerPreviewRenderer {
     private var cachedRotation: Rotation? = null
     private var cachedMirror: Mirror? = null
 
-    private val chunkLayers = RenderType.chunkBufferLayers().toSet()
-
     private class TransparentBuffer(
         private val delegate: SuperRenderTypeBuffer,
         private val alpha: Float

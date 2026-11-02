@@ -20,7 +20,6 @@ import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.NbtOps
 import net.minecraft.network.chat.Component
-import net.minecraft.world.entity.ai.memory.WalkTarget
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.entity.BlockEntityType
@@ -131,17 +130,11 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         sendData()
     }
 
-    override fun getFilter(): ItemStack {
-        return filterStack
-    }
-
     override fun storage(): PortStorage? {
         val level = level ?: return null
         val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
         return PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
     }
-
-    override fun getPortType(): PortType = portType()
 
     override fun isValidForDropOff(): Boolean {
         if (portType() != PortType.INSERT) return false
@@ -161,10 +154,6 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
 
     override fun testFilter(stack: ItemStack): Boolean {
         return filteringBehavior.test(stack)
-    }
-
-    override fun walkTarget(): WalkTarget {
-        return WalkTarget(blockPos, 1.0f, 1)
     }
 
     override fun hasItemStack(stack: ItemStack): Boolean = (storage()?.count(stack) ?: 0) > 0

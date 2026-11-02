@@ -181,11 +181,6 @@ class BeeNetwork(
         }
     }
 
-    fun findProvider(stack: ItemStack): LogisticsPort? {
-        return ports.filter { it.isValidForPickup() && it.testFilter(stack) && it.hasItemStack(stack) }
-            .maxByOrNull { it.priority() }
-    }
-
     fun findDropOff(stack: ItemStack, beeHiveId: UUID? = null): LogisticsPort? {
         return ports.filter {
             it.isValidForDropOff()

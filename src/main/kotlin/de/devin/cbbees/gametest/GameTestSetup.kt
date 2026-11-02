@@ -68,7 +68,6 @@ object GameTestSetup {
         beehive: MechanicalBeehiveBlockEntity,
         ports: List<LogisticPortBlockEntity>,
         transportPorts: List<TransportPortBlockEntity> = emptyList(),
-        level: ServerLevel,
         beeCount: Int = 5,
     ): TestJobPool {
         val beeItem = ItemStack(AllItems.MECHANICAL_BEE.get())

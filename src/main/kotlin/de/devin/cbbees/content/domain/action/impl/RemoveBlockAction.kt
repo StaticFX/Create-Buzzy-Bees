@@ -9,7 +9,6 @@ import de.devin.cbbees.content.bee.server.ServerBeeData
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
-import net.minecraft.core.particles.ParticleTypes
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.item.ItemEntity
@@ -29,17 +28,6 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         if (CBBeesConfig.beeInstantBreaking.get()) return INSTANT_WORK_TICKS
         val ticks = diamondToolTicks(level, pos, level.getBlockState(pos)) * context.breakSpeedMultiplier.coerceAtLeast(0.0)
         return ceil(ticks).toInt().coerceAtLeast(INSTANT_WORK_TICKS)
-    }
-
-    override fun onTick(worker: BeeWorker, tick: Int) {
-        val level = worker.level()
-        if (level is ServerLevel) {
-            level.sendParticles(
-                ParticleTypes.ELECTRIC_SPARK,
-                worker.getWorkerX(), worker.getWorkerY(), worker.getWorkerZ(),
-                2, 0.2, 0.2, 0.2, 0.05
-            )
-        }
     }
 
     override fun execute(level: Level, worker: BeeWorker, context: BeeContext): Boolean {
@@ -110,9 +98,6 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         }
     }
 
-    override fun shouldReturnAfter(context: BeeContext): Boolean =
-        !context.dropItemsEnabled && CBBeesConfig.beePickupItems.get()
-
     override fun inversion(pos: BlockPos, before: BlockSnapshot) = before.restoreAt(pos)
 
     override fun changedPositions(level: Level): List<BlockPos> =
@@ -120,8 +105,6 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
 
     override fun inversion(level: Level, pos: BlockPos, before: BlockSnapshot): BeeAction =
         PlaceBeltAction.capture(level, pos) ?: before.restoreAt(pos)
-
-    override fun getDescription() = "Removing block at (${pos.x}, ${pos.y}, ${pos.z})"
 
     fun save(): CompoundTag {
         val tag = CompoundTag()

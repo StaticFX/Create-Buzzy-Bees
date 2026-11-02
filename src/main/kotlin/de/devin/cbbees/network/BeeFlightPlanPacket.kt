@@ -15,10 +15,6 @@ import java.util.UUID
 /**
  * Sends a bee's full flight plan to the client — **once per bee per mission**.
  *
- * Includes [elapsedTicks] so the client can fast-forward to match the server's
- * current position along the checkpoint path. This prevents the visual desync
- * caused by async plan computation + network latency.
- *
  * @see ClientBeeFlightData
  * @see de.devin.cbbees.content.bee.flight.FlightPlan
  */
@@ -28,8 +24,6 @@ class BeeFlightPlanPacket(
     val speed: Float,
     val checkpoints: List<ClientCheckpoint>,
     val startIndex: Int,
-    /** How many ticks the server has been running this plan. Client fast-forwards by this amount. */
-    val elapsedTicks: Long = 0,
     val carriedItem: ItemStack = ItemStack.EMPTY,
 ) : CustomPacketPayload {
 
@@ -52,7 +46,6 @@ class BeeFlightPlanPacket(
                         )
                     },
                     startIndex = buf.readVarInt(),
-                    elapsedTicks = buf.readVarLong(),
                     carriedItem = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf),
                 )
 
@@ -69,7 +62,6 @@ class BeeFlightPlanPacket(
                         buf.writeVarInt(cp.workTicks)
                     }
                     buf.writeVarInt(packet.startIndex)
-                    buf.writeVarLong(packet.elapsedTicks)
                     ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, packet.carriedItem)
                 }
             }
@@ -83,7 +75,6 @@ class BeeFlightPlanPacket(
                         speed = packet.speed,
                         checkpoints = packet.checkpoints,
                         startIndex = packet.startIndex,
-                        elapsedNanoOffset = packet.elapsedTicks * 50_000_000L, // ticks → nanos
                         carriedItem = packet.carriedItem,
                     )
                 )

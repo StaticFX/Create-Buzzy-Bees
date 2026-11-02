@@ -16,7 +16,7 @@ import org.lwjgl.glfw.GLFW
 @OnlyIn(Dist.CLIENT)
 class GroupPickerScreen(
     private val callback: (String) -> Unit,
-    private val currentGroup: String = "",
+    currentGroup: String = "",
     parentScreen: Screen? = null
 ) : PlannerDialog(Component.translatable("gui.cbbees.group_picker.title"), WIDTH, HEIGHT, parentScreen) {
 

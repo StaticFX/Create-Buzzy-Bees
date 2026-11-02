@@ -8,7 +8,6 @@ import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.GridPlaceUpgradePacket
 import de.devin.cbbees.network.GridRemoveUpgradePacket
 import de.devin.cbbees.registry.AllDataComponents
-import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.narration.NarrationElementOutput
@@ -32,7 +31,6 @@ class UpgradeGridWidget(
 
     companion object {
         const val CELL_SIZE = 18
-        const val PREVIEW_CELL = 8
     }
 
     /** Client-side grid for optimistic rendering. */
@@ -53,10 +51,6 @@ class UpgradeGridWidget(
 
     private fun loadGridFromStack(): UpgradeGrid {
         return backpackStackGetter().get(AllDataComponents.UPGRADE_GRID.get())?.copy() ?: UpgradeGrid()
-    }
-
-    fun resyncFromStack() {
-        clientGrid = loadGridFromStack()
     }
 
     private fun cellAt(mouseX: Double, mouseY: Double): Pair<Int, Int>? {
@@ -148,46 +142,6 @@ class UpgradeGridWidget(
                     }
                 }
             }
-        }
-    }
-
-    /** Renders a small shape preview beside the grid. */
-    fun renderShapePreview(guiGraphics: GuiGraphics, previewX: Int, previewY: Int) {
-        val carried = menu.carried
-        if (carried.isEmpty || carried.item !is BeeUpgradeItem) return
-
-        val type = (carried.item as BeeUpgradeItem).upgradeType
-        val rot = getRotationFor(type)
-        val shape = type.shape.rotated(rot)
-        val color = getUpgradeColor(type)
-
-        guiGraphics.drawString(
-            Minecraft.getInstance().font,
-            Component.translatable("gui.cbbees.grid.shape_preview"),
-            previewX, previewY - 10, 0xFFFFFF, false
-        )
-
-        for ((dx, dy) in shape.cells) {
-            val cx = previewX + dx * PREVIEW_CELL
-            val cy = previewY + dy * PREVIEW_CELL
-            guiGraphics.fill(cx, cy, cx + PREVIEW_CELL - 1, cy + PREVIEW_CELL - 1, color)
-        }
-
-        val hintY = previewY + shape.height() * PREVIEW_CELL + 4
-        guiGraphics.drawString(
-            Minecraft.getInstance().font,
-            Component.translatable("gui.cbbees.grid.rotate_hint"),
-            previewX, hintY, 0xAAAAAA, false
-        )
-    }
-
-    /** Renders the base shape for an upgrade the mouse is hovering over in a slot. */
-    fun renderSlotShapeHint(guiGraphics: GuiGraphics, type: UpgradeType, hintX: Int, hintY: Int) {
-        val color = getUpgradeColor(type)
-        for ((dx, dy) in type.shape.cells) {
-            val cx = hintX + dx * PREVIEW_CELL
-            val cy = hintY + dy * PREVIEW_CELL
-            guiGraphics.fill(cx, cy, cx + PREVIEW_CELL - 1, cy + PREVIEW_CELL - 1, color)
         }
     }
 

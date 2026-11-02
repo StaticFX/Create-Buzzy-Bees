@@ -10,7 +10,6 @@ import net.createmod.catnip.outliner.Outliner
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.phys.AABB
 import net.neoforged.api.distmarker.Dist
@@ -122,7 +121,7 @@ object ProgrammedSchematicRenderer {
      */
     private fun computeConstructionBounds(program: SchematicProgram.Construction, mc: Minecraft): AABB? {
         val level = mc.level ?: return null
-        val player = mc.player ?: return null
+        if (mc.player == null) return null
 
         try {
             // Build a temporary schematic stack to load the template
