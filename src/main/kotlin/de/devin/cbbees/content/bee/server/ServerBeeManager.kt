@@ -2,13 +2,12 @@ package de.devin.cbbees.content.bee.server
 
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.bee.flight.ActionThrottle
+import de.devin.cbbees.content.bee.flight.checkpoint.ActionThrottle
 import de.devin.cbbees.content.bee.flight.ClientCheckpoint
-import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
+import de.devin.cbbees.content.bee.flight.checkpoint.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
-import de.devin.cbbees.content.bee.flight.ReservesStock
-import de.devin.cbbees.content.bee.state.*
+import de.devin.cbbees.content.bee.flight.checkpoint.ReservesStock
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
@@ -22,11 +21,6 @@ import de.devin.cbbees.network.BeeCarriedItemPacket
 import de.devin.cbbees.network.BeeCheckpointConfirmPacket
 import de.devin.cbbees.network.BeeFlightPlanPacket
 import de.devin.cbbees.network.BeeRemovePacket
-import net.minecraft.core.BlockPos
-import net.minecraft.core.HolderLookup
-import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.ListTag
-import net.minecraft.nbt.Tag
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.saveddata.SavedData
@@ -46,8 +40,6 @@ object ServerBeeManager {
 
     private val bees = mutableMapOf<UUID, ServerBeeData>()
     private var level: ServerLevel? = null
-
-    val activeBees: Collection<ServerBeeData> get() = bees.values
 
     fun init(serverLevel: ServerLevel) {
         level = serverLevel
@@ -196,7 +188,6 @@ object ServerBeeManager {
         val plan = computed.scheduled(gameTime, ::reserveAction)
         if (network != null) reserveStock(bee, plan, network, gameTime)
         bee.flightPlan = plan
-        bee.planStartTick = gameTime
         bee.currentCheckpointIndex = 0
         if (plan.checkpoints.size > 1) {
             bee.currentCheckpointIndex = 1
@@ -212,7 +203,6 @@ object ServerBeeManager {
     fun redirect(bee: ServerBeeData, computed: FlightPlan, gameTime: Long) {
         val plan = computed.scheduled(gameTime, ::reserveAction)
         bee.flightPlan = plan
-        bee.planStartTick = gameTime
         bee.currentCheckpointIndex = 0
         broadcastFlightPlan(bee, plan, clientStartIndex = 0)
     }
@@ -250,14 +240,12 @@ object ServerBeeManager {
             hiveInstance = hive
             hivePos = hive.pos
             currentTask = batch
-            constructionState = ConstructionBeeState.GATHERING
             cachedBeeContext = context
             _level = hive.world
         }
 
         batch.assignToBee(bee.id, (level?.gameTime ?: 0L))
         bees[bee.id] = bee
-        hive.onBeeSpawned(bee.id)
 
         val beeWorld = bee._level as? ServerLevel ?: level!!
         val network = ServerBeeNetworkManager.getNetwork(networkId, beeWorld)
@@ -307,13 +295,11 @@ object ServerBeeManager {
             hiveInstance = hive
             hivePos = hive.pos
             transportTask = task
-            transportState = TransportBeeState.FLYING_TO_SOURCE
             _level = beeWorld
         }
 
         FlightPlanComputer.computeTransportAsync(bee, task, beeWorld) { plan ->
             bee.flightPlan = plan
-            bee.planStartTick = beeWorld.gameTime
             bee.currentCheckpointIndex = 0
             if (plan.checkpoints.size > 1) {
                 bee.currentCheckpointIndex = 1
@@ -335,9 +321,6 @@ object ServerBeeManager {
      *   hive-to-target flight instead of appearing at the first work checkpoint.
      */
     fun broadcastFlightPlan(bee: ServerBeeData, plan: FlightPlan, clientStartIndex: Int? = null) {
-        val gameTime = level?.gameTime ?: 0L
-        val planStartTick = bee.planStartTick
-        val elapsedTicks = if (planStartTick > 0) (gameTime - planStartTick) else 0L
         bee.syncedCarriedItem = bee.carriedItem().copyWithCount(1)
 
         val packet = BeeFlightPlanPacket(
@@ -354,7 +337,6 @@ object ServerBeeManager {
                 )
             },
             startIndex = clientStartIndex ?: bee.currentCheckpointIndex,
-            elapsedTicks = elapsedTicks,
             carriedItem = bee.syncedCarriedItem,
         )
         broadcastToAll(packet)
@@ -400,7 +382,4 @@ object ServerBeeManager {
 
     // Bees are ephemeral — not persisted to NBT. On shutdown, items are
     // dropped and tasks released. Hives respawn bees when they find pending work.
-}
-
-private fun BeeHive.onBeeSpawned(beeId: UUID) {
 }

@@ -4,6 +4,7 @@ import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.content.bee.server.BeeType
+import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
@@ -185,11 +186,7 @@ object GlobalJobPool : JobPool {
                 val elapsed = gameTime - batch.startedAtTick
                 if (elapsed < STALE_BATCH_TICKS) continue
 
-                val beeId = batch.assignedBeeId
-                val serverLevel = job.level as? net.minecraft.server.level.ServerLevel
-                val beeAlive = if (beeId != null && serverLevel != null) {
-                    serverLevel.getEntity(beeId)?.isAlive == true
-                } else false
+                val beeAlive = batch.assignedBeeId?.let(ServerBeeManager::getBee) != null
 
                 if (!beeAlive) {
                     batch.release(gameTick = gameTime)
@@ -198,7 +195,7 @@ object GlobalJobPool : JobPool {
             }
         }
 
-        cleanupOrphanedBees(gameTime)
+        cleanupOrphanedBees()
 
         if (healedCount > 0) {
             CreateBuzzyBeez.LOGGER.debug("[Watchdog] Healed $healedCount stale batches")
@@ -209,7 +206,7 @@ object GlobalJobPool : JobPool {
      * Scans all hives and removes active bee entries for entities that no longer exist.
      * This prevents hives from thinking they have active bees when the entities are gone.
      */
-    private fun cleanupOrphanedBees(gameTime: Long) {
+    private fun cleanupOrphanedBees() {
         for (network in ServerBeeNetworkManager.getNetworks()) {
             for (hive in network.hives) {
                 if (hive is de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity) {
@@ -294,8 +291,6 @@ object GlobalJobPool : JobPool {
             log.debug("[Redispatch] pending=$totalPending, dispatched=$dispatched | blocked: noRetry=$noRetry, noWorld=$noWorld, noRange=$noRange, noBees=$noBees, noMaterials=$noMaterials, noCapacity=$noCapacity | networks=${allNetworks.size}")
         }
     }
-
-    val workers: Set<BeeHive> get() = ServerBeeNetworkManager.getNetworks().flatMap { it.hives }.toSet()
 
     override fun getAllJobs(): List<BeeJob> = jobBacklog
 

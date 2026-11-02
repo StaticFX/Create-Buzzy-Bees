@@ -1,6 +1,6 @@
 package de.devin.cbbees.gametest.construction
 
-import de.devin.cbbees.content.bee.flight.RechargeSpring
+import de.devin.cbbees.content.bee.flight.checkpoint.RechargeSpring
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.gametest.GameTestSetup
 import de.devin.cbbees.gametest.dsl.beeTest
@@ -37,7 +37,7 @@ object ConstructionTests {
     @JvmStatic
     fun construct_placesBlocksFromVault(helper: GameTestHelper) = helper.beeTest {
         val scan = scanStructure {}
-        val jobPool = setupNetwork(scan)
+        setupNetwork(scan)
 
         // Insert 9 dirt into the extract vault (material source)
         val extractVault = scan.ports.find { it.isValidForPickup() }
@@ -83,7 +83,7 @@ object ConstructionTests {
     @JvmStatic
     fun construct_stallsWhenMissingMaterials(helper: GameTestHelper) = helper.beeTest {
         val scan = scanStructure {}
-        val jobPool = setupNetwork(scan)
+        setupNetwork(scan)
 
         // Insert only 4 dirt — not enough for 9 placements
         val extractVault = scan.ports.find { it.isValidForPickup() }
@@ -124,7 +124,7 @@ object ConstructionTests {
     @JvmStatic
     fun construct_rewindsSpringAndFinishes(helper: GameTestHelper) = helper.beeTest {
         val scan = scanStructure {}
-        val jobPool = setupNetwork(scan)
+        setupNetwork(scan)
         val extractVault = scan.ports.find { it.isValidForPickup() }
             ?: throw GameTestAssertException("No extract port found")
         insertItems(extractVault.blockPos.below(), Items.DIRT, 5)

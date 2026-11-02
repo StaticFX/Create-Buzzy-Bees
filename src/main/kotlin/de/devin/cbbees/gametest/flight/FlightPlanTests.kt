@@ -1,9 +1,9 @@
 package de.devin.cbbees.gametest.flight
 
 import de.devin.cbbees.content.bee.flight.Checkpoint
-import de.devin.cbbees.content.bee.flight.ExecuteBeeAction
+import de.devin.cbbees.content.bee.flight.checkpoint.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
-import de.devin.cbbees.content.bee.flight.FlyThrough
+import de.devin.cbbees.content.bee.flight.checkpoint.FlyThrough
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
