@@ -111,10 +111,7 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             x + MARGIN, ty, WHITE, false)
         ty += LINE_H
 
-        val activeBees = j.batches
-            .filter { it.status == "IN_PROGRESS" || it.status == "PICKED" }
-            .flatMap { it.assignedBeeIds }.distinct().size
-        graphics.drawString(font, "Bees: $activeBees active", x + MARGIN, ty, GRAY, false)
+        graphics.drawString(font, "Bees: ${j.activeBees} active", x + MARGIN, ty, GRAY, false)
         ty += LINE_H + 3
 
         if (isStuck) {
@@ -137,7 +134,7 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             ty += 2
         }
 
-        val materials = materials(j)
+        val materials = j.materials
         if (materials.isNotEmpty()) {
             graphics.drawString(font, "Materials:", x + MARGIN, ty, GOLD, false)
             ty += LINE_H
@@ -159,19 +156,6 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         hoveredMaterial?.let { graphics.renderTooltip(font, it, mouseX, mouseY) }
     }
 
-    private fun materials(j: ClientJobInfo): List<ItemStack> {
-        val merged = mutableListOf<ItemStack>()
-        j.batches.asSequence()
-            .filter { it.status != "COMPLETED" }
-            .flatMap { it.required }
-            .filterNot(ItemStack::isEmpty)
-            .forEach { stack ->
-                val existing = merged.firstOrNull { ItemStack.isSameItemSameComponents(it, stack) }
-                if (existing != null) existing.grow(stack.count) else merged += stack.copy()
-            }
-        return merged
-    }
-
     private fun shortCount(count: Int): String = if (count >= 1000) "${count / 1000}k" else count.toString()
 
     private fun computePanelHeight(): Int {
@@ -190,7 +174,7 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
             if (lines.size > 3) h += LINE_H
         }
 
-        val materials = materials(j).size
+        val materials = j.materials.size
         if (materials > 0) {
             h += LINE_H
             h += minOf((materials + SLOTS_PER_ROW - 1) / SLOTS_PER_ROW, MAX_SLOT_ROWS) * SLOT + 2

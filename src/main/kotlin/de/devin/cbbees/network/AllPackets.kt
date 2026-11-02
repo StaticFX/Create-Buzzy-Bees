@@ -39,11 +39,6 @@ object AllPackets {
             StopTasksPacket.Companion::handle
         )
 
-        registrar.playToServer(
-            RequestHiveJobsPacket.TYPE,
-            RequestHiveJobsPacket.STREAM_CODEC,
-            RequestHiveJobsPacket.Companion::handle
-        )
         registrar.playToClient(
             HiveJobsSyncPacket.TYPE,
             HiveJobsSyncPacket.STREAM_CODEC,

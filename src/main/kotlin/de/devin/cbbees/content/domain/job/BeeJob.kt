@@ -61,16 +61,21 @@ data class BeeJob(
      * support blocks during deconstruction.
      */
     fun isPhaseReady(phase: Int): Boolean {
-        val checkedAt = level.gameTime to batches.size
-        if (checkedAt != phaseCheckedAt) {
-            phaseCheckedAt = checkedAt
+        val gameTime = level.gameTime
+        if (gameTime != phaseCheckedTick || batches.size != phaseCheckedSize) {
+            phaseCheckedTick = gameTime
+            phaseCheckedSize = batches.size
             lowestOpenPhase = batches.filterNot { it.isPrimaryActionDone() }.minOfOrNull { it.phase } ?: Int.MAX_VALUE
         }
         return phase <= lowestOpenPhase
     }
 
-    private var phaseCheckedAt: Pair<Long, Int>? = null
+    private var phaseCheckedTick = Long.MIN_VALUE
+    private var phaseCheckedSize = -1
     private var lowestOpenPhase = Int.MAX_VALUE
+
+    /** Batches before this index were finished when last checked; lets [isComplete] skip them. */
+    private var firstOpenBatch = 0
 
     /**
      * Adds a task to this job.
@@ -90,8 +95,15 @@ data class BeeJob(
      * Checks if all tasks are completed.
      */
     fun isComplete(): Boolean {
-        return tasks.all { it.status == TaskStatus.COMPLETED || it.status == TaskStatus.CANCELLED }
+        while (firstOpenBatch < batches.size && batches[firstOpenBatch].isFinished()) firstOpenBatch++
+        if (firstOpenBatch < batches.size) return false
+        // A released batch can reopen tasks behind the cursor, so confirm before finishing
+        firstOpenBatch = batches.indexOfFirst { !it.isFinished() }.takeIf { it >= 0 } ?: batches.size
+        return firstOpenBatch == batches.size
     }
+
+    private fun TaskBatch.isFinished(): Boolean =
+        tasks.all { it.status == TaskStatus.COMPLETED || it.status == TaskStatus.CANCELLED }
 
     fun displayName(): Component = jobDisplayName(schematicPlacement, jobType)
 

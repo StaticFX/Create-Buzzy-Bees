@@ -12,6 +12,7 @@ import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.addInvalidPortTooltip
 import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.content.logistics.storage.PortStorageCache
 import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
@@ -102,10 +103,14 @@ class TransportPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: B
         networkId?.let { tag.putUUID("NetworkId", it) }
     }
 
+    private val storageCache = PortStorageCache()
+
     override fun storage(): PortStorage? {
         val level = level ?: return null
-        val attachedDir = TransportPortBlock.getConnectedDirection(blockState).opposite
-        return PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
+        return storageCache.get(level) {
+            val attachedDir = TransportPortBlock.getConnectedDirection(blockState).opposite
+            PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
+        }
     }
 
     override fun isValidProvider(): Boolean {

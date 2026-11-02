@@ -1,28 +1,30 @@
 package de.devin.cbbees.content.bee.server
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.bee.flight.checkpoint.ActionThrottle
 import de.devin.cbbees.content.bee.flight.ClientCheckpoint
-import de.devin.cbbees.content.bee.flight.checkpoint.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.FlightPlan
 import de.devin.cbbees.content.bee.flight.FlightPlanComputer
+import de.devin.cbbees.content.bee.flight.checkpoint.ActionThrottle
+import de.devin.cbbees.content.bee.flight.checkpoint.ExecuteBeeAction
 import de.devin.cbbees.content.bee.flight.checkpoint.ReservesStock
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.items.AllItems
-import net.minecraft.world.entity.item.ItemEntity
-import net.minecraft.world.item.ItemStack
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.content.upgrades.BeeContext
+import de.devin.cbbees.items.AllItems
 import de.devin.cbbees.network.BeeCarriedItemPacket
 import de.devin.cbbees.network.BeeCheckpointConfirmPacket
 import de.devin.cbbees.network.BeeFlightPlanPacket
 import de.devin.cbbees.network.BeeRemovePacket
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.item.ItemEntity
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.phys.Vec3
 import net.neoforged.neoforge.network.PacketDistributor
@@ -100,6 +102,9 @@ object ServerBeeManager {
     private val pendingReturns = mutableSetOf<UUID>()
     private var isTicking = false
 
+    private const val VIEWER_SYNC_INTERVAL = 10L
+    private const val VIEWER_MARGIN = 32.0
+
     private val maxCheckpointsPerTick: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
     private val reservedActions = HashMap<Long, Int>()
 
@@ -119,8 +124,8 @@ object ServerBeeManager {
 
         val snapshot = bees.values.toTypedArray()
         var checkpointsThisTick = 0
-        val confirmBatch = mutableListOf<BeeCheckpointConfirmPacket.Entry>()
-        val carriedItemBatch = mutableListOf<BeeCarriedItemPacket.Entry>()
+        val confirmBatch = mutableListOf<Pair<ServerBeeData, BeeCheckpointConfirmPacket.Entry>>()
+        val carriedItemBatch = mutableListOf<Pair<ServerBeeData, BeeCarriedItemPacket.Entry>>()
 
         profiler.push("checkpoints")
         for (bee in snapshot) {
@@ -144,11 +149,11 @@ object ServerBeeManager {
             val carried = bee.carriedItem()
             if (!ItemStack.isSameItemSameComponents(carried, bee.syncedCarriedItem)) {
                 bee.syncedCarriedItem = carried.copyWithCount(1)
-                carriedItemBatch.add(BeeCarriedItemPacket.Entry(bee.id, bee.syncedCarriedItem))
+                carriedItemBatch.add(bee to BeeCarriedItemPacket.Entry(bee.id, bee.syncedCarriedItem))
             }
             if (completed) {
                 if (checkpoint.action is ExecuteBeeAction) {
-                    confirmBatch.add(BeeCheckpointConfirmPacket.Entry(bee.id, bee.currentCheckpointIndex))
+                    confirmBatch.add(bee to BeeCheckpointConfirmPacket.Entry(bee.id, bee.currentCheckpointIndex))
                 }
                 advanceCheckpoint(bee, gameTime)
             }
@@ -161,20 +166,16 @@ object ServerBeeManager {
         }
         profiler.pop()
 
-        if (confirmBatch.isNotEmpty()) {
-            profiler.push("broadcastConfirm")
-            broadcastCheckpointConfirmBatch(confirmBatch)
-            profiler.pop()
-        }
-
-        if (carriedItemBatch.isNotEmpty()) {
-            broadcastToAll(BeeCarriedItemPacket(carriedItemBatch))
-        }
+        profiler.push("broadcast")
+        sendPerViewer(confirmBatch, ::BeeCheckpointConfirmPacket)
+        sendPerViewer(carriedItemBatch, ::BeeCarriedItemPacket)
+        if (gameTime % VIEWER_SYNC_INTERVAL == 0L) syncViewers()
+        profiler.pop()
 
         isTicking = false
         pendingRemovals.forEach { id ->
             val bee = bees.remove(id)
-            broadcastRemoval(id)
+            bee?.let(::sendRemoval)
             // Only return bees that exited abnormally (spring signal), not those
             // already returned by their checkpoint action (e.g., EnterHive).
             if (bee != null && id in pendingReturns) {
@@ -313,7 +314,8 @@ object ServerBeeManager {
     }
 
     /**
-     * Sends a flight plan to all connected players.
+     * Sends a flight plan to the players that can see the bee, and a removal to players
+     * that saw its previous plan but are now out of range.
      *
      * @param clientStartIndex override the checkpoint the client begins at.
      *   Defaults to `bee.currentCheckpointIndex` (correct for late-joiner resync).
@@ -322,39 +324,87 @@ object ServerBeeManager {
      */
     fun broadcastFlightPlan(bee: ServerBeeData, plan: FlightPlan, clientStartIndex: Int? = null) {
         bee.syncedCarriedItem = bee.carriedItem().copyWithCount(1)
-
-        val packet = BeeFlightPlanPacket(
-            beeId = plan.beeId,
-            type = plan.type,
-            speed = plan.speed,
-            checkpoints = plan.checkpoints.mapIndexed { i, checkpoint ->
-                ClientCheckpoint(
-                    checkpoint.pos,
-                    checkpoint.clientPauseTicks,
-                    awaitConfirm = checkpoint.action is ExecuteBeeAction,
-                    travelTicks = plan.segmentTicks[i],
-                    workTicks = checkpoint.workTicks,
-                )
-            },
-            startIndex = clientStartIndex ?: bee.currentCheckpointIndex,
-            carriedItem = bee.syncedCarriedItem,
-        )
-        broadcastToAll(packet)
-    }
-
-    private fun broadcastToAll(packet: CustomPacketPayload) {
-        val server = level?.server ?: return
-        server.playerList.players.forEach { player ->
-            PacketDistributor.sendToPlayer(player, packet)
+        val packet = flightPlanPacket(bee, plan, clientStartIndex ?: bee.currentCheckpointIndex)
+        updateViewers(bee).forEach {
+            PacketDistributor.sendToPlayer(it, packet)
+            bee.viewers += it.uuid
         }
     }
 
-    private fun broadcastCheckpointConfirmBatch(entries: List<BeeCheckpointConfirmPacket.Entry>) {
-        broadcastToAll(BeeCheckpointConfirmPacket(entries))
+    private fun flightPlanPacket(bee: ServerBeeData, plan: FlightPlan, startIndex: Int) = BeeFlightPlanPacket(
+        beeId = plan.beeId,
+        type = plan.type,
+        speed = plan.speed,
+        checkpoints = plan.checkpoints.mapIndexed { i, checkpoint ->
+            ClientCheckpoint(
+                checkpoint.pos,
+                checkpoint.clientPauseTicks,
+                awaitConfirm = checkpoint.action is ExecuteBeeAction,
+                travelTicks = plan.segmentTicks[i],
+                workTicks = checkpoint.workTicks,
+            )
+        },
+        startIndex = startIndex,
+        carriedItem = bee.syncedCarriedItem,
+    )
+
+    /**
+     * Players in the bee's dimension within view distance. Current viewers keep seeing
+     * the bee a little further out so it doesn't flicker at the edge.
+     */
+    private fun watchersOf(bee: ServerBeeData): List<ServerPlayer> {
+        val beeLevel = bee._level as? ServerLevel ?: return emptyList()
+        val range = beeLevel.server.playerList.viewDistance * 16.0
+        return beeLevel.players().filter { player ->
+            val reach = if (player.uuid in bee.viewers) range + VIEWER_MARGIN else range
+            beeLevel.worldDistanceSqr(player.position(), bee.pos) <= reach * reach
+        }
     }
 
-    fun broadcastRemoval(beeId: UUID) {
-        broadcastToAll(BeeRemovePacket(beeId))
+    /**
+     * Drops viewers that lost sight of the bee, sending them a removal.
+     * @return everyone who can see the bee now, including players not yet in [ServerBeeData.viewers]
+     */
+    private fun updateViewers(bee: ServerBeeData): List<ServerPlayer> {
+        val watchers = watchersOf(bee)
+        val ids = watchers.mapTo(HashSet()) { it.uuid }
+        (bee.viewers - ids).forEach { sendTo(it, BeeRemovePacket(bee.id)) }
+        bee.viewers.retainAll(ids)
+        return watchers
+    }
+
+    /**
+     * Keeps every bee's [ServerBeeData.viewers] current as players move, join or change
+     * dimension: newcomers get the bee's plan from where it is now, leavers a removal.
+     */
+    private fun syncViewers() {
+        for (bee in bees.values) {
+            val plan = bee.flightPlan ?: continue
+            val newcomers = updateViewers(bee).filter { it.uuid !in bee.viewers }
+            if (newcomers.isEmpty()) continue
+            val packet = flightPlanPacket(bee, plan, bee.currentCheckpointIndex)
+            newcomers.forEach {
+                PacketDistributor.sendToPlayer(it, packet)
+                bee.viewers += it.uuid
+            }
+        }
+    }
+
+    /** Sends each viewer one packet with the entries of the bees it can see. */
+    private fun <E> sendPerViewer(entries: List<Pair<ServerBeeData, E>>, packet: (List<E>) -> CustomPacketPayload) {
+        if (entries.isEmpty()) return
+        entries.flatMap { (bee, entry) -> bee.viewers.map { it to entry } }
+            .groupBy({ it.first }, { it.second })
+            .forEach { (playerId, playerEntries) -> sendTo(playerId, packet(playerEntries)) }
+    }
+
+    private fun sendTo(playerId: UUID, packet: CustomPacketPayload) {
+        level?.server?.playerList?.getPlayer(playerId)?.let { PacketDistributor.sendToPlayer(it, packet) }
+    }
+
+    private fun sendRemoval(bee: ServerBeeData) {
+        bee.viewers.forEach { sendTo(it, BeeRemovePacket(bee.id)) }
+        bee.viewers.clear()
     }
 
     /**
@@ -375,7 +425,7 @@ object ServerBeeManager {
         } else {
             bees.remove(id)
         }
-        broadcastRemoval(id)
+        bee?.let(::sendRemoval)
     }
 
     fun getBee(id: UUID): ServerBeeData? = bees[id]

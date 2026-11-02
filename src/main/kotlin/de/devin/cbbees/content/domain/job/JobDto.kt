@@ -6,7 +6,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
-import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.levelgen.structure.BoundingBox
 import java.util.UUID
 
 /** Schematic placement metadata for client-side ghost block rendering. */
@@ -39,15 +39,6 @@ data class SchematicPlacement(
     }
 }
 
-data class ClientBatchInfo(
-    val status: String,
-    val target: BlockPos,
-    val required: List<ItemStack>,
-    val assignedBeeIds: List<UUID>,
-    /** All ghost block positions and their block states for rendering. */
-    val ghostBlocks: Map<BlockPos, BlockState> = emptyMap()
-)
-
 data class ClientJobInfo(
     val jobId: UUID,
     val name: String,          // short id label
@@ -55,7 +46,12 @@ data class ClientJobInfo(
     val completed: Int,
     val total: Int,
     val reason: String?,       // null if not stuck
-    val batches: List<ClientBatchInfo>,
+    /** Bees currently working on this job. */
+    val beeIds: List<UUID>,
+    /** Items the unfinished tasks still need, merged by item. */
+    val materials: List<ItemStack>,
+    /** Area covered by the job's targets, for its outline. */
+    val bounds: BoundingBox?,
     val schematicPlacement: SchematicPlacement? = null,
     val jobType: JobType = JobType.Construction,
     val ownerId: UUID? = null,
@@ -69,9 +65,7 @@ data class ClientJobInfo(
 
     fun displayName(): Component = jobDisplayName(schematicPlacement, jobType)
 
-    val activeBees: Int
-        get() = batches.filter { it.status == "IN_PROGRESS" || it.status == "PICKED" }
-            .flatMap { it.assignedBeeIds }.distinct().size
+    val activeBees: Int get() = beeIds.size
 }
 
 /** The schematic's file name, or the job type for jobs without a schematic. */

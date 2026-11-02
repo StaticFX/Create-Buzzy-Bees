@@ -224,7 +224,7 @@ object GlobalJobPool : JobPool {
      * - Retrying failed/released batches
      * - Assigning work to newly available bees in hives
      */
-    private val maxDispatchesPerCycle: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
+    private val maxDispatchesPerCycle: Int get() = CBBeesConfig.maxDispatchesPerCycle.get()
 
     private fun redispatchPendingBatches(gameTime: Long) {
         val allNetworks = ServerBeeNetworkManager.getNetworks()
@@ -247,10 +247,7 @@ object GlobalJobPool : JobPool {
             }
             if (inWorldNetworks.isEmpty()) { noWorld++; continue }
 
-            fun networksWithFreeBees() = inWorldNetworks.filter { network ->
-                network.hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }
-            }
-            var withBees = networksWithFreeBees()
+            var withBees = inWorldNetworks.filter { it.hasFreeBees() }
 
             for (batch in job.batches) {
                 if (dispatched >= maxDispatchesPerCycle) return
@@ -278,7 +275,8 @@ object GlobalJobPool : JobPool {
                 batch.assignedNetworkId = targetNetwork.id
                 if (targetNetwork.dispatchBatch(batch)) {
                     dispatched++
-                    withBees = networksWithFreeBees()
+                    // Only the network that just sent a bee can have run out
+                    if (!targetNetwork.hasFreeBees()) withBees = withBees - targetNetwork
                 } else {
                     noCapacity++
                     batch.assignedNetworkId = null
@@ -309,8 +307,7 @@ object GlobalJobPool : JobPool {
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
             for (batch in job.batches) {
-                if (!isDispatchable(batch)) continue
-                if (batch.assignedNetworkId != networkId) continue
+                if (batch.assignedNetworkId != networkId || !isDispatchable(batch)) continue
                 val dist = beeHive.world.worldDistanceSqr(batch.targetPosition, hivePos)
                 if (dist < bestAssignedDist) {
                     bestAssignedDist = dist
@@ -382,3 +379,6 @@ object GlobalJobPool : JobPool {
         CreateBuzzyBeez.LOGGER.debug("[JobPool] Registered job with ${job.batches.size} batches")
     }
 }
+
+private fun BeeNetwork.hasFreeBees(): Boolean =
+    hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }

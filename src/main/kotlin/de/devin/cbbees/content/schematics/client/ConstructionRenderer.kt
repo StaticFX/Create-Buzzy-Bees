@@ -26,7 +26,7 @@ import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.BlockPos
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.levelgen.structure.BoundingBox
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings
 import net.minecraft.world.phys.AABB
 import net.neoforged.bus.api.SubscribeEvent
@@ -188,20 +188,13 @@ object ConstructionRenderer {
                 }
 
                 if (job.jobId !in outlineBoundsCache) {
-                    val positions: Set<BlockPos> = if (renderer != null) {
-                        renderer.schematicLevel.blockMap.keys
+                    val box = if (renderer != null) {
+                        BoundingBox.encapsulatingPositions(renderer.schematicLevel.blockMap.keys).orElse(null)
                     } else {
-                        job.batches.map { it.target }.toSet()
+                        job.bounds
                     }
-                    if (positions.isNotEmpty()) {
-                        val bounds = AABB(
-                            positions.minOf { it.x }.toDouble(),
-                            positions.minOf { it.y }.toDouble(),
-                            positions.minOf { it.z }.toDouble(),
-                            (positions.maxOf { it.x } + 1).toDouble(),
-                            (positions.maxOf { it.y } + 1).toDouble(),
-                            (positions.maxOf { it.z } + 1).toDouble()
-                        )
+                    if (box != null) {
+                        val bounds = AABB.of(box)
                         outlineBoundsCache[job.jobId] = bounds
                         val anchor = renderer?.anchor ?: BlockPos.containing(bounds.minX, bounds.minY, bounds.minZ)
                         val outline = AABBOutline(bounds.move(Vec3.atLowerCornerOf(anchor).scale(-1.0)))
@@ -246,10 +239,10 @@ object ConstructionRenderer {
      * using the same approach as Create's SchematicHandler.setupRenderer().
      */
     private fun buildSchematicRenderer(job: ClientJobInfo, clientLevel: Level): JobRenderer? {
-        val placement = job.schematicPlacement ?: return buildFallbackRenderer(job, clientLevel)
+        val placement = job.schematicPlacement ?: return null
         // Schematic files are read from this player's disk, which only holds their own schematics
-        val player = Minecraft.getInstance().player ?: return buildFallbackRenderer(job, clientLevel)
-        if (job.ownerId != null && !job.isOwnedBy(player.uuid)) return buildFallbackRenderer(job, clientLevel)
+        val player = Minecraft.getInstance().player ?: return null
+        if (job.ownerId != null && !job.isOwnedBy(player.uuid)) return null
         val schematicFile = placement.file
         val anchor = placement.anchor
         val rotation = placement.rotation
@@ -267,7 +260,7 @@ object ConstructionRenderer {
             val template = SchematicItem.loadSchematic(clientLevel, fakeStack)
             if (template.size == net.minecraft.core.Vec3i.ZERO) {
                 CreateBuzzyBeez.LOGGER.warn("Schematic template is empty for file: $schematicFile")
-                return buildFallbackRenderer(job, clientLevel)
+                return null
             }
 
             val schematicLevel = SchematicLevel(clientLevel)
@@ -287,29 +280,8 @@ object ConstructionRenderer {
             return JobRenderer(GhostSchematicRenderer(schematicLevel, anchor), schematicLevel, anchor)
         } catch (e: Exception) {
             CreateBuzzyBeez.LOGGER.error("Failed to load schematic for rendering: $schematicFile", e)
-            return buildFallbackRenderer(job, clientLevel)
+            return null
         }
-    }
-
-    /**
-     * Fallback: build renderer from ghost block data when schematic file
-     * is unavailable (e.g., file deleted, non-schematic job).
-     */
-    private fun buildFallbackRenderer(job: ClientJobInfo, clientLevel: Level): JobRenderer? {
-        val allGhosts = mutableMapOf<BlockPos, BlockState>()
-        for (batch in job.batches) {
-            if (batch.status == "COMPLETED") continue
-            for ((pos, state) in batch.ghostBlocks) {
-                if (clientLevel.getBlockState(pos) == state) continue
-                allGhosts[pos] = state
-            }
-        }
-        if (allGhosts.isEmpty()) return null
-
-        val ghostLevel = GhostBlockLevel(clientLevel)
-        ghostLevel.populate(allGhosts)
-        val origin = BlockPos(allGhosts.keys.minOf { it.x }, allGhosts.keys.minOf { it.y }, allGhosts.keys.minOf { it.z })
-        return JobRenderer(GhostSchematicRenderer(ghostLevel, origin), ghostLevel, origin)
     }
 
     /**

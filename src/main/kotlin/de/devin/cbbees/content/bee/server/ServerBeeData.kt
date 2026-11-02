@@ -65,6 +65,9 @@ class ServerBeeData(
     /** Carried item as last sent to clients. */
     var syncedCarriedItem: ItemStack = ItemStack.EMPTY
 
+    /** Players that were sent this bee's current flight plan. */
+    val viewers: MutableSet<UUID> = mutableSetOf()
+
     /** Pours carried fluid back into a Dock Port, preferring drop-off ports. Fluid with nowhere to go is lost. */
     fun returnCarriedFluid() {
         val fluid = carriedFluid.takeIf { !it.isEmpty } ?: return

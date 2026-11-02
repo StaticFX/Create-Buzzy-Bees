@@ -82,8 +82,8 @@ object CCRServerEvents {
             if (syncCounter >= 4) {
                 syncCounter = 0
                 profiler.push("sync")
+                HiveJobsSyncPacket.sendPlayerSnapshots(server)
                 server.playerList.players.forEach { player ->
-                    HiveJobsSyncPacket.sendPlayerSnapshotTo(player)
                     NetworkSyncPacket.sendTo(player)
                     BuiltSchematicsSyncPacket.sendTo(player)
                 }

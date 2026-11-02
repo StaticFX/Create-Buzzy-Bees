@@ -7,8 +7,6 @@ import com.tterrag.registrate.util.nullness.NonNullSupplier
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.backpack.BeehiveContainer
 import de.devin.cbbees.content.backpack.BeehiveScreen
-import de.devin.cbbees.content.beehive.MechanicalBeehiveMenu
-import de.devin.cbbees.content.beehive.MechanicalBeehiveScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.inventory.MenuAccess
 import net.minecraft.world.inventory.AbstractContainerMenu
@@ -19,15 +17,6 @@ object AllMenuTypes {
         "constructor_backpack",
         { type, containerId, inv, buf -> BeehiveContainer(type, containerId, inv, buf!!) },
         { ScreenFactory { menu, inv, title -> BeehiveScreen(menu, inv, title) } }
-    )
-
-    val MECHANICAL_BEEHIVE: MenuEntry<MechanicalBeehiveMenu> = register(
-        "mechanical_beehive",
-        { type, containerId, inv, buf -> 
-            val be = inv.player.level().getBlockEntity(buf!!.readBlockPos()) as de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
-            MechanicalBeehiveMenu(containerId, be) 
-        },
-        { ScreenFactory { menu, inv, title -> MechanicalBeehiveScreen(menu, inv, title) } }
     )
     
     private fun <C : AbstractContainerMenu, S> register(

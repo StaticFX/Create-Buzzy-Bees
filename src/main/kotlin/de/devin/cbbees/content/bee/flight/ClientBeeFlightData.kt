@@ -61,8 +61,11 @@ class ClientBeeFlightData(
     private val actionCheckpointIndices: IntArray = checkpoints.indices
         .filter { checkpoints[it].awaitConfirm }
         .toIntArray()
-    /** Pointer into [actionCheckpointIndices] — the next action checkpoint to check. */
-    private var nextActionPtr: Int = 0
+    /**
+     * Pointer into [actionCheckpointIndices] — the next action checkpoint to check.
+     * Starts at [startIndex] since the server already confirmed every action before it.
+     */
+    private var nextActionPtr: Int = actionCheckpointIndices.count { it < startIndex }
     /** Checkpoint index we're currently blocked at, or -1 if flying freely. */
     private var waitingAtIdx: Int = -1
     /** nanoTime when we started waiting at the current checkpoint. */

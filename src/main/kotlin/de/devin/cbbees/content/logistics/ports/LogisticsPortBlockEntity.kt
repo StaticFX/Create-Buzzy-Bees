@@ -12,6 +12,7 @@ import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
 import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.content.logistics.storage.PortStorageCache
 import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang
 import net.minecraft.ChatFormatting
@@ -130,10 +131,14 @@ class LogisticPortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bl
         sendData()
     }
 
+    private val storageCache = PortStorageCache()
+
     override fun storage(): PortStorage? {
         val level = level ?: return null
-        val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
-        return PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
+        return storageCache.get(level) {
+            val attachedDir = PortBlock.getConnectedDirection(blockState).opposite
+            PortStorages.find(level, blockPos.relative(attachedDir), attachedDir.opposite)
+        }
     }
 
     override fun isValidForDropOff(): Boolean {

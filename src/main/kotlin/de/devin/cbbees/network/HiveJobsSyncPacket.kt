@@ -1,34 +1,28 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.CreateBuzzyBeez
-import de.devin.cbbees.content.beehive.MechanicalBeehiveBlockEntity
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.StuckReasonResolver
-import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.ClientBatchInfo
 import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
 import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
+import de.devin.cbbees.content.domain.job.toClientInfo
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.task.TaskStatus
+import io.netty.buffer.ByteBuf
 import net.minecraft.core.BlockPos
-import net.minecraft.core.registries.Registries
-import net.minecraft.nbt.CompoundTag
-import net.minecraft.nbt.NbtUtils
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.server.MinecraftServer
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.level.block.state.BlockState
+import net.minecraft.world.level.levelgen.structure.BoundingBox
 import net.neoforged.neoforge.network.PacketDistributor
 import net.neoforged.neoforge.network.handling.IPayloadContext
 import java.util.UUID
@@ -46,66 +40,11 @@ class HiveJobsSyncPacket(
         private val ITEM_LIST_CODEC: StreamCodec<RegistryFriendlyByteBuf, List<ItemStack>> =
             ByteBufCodecs.collection({ mutableListOf() }, ItemStackStreamCodec.CODEC)
         private val STRING_CODEC = ByteBufCodecs.stringUtf8(256)
-        private val BLOCK_STATE_CODEC: StreamCodec<RegistryFriendlyByteBuf, BlockState> = StreamCodec.of(
-            { buf, s -> buf.writeNbt(NbtUtils.writeBlockState(s)) },
-            { buf ->
-                val tag = buf.readNbt() as? CompoundTag ?: CompoundTag()
-                NbtUtils.readBlockState(buf.registryAccess().lookupOrThrow(Registries.BLOCK), tag)
-            }
+        private val BOUNDS_CODEC: StreamCodec<ByteBuf, BoundingBox> = StreamCodec.composite(
+            BlockPos.STREAM_CODEC, { BlockPos(it.minX(), it.minY(), it.minZ()) },
+            BlockPos.STREAM_CODEC, { BlockPos(it.maxX(), it.maxY(), it.maxZ()) },
+            BoundingBox::fromCorners,
         )
-
-        private val GHOST_BLOCK_ENTRY_CODEC: StreamCodec<RegistryFriendlyByteBuf, Pair<BlockPos, BlockState>> =
-            StreamCodec.of(
-                { buf, entry ->
-                    BlockPos.STREAM_CODEC.encode(buf, entry.first)
-                    BLOCK_STATE_CODEC.encode(buf, entry.second)
-                },
-                { buf ->
-                    val pos = BlockPos.STREAM_CODEC.decode(buf)
-                    val state = BLOCK_STATE_CODEC.decode(buf)
-                    pos to state
-                }
-            )
-
-        private val GHOST_BLOCKS_CODEC: StreamCodec<RegistryFriendlyByteBuf, Map<BlockPos, BlockState>> =
-            StreamCodec.of(
-                { buf, map ->
-                    buf.writeVarInt(map.size)
-                    map.forEach { (pos, state) ->
-                        GHOST_BLOCK_ENTRY_CODEC.encode(buf, pos to state)
-                    }
-                },
-                { buf ->
-                    val size = buf.readVarInt()
-                    val map = mutableMapOf<BlockPos, BlockState>()
-                    repeat(size) {
-                        val (pos, state) = GHOST_BLOCK_ENTRY_CODEC.decode(buf)
-                        map[pos] = state
-                    }
-                    map
-                }
-            )
-
-        private val BATCH_CODEC: StreamCodec<RegistryFriendlyByteBuf, ClientBatchInfo> = StreamCodec.of(
-            { buf, b ->
-                STRING_CODEC.encode(buf, b.status)
-                BlockPos.STREAM_CODEC.encode(buf, b.target)
-                ITEM_LIST_CODEC.encode(buf, b.required)
-                UUID_LIST_CODEC.encode(buf, b.assignedBeeIds)
-                GHOST_BLOCKS_CODEC.encode(buf, b.ghostBlocks)
-            },
-            { buf ->
-                val status = STRING_CODEC.decode(buf)
-                val target = BlockPos.STREAM_CODEC.decode(buf)
-                val required = ITEM_LIST_CODEC.decode(buf)
-                val assignedBeeIds = UUID_LIST_CODEC.decode(buf)
-                val ghostBlocks = GHOST_BLOCKS_CODEC.decode(buf)
-                ClientBatchInfo(status, target, required, assignedBeeIds, ghostBlocks)
-            }
-        )
-
-        private val BATCH_LIST_CODEC: StreamCodec<RegistryFriendlyByteBuf, List<ClientBatchInfo>> =
-            ByteBufCodecs.collection({ mutableListOf() }, BATCH_CODEC)
 
         private val JOB_CODEC: StreamCodec<RegistryFriendlyByteBuf, ClientJobInfo> = StreamCodec.of(
             { buf, j ->
@@ -115,7 +54,9 @@ class HiveJobsSyncPacket(
                 buf.writeVarInt(j.completed)
                 buf.writeVarInt(j.total)
                 buf.writeNullable(j.reason?.take(250)) { b, s -> STRING_CODEC.encode(b, s) }
-                BATCH_LIST_CODEC.encode(buf, j.batches)
+                UUID_LIST_CODEC.encode(buf, j.beeIds)
+                ITEM_LIST_CODEC.encode(buf, j.materials)
+                buf.writeNullable(j.bounds) { b, box -> BOUNDS_CODEC.encode(b, box) }
                 buf.writeNullable(j.schematicPlacement) { b, sp ->
                     STRING_CODEC.encode(b, sp.file)
                     BlockPos.STREAM_CODEC.encode(b, sp.anchor)
@@ -133,7 +74,9 @@ class HiveJobsSyncPacket(
                 val completed = buf.readVarInt()
                 val total = buf.readVarInt()
                 val reason = buf.readNullable { b -> STRING_CODEC.decode(b) }
-                val batches = BATCH_LIST_CODEC.decode(buf)
+                val beeIds = UUID_LIST_CODEC.decode(buf)
+                val materials = ITEM_LIST_CODEC.decode(buf)
+                val bounds = buf.readNullable { b -> BOUNDS_CODEC.decode(b) }
                 val placement = buf.readNullable { b ->
                     SchematicPlacement(
                         file = STRING_CODEC.decode(b),
@@ -145,7 +88,7 @@ class HiveJobsSyncPacket(
                 val jobType = JobType.fromOrdinal(buf.readVarInt())
                 val ownerId = buf.readNullable { b -> UUID_CODEC.decode(b) }
                 val ownerName = buf.readNullable { b -> STRING_CODEC.decode(b) }
-                ClientJobInfo(id, name, status, completed, total, reason, batches, placement, jobType, ownerId, ownerName)
+                ClientJobInfo(id, name, status, completed, total, reason, beeIds, materials, bounds, placement, jobType, ownerId, ownerName)
             }
         )
 
@@ -198,124 +141,49 @@ class HiveJobsSyncPacket(
             }
         }
 
-        fun sendSnapshotTo(player: ServerPlayer, hivePos: BlockPos) {
-            val level = player.level() as? ServerLevel ?: return
-            val be = level.getBlockEntity(hivePos) as? MechanicalBeehiveBlockEntity ?: return
-            val net = ServerBeeNetworkManager.getNetworkFor(be) ?: return
-
-            val hiveList = net.hives
-            val statsActive = hiveList.sumOf { it.getActiveBeeCount() }
-            val statsStored = hiveList.sumOf { it.getAvailableBeeCount() }
-            val statsMax = hiveList.sumOf { it.getBeeContext().maxActiveBees }
-
-            val jobs = GlobalJobPool.getAllJobs()
-                .filter { job ->
-                    job.status != JobStatus.COMPLETED && job.status != JobStatus.CANCELLED && (
-                            job.batches.any { it.assignedNetworkId == net.id } ||
-                                    net.isInRange(job.centerPos)
-                            )
-                }
-                .map { job ->
-                    val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
-                    // Use the job's actual dispatching network for stuck detection.
-                    // A portable hive job may appear in range of this block network but
-                    // its stuck reasons should be evaluated against the portable network
-                    // (which has links to block networks and proper port visibility).
-                    val jobNetworkId = job.batches.firstNotNullOfOrNull { it.assignedNetworkId }
-                    val jobNetwork = if (jobNetworkId != null && jobNetworkId != net.id) {
-                        ServerBeeNetworkManager.getNetwork(jobNetworkId) ?: net
-                    } else {
-                        net
-                    }
-                    val reason = StuckReasonResolver.firstReasonOrNull(jobNetwork, job)
-                    ClientJobInfo(
-                        jobId = job.jobId,
-                        name = job.jobId.toString().substring(0, 6).uppercase(),
-                        status = job.status.name,
-                        completed = completed,
-                        total = job.tasks.size,
-                        reason = reason,
-                        batches = job.jobType.collectClientBatches(job),
-                        schematicPlacement = job.schematicPlacement,
-                        jobType = job.jobType,
-                        ownerId = job.ownerId,
-                        ownerName = ownerNameOf(job, player)
-                    )
-                }
-
-            val ni = ClientNetworkInfo(net.name, statsActive, statsStored, statsMax)
-            PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(hivePos, HiveSnapshot(ni, jobs)))
-        }
-
         private const val VISIBLE_RANGE = 128.0
 
         /** Other players' jobs in the same dimension close enough to see their bounding box. */
         private fun isNearby(job: BeeJob, player: ServerPlayer): Boolean =
             job.level == player.level() && job.centerPos.closerToCenterThan(player.position(), VISIBLE_RANGE)
 
-        private fun ownerNameOf(job: BeeJob, player: ServerPlayer): String? =
-            job.ownerId?.let { playerName(player.server, it) }
-
         fun playerName(server: MinecraftServer, playerId: UUID): String? =
             server.playerList.getPlayer(playerId)?.gameProfile?.name
                 ?: server.profileCache?.get(playerId)?.map { it.name }?.orElse(null)
 
-        fun sendPlayerSnapshotTo(player: ServerPlayer) {
+        fun sendPlayerSnapshotTo(player: ServerPlayer) = sendPlayerSnapshots(player.server, listOf(player))
+
+        /**
+         * Sends each player their own jobs plus other players' jobs nearby. Each job's
+         * [ClientJobInfo], including its stuck reason, is built once and shared.
+         */
+        fun sendPlayerSnapshots(server: MinecraftServer, players: List<ServerPlayer> = server.playerList.players) {
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
-                .filter { it.ownerId == player.uuid || isNearby(it, player) }
-
-            // Use the player's portable hive network as the primary source for stuck detection.
-            // This is more reliable than guessing from batch assignedNetworkId, which gets
-            // cleared on dispatch failure.
-            val portableHive = ServerBeeNetworkManager.findPortableHive(player.uuid)
-            val playerNetwork = portableHive?.let { ServerBeeNetworkManager.getNetworkFor(it) }
-
-            val clientJobs = jobs.map { job ->
-                    val completed = job.tasks.count { it.status == TaskStatus.COMPLETED }
-                    val batches = job.batches.map { b ->
-                        val required = b.tasks.map { it.action }
-                            .filterIsInstance<de.devin.cbbees.content.domain.action.ItemConsumingAction>()
-                            .flatMap { it.requiredItems }
-                        ClientBatchInfo(
-                            b.status.name, b.targetPosition, required, listOfNotNull(b.assignedBeeId),
-                            ghostBlocks = emptyMap()
-                        )
-                    }
-                    val ownJob = job.ownerId == player.uuid
-                    val network = (if (ownJob) playerNetwork else null) ?: ServerBeeNetworkManager.findNetworkForJob(job)
-                    val reason = if (network != null) {
-                        StuckReasonResolver.firstReasonOrNull(network, job)
-                    } else {
-                        "cbbees.stall.no_network"
-                    }
-                    ClientJobInfo(
-                        job.jobId,
-                        job.jobId.toString().substring(0, 6).uppercase(),
-                        job.status.name,
-                        completed,
-                        job.tasks.size,
-                        reason,
-                        batches,
-                        schematicPlacement = job.schematicPlacement,
-                        jobType = job.jobType,
-                        ownerId = job.ownerId,
-                        ownerName = ownerNameOf(job, player)
-                    )
-                }
-            val ni = if (playerNetwork != null) {
-                val hiveList = playerNetwork.hives
-                ClientNetworkInfo(
-                    playerNetwork.name,
-                    hiveList.sumOf { it.getActiveBeeCount() },
-                    hiveList.sumOf { it.getAvailableBeeCount() },
-                    hiveList.sumOf { it.getBeeContext().maxActiveBees }
-                )
-            } else {
-                ClientNetworkInfo("Personal", 0, 0, 0)
+            val infos = mutableMapOf<UUID, ClientJobInfo>()
+            fun infoOf(job: BeeJob) = infos.getOrPut(job.jobId) {
+                val network = ServerBeeNetworkManager.findNetworkForJob(job)
+                val reason = if (network != null) StuckReasonResolver.firstReasonOrNull(network, job) else "cbbees.stall.no_network"
+                job.toClientInfo(server, reason)
             }
-            val snapshot = HiveSnapshot(ni, clientJobs)
-            PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(BlockPos.ZERO, snapshot))
+
+            for (player in players) {
+                val clientJobs = jobs.filter { it.ownerId == player.uuid || isNearby(it, player) }.map(::infoOf)
+                val snapshot = HiveSnapshot(personalNetworkInfo(player), clientJobs)
+                PacketDistributor.sendToPlayer(player, HiveJobsSyncPacket(BlockPos.ZERO, snapshot))
+            }
+        }
+
+        private fun personalNetworkInfo(player: ServerPlayer): ClientNetworkInfo {
+            val network = ServerBeeNetworkManager.findPortableHive(player.uuid)?.let(ServerBeeNetworkManager::getNetworkFor)
+                ?: return ClientNetworkInfo("Personal", 0, 0, 0)
+            val hives = network.hives
+            return ClientNetworkInfo(
+                network.name,
+                hives.sumOf { it.getActiveBeeCount() },
+                hives.sumOf { it.getAvailableBeeCount() },
+                hives.sumOf { it.getBeeContext().maxActiveBees },
+            )
         }
     }
 

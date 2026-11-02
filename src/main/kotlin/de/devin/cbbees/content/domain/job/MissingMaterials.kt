@@ -7,6 +7,7 @@ import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskStatus
+import de.devin.cbbees.util.ItemStackKey
 import net.minecraft.world.item.ItemStack
 
 object MissingMaterials {
@@ -36,17 +37,21 @@ object MissingMaterials {
     private fun checklist(tasks: Collection<BeeTask>, network: BeeNetwork?): MaterialChecklist {
         val checklist = MaterialChecklist()
 
-        tasks.asSequence()
+        val required = tasks.asSequence()
             .mapNotNull { it.action as? ItemConsumingAction }
             .flatMap { it.requiredItems }
             .filterNot(ItemStack::isEmpty)
-            .forEach { checklist.required.mergeInt(it.item, it.count, Integer::sum) }
+            .onEach { checklist.required.mergeInt(it.item, it.count, Integer::sum) }
+            .mapTo(HashSet(), ::ItemStackKey)
 
+        // Count only the required items; listing a whole ME or RS network is far more expensive
         network?.ports.orEmpty()
             .filter { it.isValidForPickup() }
             .distinct()
             .mapNotNull { it.storage() }
-            .forEach { storage -> storage.stacks().forEach(checklist::collect) }
+            .forEach { storage ->
+                required.forEach { checklist.gathered.mergeInt(it.stack.item, storage.count(it.stack), Integer::sum) }
+            }
 
         return checklist
     }

@@ -8,10 +8,9 @@ import de.devin.cbbees.content.bee.debug.BeeDebug
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
-import de.devin.cbbees.content.domain.job.ClientBatchInfo
-import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
 import de.devin.cbbees.content.domain.job.HiveSnapshot
+import de.devin.cbbees.content.domain.job.toClientInfo
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.schematics.SchematicJobKey
@@ -323,26 +322,7 @@ class SchematicDeployerBlockEntity(
      */
     private fun syncJobToClients(job: BeeJob, batches: List<TaskBatch>) {
         val level = level as? ServerLevel ?: return
-        val clientBatches = batches.map { b ->
-            ClientBatchInfo(
-                status = b.status.name,
-                target = b.targetPosition,
-                required = emptyList(),
-                assignedBeeIds = emptyList(),
-                ghostBlocks = emptyMap()
-            )
-        }
-        val clientJob = ClientJobInfo(
-            jobId = job.jobId,
-            name = job.jobId.toString().substring(0, 6).uppercase(),
-            status = job.status.name,
-            completed = 0,
-            total = job.tasks.size,
-            reason = null,
-            batches = clientBatches,
-            schematicPlacement = job.schematicPlacement
-        )
-        val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(clientJob))
+        val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(job.toClientInfo(level.server, reason = null)))
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
             if (player.level() == level && level.worldDistanceSqr(player.position(), Vec3.atCenterOf(blockPos)) < SYNC_RANGE_SQR) {

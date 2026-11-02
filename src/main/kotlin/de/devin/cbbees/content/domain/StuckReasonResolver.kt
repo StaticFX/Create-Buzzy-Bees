@@ -8,6 +8,7 @@ import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
+import de.devin.cbbees.util.ItemStackKey
 import net.minecraft.world.item.ItemStack
 
 object StuckReasonResolver {
@@ -70,11 +71,13 @@ object StuckReasonResolver {
     private fun checkMissingItems(network: BeeNetwork, batches: List<TaskBatch>): String? {
         val missingItems = mutableMapOf<String, Int>()
         val missingFluids = mutableMapOf<String, Int>()
+        // Many batches need the same item, so ask the storage once per item and amount
+        val available = mutableMapOf<Pair<ItemStackKey, Int>, Boolean>()
         batches.forEach { b ->
             val actions = b.tasks.map { it.action }
             actions.filterIsInstance<ItemConsumingAction>()
                 .flatMap { it.requiredItems }
-                .filter { req -> network.findAvailableProvider(req) == null }
+                .filterNot { req -> available.getOrPut(ItemStackKey(req) to req.count) { network.findAvailableProvider(req) != null } }
                 .forEach { stack -> missingItems.merge(stack.hoverName.string, stack.count, Int::plus) }
             actions.filterIsInstance<PlaceFluidAction>()
                 .filter { network.findFluidProvider(it.fluid) == null }
