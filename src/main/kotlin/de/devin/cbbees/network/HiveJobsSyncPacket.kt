@@ -11,6 +11,7 @@ import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
 import de.devin.cbbees.content.domain.job.Stall
+import de.devin.cbbees.content.domain.job.Unreachable
 import de.devin.cbbees.content.domain.job.toClientInfo
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import io.netty.buffer.ByteBuf
@@ -66,6 +67,7 @@ class HiveJobsSyncPacket(
                 buf.writeVarInt(JobType.ordinalOf(j.jobType))
                 buf.writeNullable(j.ownerId) { b, id -> UUID_CODEC.encode(b, id) }
                 buf.writeNullable(j.ownerName) { b, s -> STRING_CODEC.encode(b, s) }
+                buf.writeNullable(j.unreachable) { b, u -> Unreachable.STREAM_CODEC.encode(b, u) }
             },
             { buf ->
                 val id = UUID_CODEC.decode(buf)
@@ -88,7 +90,8 @@ class HiveJobsSyncPacket(
                 val jobType = JobType.fromOrdinal(buf.readVarInt())
                 val ownerId = buf.readNullable { b -> UUID_CODEC.decode(b) }
                 val ownerName = buf.readNullable { b -> STRING_CODEC.decode(b) }
-                ClientJobInfo(id, name, status, completed, total, stall, beeIds, materials, bounds, placement, jobType, ownerId, ownerName)
+                val unreachable = buf.readNullable { b -> Unreachable.STREAM_CODEC.decode(b) }
+                ClientJobInfo(id, name, status, completed, total, stall, beeIds, materials, bounds, placement, jobType, ownerId, ownerName, unreachable)
             }
         )
 
@@ -161,8 +164,9 @@ class HiveJobsSyncPacket(
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
             val infos = mutableMapOf<UUID, ClientJobInfo>()
+            val networks = ServerBeeNetworkManager.getNetworks()
             fun infoOf(job: BeeJob) = infos.getOrPut(job.jobId) {
-                job.toClientInfo(server, stall = job.stall.takeIf { job.workingBatches.isEmpty() })
+                job.toClientInfo(server, stall = job.visibleStall(), unreachable = Unreachable.of(job, networks))
             }
 
             for (player in players) {

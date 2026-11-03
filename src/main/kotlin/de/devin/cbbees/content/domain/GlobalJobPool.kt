@@ -219,7 +219,9 @@ object GlobalJobPool : JobPool {
 
     /** Runs a dispatch right away when something [BatchDispatcher.wake]d it; called every server tick. */
     fun dispatchIfWoken() {
-        if (BatchDispatcher.consumeWake()) redispatchPendingBatches()
+        if (!BatchDispatcher.consumeWake()) return
+        if (BatchDispatcher.consumeRangesChanged()) BatchDispatcher.unparkReachable(jobBacklog, ServerBeeNetworkManager.getNetworks())
+        redispatchPendingBatches()
     }
 
     override fun getAllJobs(): List<BeeJob> = jobBacklog

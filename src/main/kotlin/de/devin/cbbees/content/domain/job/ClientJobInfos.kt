@@ -13,8 +13,9 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox
  * sync many players build it once per job and share it.
  *
  * @param stall why the job is stuck, or null
+ * @param unreachable the parts no hive can reach, or null
  */
-fun BeeJob.toClientInfo(server: MinecraftServer, stall: Stall?) = ClientJobInfo(
+fun BeeJob.toClientInfo(server: MinecraftServer, stall: Stall?, unreachable: Unreachable? = null) = ClientJobInfo(
     jobId = jobId,
     name = jobId.toString().substring(0, 6).uppercase(),
     status = status.name,
@@ -28,6 +29,7 @@ fun BeeJob.toClientInfo(server: MinecraftServer, stall: Stall?) = ClientJobInfo(
     jobType = jobType,
     ownerId = ownerId,
     ownerName = ownerId?.let { HiveJobsSyncPacket.playerName(server, it) },
+    unreachable = unreachable,
 )
 
 private fun BeeJob.remainingMaterials(): List<ItemStack> = tasks.asSequence()

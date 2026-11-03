@@ -62,6 +62,8 @@ object CBBeesConfig {
 
     // Performance settings
     val blockOperationBudgetMs: ModConfigSpec.DoubleValue
+    val adaptiveBlockBudget: ModConfigSpec.BooleanValue
+    val targetTickMs: ModConfigSpec.DoubleValue
     val taskGenerationBudgetMs: ModConfigSpec.DoubleValue
     val maxCheckpointsPerTick: ModConfigSpec.IntValue
     val redispatchInterval: ModConfigSpec.IntValue
@@ -287,8 +289,16 @@ object CBBeesConfig {
             .push("performance")
 
         blockOperationBudgetMs = builder
-            .comment("Milliseconds per server tick all bees together may spend placing and breaking blocks. Cheap blocks fit many per tick, heavy ones fewer. Lower values reduce TPS impact with many bees.")
+            .comment("Milliseconds per server tick all bees together may spend placing and breaking blocks. Cheap blocks fit many per tick, heavy ones fewer. Lower values reduce TPS impact with many bees. With adaptiveBlockBudget on, this is the minimum.")
             .defineInRange("blockOperationBudgetMs", 5.0, 0.5, 40.0)
+
+        adaptiveBlockBudget = builder
+            .comment("Let bees use spare tick time for placing and breaking blocks: the budget grows while bees wait for it and the server's average tick time is below targetTickMs, and shrinks when it goes above.")
+            .define("adaptiveBlockBudget", true)
+
+        targetTickMs = builder
+            .comment("Average server tick time (out of 50 ms) the adaptive block budget stays below. Lower leaves more room for other mods and players.")
+            .defineInRange("targetTickMs", 30.0, 10.0, 45.0)
 
         taskGenerationBudgetMs = builder
             .comment("Milliseconds per server tick spent scanning schematics and areas when planning build/removal jobs. Higher values finish planning faster; lower values reduce TPS impact.")

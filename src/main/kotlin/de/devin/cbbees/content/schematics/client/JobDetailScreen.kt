@@ -7,8 +7,10 @@ import de.devin.cbbees.icons.AllCCRGuiTextures
 import de.devin.cbbees.network.CancelJobPacket
 import de.devin.cbbees.network.RequestPlayerJobsPacket
 import net.createmod.catnip.gui.AbstractSimiScreen
+import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
+import net.minecraft.util.FormattedCharSequence
 import net.minecraft.world.item.ItemStack
 import net.neoforged.neoforge.network.PacketDistributor
 import java.util.UUID
@@ -27,6 +29,7 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         private const val SLOT = 18
         private const val SLOTS_PER_ROW = 10
         private const val MAX_SLOT_ROWS = 2
+        private const val MAX_NOTE_LINES = 5
 
         private const val GOLD = 0xFFD4AA00.toInt()
         private const val WHITE = 0xFFFFFF
@@ -114,16 +117,14 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         graphics.drawString(font, "Bees: ${j.activeBees} active", x + MARGIN, ty, GRAY, false)
         ty += LINE_H + 3
 
-        if (stall != null) {
-            val lines = font.splitter.splitLines(stall.describe(), innerW,
-                net.minecraft.network.chat.Style.EMPTY)
-            for ((i, line) in lines.withIndex()) {
-                if (i >= 3) {
-                    graphics.drawString(font, "...", x + MARGIN, ty, RED, false)
-                    ty += LINE_H
-                    break
-                }
-                graphics.drawString(font, line.string, x + MARGIN, ty, RED, false)
+        val notes = notes(j)
+        if (notes.isNotEmpty()) {
+            notes.take(MAX_NOTE_LINES).forEach { line ->
+                graphics.drawString(font, line, x + MARGIN, ty, RED, false)
+                ty += LINE_H
+            }
+            if (notes.size > MAX_NOTE_LINES) {
+                graphics.drawString(font, "...", x + MARGIN, ty, RED, false)
                 ty += LINE_H
             }
             ty += 2
@@ -151,6 +152,11 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         hoveredMaterial?.let { graphics.renderTooltip(font, it, mouseX, mouseY) }
     }
 
+    /** Why the job is stuck and what it can't reach, wrapped to the panel width with their colors kept. */
+    private fun notes(job: ClientJobInfo): List<FormattedCharSequence> =
+        (listOfNotNull(job.stall?.describe()?.copy()?.withStyle(ChatFormatting.RED)) + job.unreachable?.describe().orEmpty())
+            .flatMap { font.split(it, PANEL_W - MARGIN * 2) }
+
     private fun shortCount(count: Int): String = if (count >= 1000) "${count / 1000}k" else count.toString()
 
     private fun computePanelHeight(): Int {
@@ -160,11 +166,10 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         h += LINE_H // stats
         h += LINE_H + 3 // bees
 
-        if (j.stall != null) {
-            val lines = font.splitter.splitLines(j.stall.describe(), PANEL_W - MARGIN * 2,
-                net.minecraft.network.chat.Style.EMPTY)
-            h += minOf(lines.size, 3) * LINE_H + 2
-            if (lines.size > 3) h += LINE_H
+        val notes = notes(j)
+        if (notes.isNotEmpty()) {
+            h += minOf(notes.size, MAX_NOTE_LINES) * LINE_H + 2
+            if (notes.size > MAX_NOTE_LINES) h += LINE_H
         }
 
         val materials = j.materials.size

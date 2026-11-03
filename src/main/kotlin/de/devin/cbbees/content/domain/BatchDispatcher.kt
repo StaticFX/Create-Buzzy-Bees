@@ -51,6 +51,17 @@ object BatchDispatcher {
     /** Whether [wake] was called since the last time this returned true. */
     fun consumeWake(): Boolean = woken.also { woken = false }
 
+    private var rangesChanged = false
+
+    /** A hive's range changed or it came online: re-check parked batches and dispatch right away. */
+    fun rangesChanged() {
+        rangesChanged = true
+        wake()
+    }
+
+    /** Whether [rangesChanged] was called since the last time this returned true. */
+    fun consumeRangesChanged(): Boolean = rangesChanged.also { rangesChanged = false }
+
     /**
      * Sends bees out of every hive in [networks] that has one free, up to [limit] in total.
      *

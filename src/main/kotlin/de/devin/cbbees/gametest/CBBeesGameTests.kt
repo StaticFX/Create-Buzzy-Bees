@@ -21,6 +21,7 @@ object CBBeesGameTests {
 
     private val testHolders = arrayOf(
         de.devin.cbbees.gametest.flight.FlightPlanTests::class.java,
+        de.devin.cbbees.gametest.flight.ActionThrottleTests::class.java,
         de.devin.cbbees.gametest.inventory.BeeInventoryTests::class.java,
         de.devin.cbbees.gametest.inventory.ItemHandlerExtensionTests::class.java,
         de.devin.cbbees.gametest.deconstruction.DeconstructionTests::class.java,
@@ -37,6 +38,8 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.network.ProviderChoiceTests::class.java,
         de.devin.cbbees.gametest.built.BuiltSchematicTests::class.java,
         de.devin.cbbees.gametest.job.JobPhaseTests::class.java,
+        de.devin.cbbees.gametest.job.JobStallTests::class.java,
+        de.devin.cbbees.gametest.job.UnreachableTests::class.java,
         de.devin.cbbees.gametest.deconstruction.BreakSpeedTests::class.java,
         de.devin.cbbees.gametest.history.BeltHistoryTests::class.java,
         de.devin.cbbees.gametest.zapper.ZapperPlanningTests::class.java,

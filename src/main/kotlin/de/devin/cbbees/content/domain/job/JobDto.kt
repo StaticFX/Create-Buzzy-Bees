@@ -57,7 +57,9 @@ data class ClientJobInfo(
     val jobType: JobType = JobType.Construction,
     val ownerId: UUID? = null,
     /** The owner's name, for display only. */
-    val ownerName: String? = null
+    val ownerName: String? = null,
+    /** The parts no hive can reach, or null if it can reach everything. */
+    val unreachable: Unreachable? = null,
 ) {
     fun isOwnedBy(playerId: UUID): Boolean = ownerId == playerId
 

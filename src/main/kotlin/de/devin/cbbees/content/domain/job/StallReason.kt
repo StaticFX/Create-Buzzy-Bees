@@ -43,6 +43,9 @@ data class Stall(val reason: StallReason, val missing: List<Component> = emptyLi
     companion object {
         const val MAX_NAMED = 5
 
+        /** How long a reason has to last before players see it. */
+        const val SHOW_AFTER_TICKS = 40L
+
         fun missing(entries: List<Component>) =
             Stall(StallReason.MISSING_MATERIALS, entries.take(MAX_NAMED), (entries.size - MAX_NAMED).coerceAtLeast(0))
 

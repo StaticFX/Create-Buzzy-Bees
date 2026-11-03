@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.schematics.client
 
 import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.simibubi.create.AllSpecialTextures
 import com.simibubi.create.content.schematics.SchematicItem
@@ -21,6 +22,7 @@ import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.createmod.catnip.outliner.AABBOutline
 import net.createmod.catnip.render.DefaultSuperRenderTypeBuffer
 import net.createmod.catnip.render.SuperRenderTypeBuffer
+import net.createmod.catnip.theme.Color
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.core.BlockPos
@@ -32,6 +34,8 @@ import net.minecraft.world.phys.AABB
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import java.util.UUID
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Renders ghost blocks for incomplete construction tasks using Create's
@@ -49,6 +53,11 @@ object ConstructionRenderer {
 
     private const val NORMAL_COLOR = 0x6886c5
     private const val STUCK_COLOR = 0xFF5555
+    private const val BREATH_SECONDS = 1.6
+    private const val UNREACHABLE_INFLATE = 1 / 16.0
+
+    /** Outlines of each job's unreachable areas, rebuilt when the areas change. */
+    private val unreachableOutlines = mutableMapOf<UUID, Pair<List<BoundingBox>, List<AABBOutline>>>()
 
     private val outlineCache = mutableMapOf<UUID, AABBOutline>()
 
@@ -113,6 +122,7 @@ object ConstructionRenderer {
             outlineBoundsCache.clear()
             rendererCache.values.forEach { it.renderer.close() }
             rendererCache.clear()
+            unreachableOutlines.clear()
             lastDataVersion = -1L
             return
         }
@@ -165,9 +175,47 @@ object ConstructionRenderer {
         }
         profiler.pop()
 
+        profiler.push("renderUnreachable")
+        renderUnreachable(jobs, poseStack, superBuffer, camera, pt)
+        profiler.pop()
+
         superBuffer.draw()
         RenderSystem.enableCull()
         profiler.pop()
+    }
+
+    /**
+     * Pulses red boxes around the parts of a job no hive can reach. Shown for the player's own jobs
+     * and for the job they are looking at, so other players' problems don't fill the world.
+     */
+    private fun renderUnreachable(jobs: List<ClientJobInfo>, poseStack: PoseStack, buffer: SuperRenderTypeBuffer, camera: Vec3, pt: Float) {
+        val player = Minecraft.getInstance().player ?: return
+        val shown = jobs.filter { job ->
+            job.unreachable != null && (job.ownerId == null || job.isOwnedBy(player.uuid) || job.jobId == JobLookOverlay.hoveredJob)
+        }
+        unreachableOutlines.keys.retainAll(shown.mapTo(HashSet()) { it.jobId })
+        if (shown.isEmpty()) return
+
+        val breath = (sin(System.nanoTime() / 1e9 * 2 * PI / BREATH_SECONDS) + 1) / 2
+        val color = Color(STUCK_COLOR, false).setAlpha((0.3 + 0.7 * breath).toFloat())
+        val width = (1 / 16f) * (0.5f + breath.toFloat())
+
+        for (job in shown) {
+            val areas = job.unreachable!!.areas
+            val outlines = unreachableOutlines[job.jobId]?.takeIf { it.first == areas }?.second
+                ?: areas.map { box ->
+                    AABBOutline(AABB.of(box).inflate(UNREACHABLE_INFLATE).move(-box.minX().toDouble(), -box.minY().toDouble(), -box.minZ().toDouble()))
+                        .also { it.params.withFaceTexture(AllSpecialTextures.CHECKERED) }
+                }.also { unreachableOutlines[job.jobId] = areas to it }
+
+            areas.zip(outlines).forEach { (box, outline) ->
+                outline.params.colored(color).lineWidth(width)
+                val anchor = BlockPos(box.minX(), box.minY(), box.minZ())
+                SableCompat.render.draw(poseStack, anchor, camera, pt) { cam ->
+                    outline.render(poseStack, buffer, cam.subtract(Vec3.atLowerCornerOf(anchor)), pt)
+                }
+            }
+        }
     }
 
     private fun rebuildCache(jobs: List<ClientJobInfo>, clientLevel: Level, checkBlocks: Boolean) {

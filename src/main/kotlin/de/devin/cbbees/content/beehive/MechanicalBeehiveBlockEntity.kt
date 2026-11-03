@@ -7,6 +7,7 @@ import de.devin.cbbees.compat.sable.toWorld
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeManager
+import de.devin.cbbees.content.domain.BatchDispatcher
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -183,6 +184,9 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
             ServerBeeNetworkManager.unregisterWorker(this.id)
             ServerBeeNetworkManager.registerWorker(this)
         }
+        // RPM sets the range, so batches parked as out of reach may be reachable now
+        rangeTick = Long.MIN_VALUE
+        BatchDispatcher.rangesChanged()
     }
 
     override fun write(tag: CompoundTag, registries: HolderLookup.Provider, clientPacket: Boolean) {

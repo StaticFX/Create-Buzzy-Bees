@@ -1,6 +1,7 @@
 package de.devin.cbbees.network
 
 import de.devin.cbbees.content.bee.debug.BeeDebug
+import de.devin.cbbees.content.bee.flight.checkpoint.ActionThrottle
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.TransportDispatcher
@@ -39,6 +40,8 @@ object CCRServerEvents {
         profiler.push("tickScheduler")
         ServerTickScheduler.runScheduled()
         profiler.pop()
+
+        ActionThrottle.adjust(server.averageTickTimeNanos)
 
         profiler.push("beeManager")
         ServerBeeManager.init(overworld)

@@ -68,10 +68,26 @@ data class BeeJob(
     /** Pending batches set aside because no network can reach them; see [park]. */
     val parkedBatches: Collection<TaskBatch> get() = parked
 
+    /** Increases whenever [parkedBatches] changes, so views of it can be cached. */
+    var parkedVersion = 0
+        private set
+
     val tasks: List<BeeTask> get() = batches.flatMap { it.tasks }
 
     /** Why dispatch last found nothing to do for this job, or null when it is just waiting. */
     var stall: Stall? = null
+        set(value) {
+            if (value?.reason != field?.reason) stallSince = level.gameTime
+            field = value
+        }
+
+    /** Game time the current [stall] reason was first recorded. */
+    var stallSince = 0L
+        private set
+
+    /** The [stall] to show players: only once it has lasted, so a hive reconnecting after a chunk load doesn't flash one. */
+    fun visibleStall(): Stall? =
+        stall.takeIf { working.isEmpty() && level.gameTime - stallSince >= Stall.SHOW_AFTER_TICKS }
 
     var status: JobStatus = JobStatus.IN_PROGRESS
         internal set
@@ -130,7 +146,7 @@ data class BeeJob(
         when (old) {
             TaskStatus.PENDING -> {
                 pending.remove(batch)
-                parked.remove(batch)
+                if (parked.remove(batch)) parkedVersion++
             }
             TaskStatus.PICKED, TaskStatus.IN_PROGRESS -> {
                 working.remove(batch)
@@ -144,13 +160,19 @@ data class BeeJob(
 
     /** Sets a pending batch aside until a network can reach it; the job still can't finish without it. */
     internal fun park(batch: TaskBatch) {
-        if (pending.remove(batch)) parked.add(batch)
+        if (pending.remove(batch)) {
+            parked.add(batch)
+            parkedVersion++
+        }
         checkPhaseOpened()
     }
 
     /** Puts a parked batch back in line for dispatch. */
     internal fun unpark(batch: TaskBatch) {
-        if (parked.remove(batch)) pending.add(batch)
+        if (parked.remove(batch)) {
+            pending.add(batch)
+            parkedVersion++
+        }
     }
 
     private fun track(batch: TaskBatch) {

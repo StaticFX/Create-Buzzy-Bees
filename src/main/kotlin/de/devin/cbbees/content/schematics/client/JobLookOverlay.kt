@@ -28,6 +28,9 @@ object JobLookOverlay {
     private const val FADE_TICKS = 5f
 
     private var hovered: UUID? = null
+
+    /** The job the player is looking at, if any. */
+    val hoveredJob: UUID? get() = hovered
     private var hoverTicks = 0
 
     fun tick() {
@@ -93,6 +96,7 @@ object JobLookOverlay {
         add(Component.translatable("cbbees.job_overlay.progress", job.completed, job.total, percent).withStyle(ChatFormatting.GRAY))
         add(Component.translatable("cbbees.job_overlay.bees", job.activeBees).withStyle(ChatFormatting.GRAY))
         job.stall?.let { add(Component.translatable(it.reason.translationKey).withStyle(ChatFormatting.RED)) }
+        job.unreachable?.let { addAll(it.describe()) }
         add(Component.translatable("cbbees.job_overlay.details").withStyle(ChatFormatting.DARK_GRAY))
     }
 }
