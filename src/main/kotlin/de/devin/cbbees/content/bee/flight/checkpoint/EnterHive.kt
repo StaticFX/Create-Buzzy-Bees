@@ -31,6 +31,7 @@ class EnterHive : CheckpointAction {
         val deficit = 1.0f - bee.springTension
         hive.chargeReturnFuel(deficit, bee.getBeeContext())
         bee.returnCarriedFluid()
+        bee.returnCarriedItems()
 
         val beeItem = ItemStack(
             if (bee.type == BeeType.CONSTRUCTION)

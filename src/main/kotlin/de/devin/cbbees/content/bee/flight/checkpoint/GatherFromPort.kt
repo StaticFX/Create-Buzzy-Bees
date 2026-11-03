@@ -21,7 +21,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         val network = bee.network()
         if (network == null) {
             CreateBuzzyBeez.debug { "[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network" }
-            return bee.abandonTask()
+            return bee.abandonTask(level, gameTime)
         }
 
         val targetPort = network.ports.firstOrNull { it.id == providerId }
@@ -77,6 +77,6 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         }
 
         CreateBuzzyBeez.debug { "[GatherFromPort] Gather FAILED, no alternative provider — releasing batch" }
-        return bee.abandonTask()
+        return bee.abandonTask(level, gameTime)
     }
 }

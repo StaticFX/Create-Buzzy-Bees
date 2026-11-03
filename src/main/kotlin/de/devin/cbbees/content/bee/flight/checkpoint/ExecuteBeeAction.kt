@@ -58,7 +58,7 @@ class ExecuteBeeAction(
             failTicks++
             // If the action fails repeatedly (e.g., missing materials at placement),
             // release the batch and return home rather than looping forever.
-            if (failTicks >= MAX_ACTION_FAIL_TICKS) bee.abandonTask()
+            if (failTicks >= MAX_ACTION_FAIL_TICKS) bee.abandonTask(level, gameTime, useRetry = true)
         }
         return done
     }

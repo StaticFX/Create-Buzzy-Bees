@@ -15,7 +15,8 @@ enum class StallReason(val translationKey: String) {
     NO_BEES("cbbees.stall.no_bees"),
     NO_BUMBLE_BEES("cbbees.stall.no_bumble_bees"),
     MISSING_MATERIALS("cbbees.stall.missing_materials"),
-    NO_DROP_OFF("cbbees.stall.no_drop_off_port");
+    NO_DROP_OFF("cbbees.stall.no_drop_off_port"),
+    TASKS_FAILED("cbbees.stall.tasks_failed");
 
     companion object {
         val STREAM_CODEC: StreamCodec<ByteBuf, StallReason> =

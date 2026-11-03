@@ -1,5 +1,6 @@
 package de.devin.cbbees.gametest.construction
 
+import de.devin.cbbees.content.domain.job.StallReason
 import de.devin.cbbees.content.bee.flight.checkpoint.RechargeSpring
 import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.gametest.GameTestSetup
@@ -114,6 +115,48 @@ object ConstructionTests {
             // Vault should be empty
             val remaining = GameTestSetup.countItem(level, extractVault.blockPos.below(), Items.DIRT)
             check(remaining == 0) { "Vault should be empty, has $remaining" }
+        }
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 6000, setupTicks = 20)
+    @JvmStatic
+    fun construct_missingMaterials_showsWhy(helper: GameTestHelper) = helper.beeTest {
+        val scan = scanStructure {}
+        setupNetwork(scan)
+        val extractVault = scan.ports.find { it.isValidForPickup() }
+            ?: throw GameTestAssertException("No extract port found")
+        insertItems(extractVault.blockPos.below(), Items.DIRT, 4)
+
+        val placements = (1..3).flatMap { x -> (1..3).map { z ->
+            GameTestSetup.PlacementTask(helper.absolutePos(BlockPos(x, 1, z)), Blocks.DIRT.defaultBlockState(), listOf(ItemStack(Items.DIRT, 1)))
+        } }
+        val job = construct(placements)
+
+        awaitSuccess {
+            val stall = job.visibleStall()
+            check(stall?.reason == StallReason.MISSING_MATERIALS) { "Expected a missing-materials reason, got ${job.stall} (visible: $stall, working: ${job.workingBatches.size}, pending: ${job.pendingBatches.size})" }
+        }
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 6000, setupTicks = 20)
+    @JvmStatic
+    fun construct_portBrokenMidFlight_beesComeHomeAndJobShowsWhy(helper: GameTestHelper) = helper.beeTest {
+        val scan = scanStructure {}
+        setupNetwork(scan)
+        val port = scan.ports.find { it.isValidForPickup() }
+            ?: throw GameTestAssertException("No extract port found")
+        insertItems(port.blockPos.below(), Items.DIRT, 9)
+
+        val placements = (1..3).flatMap { x -> (1..3).map { z ->
+            GameTestSetup.PlacementTask(helper.absolutePos(BlockPos(x, 1, z)), Blocks.DIRT.defaultBlockState(), listOf(ItemStack(Items.DIRT, 1)))
+        } }
+        val job = construct(placements)
+        helper.runAfterDelay(3) { level.destroyBlock(port.blockPos, false) }
+
+        awaitSuccess {
+            val stall = job.visibleStall()
+            check(stall?.reason == StallReason.MISSING_MATERIALS) { "Expected a missing-materials reason, got ${job.stall} (visible: $stall)" }
+            check(scan.beehive!!.getActiveBeeCount() == 0) { "Bees still out: ${scan.beehive!!.getActiveBeeCount()}" }
         }
     }
 

@@ -9,6 +9,7 @@ import de.devin.cbbees.content.domain.task.TransportTask
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.SimpleContainer
+import net.minecraft.world.entity.item.ItemEntity
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
@@ -76,6 +77,16 @@ class ServerBeeData(
             ?: network?.dockPorts?.firstOrNull { it.testFilter(fluid) && it.canFill(fluid) }
         port?.fillFluid(fluid)
         carriedFluid = FluidStack.EMPTY
+    }
+
+    /** Hands items the bee still carries to a drop-off port, dropping whatever doesn't fit at the bee. */
+    fun returnCarriedItems() {
+        val network = network()
+        getInventoryContents().map(ItemStack::copy).forEach { stack ->
+            removeFromInventory(stack, stack.count)
+            val rest = network?.findDropOff(stack, hiveId)?.addItemStack(stack) ?: stack
+            if (!rest.isEmpty) _level.addFreshEntity(ItemEntity(_level, pos.x, pos.y, pos.z, rest))
+        }
     }
 
     fun carriedItem(): ItemStack =

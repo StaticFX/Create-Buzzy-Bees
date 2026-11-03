@@ -142,6 +142,7 @@
   "cbbees.stall.no_fuel": "Stuck: Portable beehive is out of honey!",
   "cbbees.stall.no_drop_off_port": "Stuck: no port to deliver items to",
   "cbbees.stall.missing_materials": "Stuck: Missing required materials!",
+  "cbbees.stall.tasks_failed": "Stuck: Some tasks failed repeatedly",
   "cbbees.stall.missing": "Missing: %s",
   "cbbees.stall.more": "+%s more",
   "cbbees.unreachable.blocks": "Out of reach: %s blocks",

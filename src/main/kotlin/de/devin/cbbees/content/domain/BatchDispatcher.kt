@@ -71,24 +71,27 @@ object BatchDispatcher {
         val open = jobs.filter { it.status == JobStatus.IN_PROGRESS && (it.pendingBatches.isNotEmpty() || it.parkedBatches.isNotEmpty()) }
         if (open.isEmpty()) return 0
 
-        val byLevel = networks.groupBy { it.level }
+        val cycle = Cycle(networks.groupBy { it.level })
         var dispatched = 0
         for (network in networks) {
             val level = network.level ?: continue
-            val levelNetworks = byLevel[level].orEmpty()
             for (hive in network.hives) {
                 while (dispatched < limit && hive.hasFreeBee()) {
-                    val batch = search(open, network, hive.pos, level, levelNetworks) { hive.canTake(network, it) } ?: break
+                    val batch = search(open, network, hive.pos, level, cycle) { hive.canTake(network, it) } ?: break
                     val previousNetwork = batch.assignedNetworkId
                     batch.assignedNetworkId = network.id
                     if (!hive.acceptBatch(batch)) {
                         batch.assignedNetworkId = previousNetwork
                         break
                     }
+                    cycle.served += batch.job
                     dispatched++
                 }
             }
         }
+
+        // One reason per job from what every hive ran into, so hives that can't help don't overwrite it
+        cycle.blockers.forEach { (job, blockers) -> if (job !in cycle.served) job.stall = blockers.stall() }
 
         // Jobs no hive could look at; anything else keeps the reason from its last search
         open.filter { it.workingBatches.isEmpty() }.forEach { job ->
@@ -97,15 +100,25 @@ object BatchDispatcher {
                 inLevel.isEmpty() -> job.stall = Stall(StallReason.NO_NETWORK)
                 inLevel.all { network -> network.hives.all { it.getAvailableBeeCount() + it.getActiveBeeCount() == 0 } } ->
                     job.stall = Stall(StallReason.NO_BEES)
-                job.pendingBatches.isEmpty() -> job.stall = Stall(StallReason.OUT_OF_RANGE)
+                job.pendingBatches.isEmpty() && job.parkedBatches.isNotEmpty() -> job.stall = Stall(StallReason.OUT_OF_RANGE)
             }
         }
+
+        // Nothing left to do, yet not finished: some tasks failed for good
+        jobs.filter { it.status == JobStatus.IN_PROGRESS && it.pendingBatches.isEmpty() && it.parkedBatches.isEmpty() && it.workingBatches.isEmpty() && !it.isComplete() }
+            .forEach { it.stall = Stall(StallReason.TASKS_FAILED) }
         return dispatched
+    }
+
+    /** What one [dispatch] run collects across all hives before it settles each job's reason. */
+    private class Cycle(val networksByLevel: Map<Level?, List<BeeNetwork>>) {
+        val blockers = HashMap<BeeJob, Blockers>()
+        val served = HashSet<BeeJob>()
     }
 
     /** Next batch a bee of [network] at [from] should work on, limited to the batches it [canTake]. */
     fun next(jobs: List<BeeJob>, network: BeeNetwork, from: BlockPos, level: Level, canTake: (TaskBatch) -> Boolean): TaskBatch? =
-        search(jobs.filter { it.status == JobStatus.IN_PROGRESS }, network, from, level, levelNetworks = null, canTake)
+        search(jobs.filter { it.status == JobStatus.IN_PROGRESS }, network, from, level, cycle = null, canTake)
 
     /** Puts parked batches back in line once any network in their level reaches them. */
     fun unparkReachable(jobs: List<BeeJob>, networks: List<BeeNetwork>) {
@@ -118,15 +131,15 @@ object BatchDispatcher {
     }
 
     /**
-     * With [levelNetworks] (the hive cycle), records why jobs yield nothing and parks batches
-     * none of those networks can reach; bees asking on their way home only skip such batches.
+     * With a [cycle] (the hive dispatch), collects why jobs yield nothing and parks batches no
+     * network in the level can reach; bees asking on their way home only skip such batches.
      */
     private fun search(
         jobs: List<BeeJob>,
         network: BeeNetwork,
         from: BlockPos,
         level: Level,
-        levelNetworks: List<BeeNetwork>?,
+        cycle: Cycle?,
         canTake: (TaskBatch) -> Boolean,
     ): TaskBatch? {
         val materials = MaterialCheck(network)
@@ -136,11 +149,12 @@ object BatchDispatcher {
             .firstNotNullOfOrNull { job ->
                 val blockers = Blockers()
                 nextIn(job, network, materials, blockers, canTake).also {
-                    if (levelNetworks != null) {
-                        blockers.unreachable.filter { batch -> levelNetworks.none { it.isInRange(batch.targetPosition) } }.forEach(job::park)
+                    if (cycle != null) {
+                        val reach = cycle.networksByLevel[level].orEmpty()
+                        blockers.unreachable.filter { batch -> reach.none { it.isInRange(batch.targetPosition) } }.forEach(job::park)
+                        cycle.blockers.getOrPut(job, ::Blockers).merge(blockers)
                     }
                     if (blockers.isMissingMaterials()) MaterialRequests.report(network, job)
-                    if (it == null && levelNetworks != null) job.stall = blockers.stall()
                 }
             }
     }
@@ -219,16 +233,25 @@ object BatchDispatcher {
 
         fun isMissingMaterials() = missingItems.isNotEmpty() || missingFluids.isNotEmpty()
 
+        fun merge(other: Blockers) {
+            outOfRange = outOfRange || other.outOfRange
+            hive = hive ?: other.hive
+            noDropOff = noDropOff || other.noDropOff
+            other.missingItems.forEach { (key, count) -> missingItems.merge(key, count, ::maxOf) }
+            other.missingFluids.forEach { (fluid, amount) -> missingFluids.merge(fluid, amount, ::maxOf) }
+        }
+
         fun stall(): Stall? {
             val hive = hive
+            // Out of one network's range comes last: batches no network reaches are parked and shown separately
             return when {
-                outOfRange -> Stall(StallReason.OUT_OF_RANGE)
                 hive != null -> Stall(hive)
                 isMissingMaterials() -> Stall.missing(
                     missingItems.map { (key, count) -> Component.literal("${count}x ").append(key.stack.hoverName) } +
                         missingFluids.map { (fluid, amount) -> Component.literal("${amount}mB ").append(FluidStack(fluid, amount).hoverName) }
                 )
                 noDropOff -> Stall(StallReason.NO_DROP_OFF)
+                outOfRange -> Stall(StallReason.OUT_OF_RANGE)
                 else -> null
             }
         }

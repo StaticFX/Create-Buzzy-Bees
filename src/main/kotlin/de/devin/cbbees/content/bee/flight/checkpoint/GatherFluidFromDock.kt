@@ -22,7 +22,7 @@ class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointA
     }
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val network = bee.network() ?: return bee.abandonTask()
+        val network = bee.network() ?: return bee.abandonTask(level, gameTime)
 
         if (!FluidStack.isSameFluidSameComponents(bee.carriedFluid, fluid)) bee.returnCarriedFluid()
 
@@ -36,6 +36,6 @@ class GatherFluidFromDock(val fluid: FluidStack, val portId: UUID) : CheckpointA
             return true
         }
 
-        return bee.abandonTask()
+        return bee.abandonTask(level, gameTime)
     }
 }
