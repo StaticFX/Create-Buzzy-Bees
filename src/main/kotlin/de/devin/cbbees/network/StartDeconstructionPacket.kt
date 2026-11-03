@@ -46,7 +46,7 @@ class StartDeconstructionPacket(
         job: BeeJob,
         onComplete: (List<TaskBatch>, BlockPos) -> Unit
     ) {
-        CreateBuzzyBeez.LOGGER.info("Received deconstruction request from ${player.name.string} for area $pos1 to $pos2")
+        CreateBuzzyBeez.debug { "Received deconstruction request from ${player.name.string} for area $pos1 to $pos2" }
         val bridge = SchematicCreateBridge(player.level())
         val budgetMs = CBBeesConfig.taskGenerationBudgetMs.get()
         bridge.generateRemovalTasksAsync(pos1, pos2, job, budgetMs) { batches ->

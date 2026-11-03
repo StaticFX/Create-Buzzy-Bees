@@ -58,7 +58,7 @@ class CreateModSchematicSource(
 
                 val (message, signature) = buildHmacHeaders()
 
-                CreateBuzzyBeez.LOGGER.info("Sending request to $url with HMAC headers: $message - $signature")
+                CreateBuzzyBeez.debug { "Sending request to $url with HMAC headers: $message - $signature" }
 
                 val request = HttpRequest.newBuilder()
                     .uri(URI.create(url))

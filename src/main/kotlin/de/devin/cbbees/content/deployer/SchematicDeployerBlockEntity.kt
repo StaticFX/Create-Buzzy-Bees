@@ -322,7 +322,7 @@ class SchematicDeployerBlockEntity(
      */
     private fun syncJobToClients(job: BeeJob, batches: List<TaskBatch>) {
         val level = level as? ServerLevel ?: return
-        val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(job.toClientInfo(level.server, reason = null)))
+        val snapshot = HiveSnapshot(ClientNetworkInfo("Deployer", 0, 0, 0), listOf(job.toClientInfo(level.server, stall = null)))
         val packet = HiveJobsSyncPacket(blockPos, snapshot)
         for (player in level.server.playerList.players) {
             if (player.level() == level && level.worldDistanceSqr(player.position(), Vec3.atCenterOf(blockPos)) < SYNC_RANGE_SQR) {

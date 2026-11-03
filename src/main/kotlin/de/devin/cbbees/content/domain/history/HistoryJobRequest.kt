@@ -72,8 +72,6 @@ class HistoryJobRequest(
     }
 
     companion object {
-        private const val PLACEMENT_PHASE = 4
-
         fun reverseBatches(level: Level, edits: Map<BlockPos, BlockChange>, job: BeeJob): List<TaskBatch> {
             val maxY = edits.keys.maxOf { it.y }
             val removals = edits.keys.filterNot { level.getBlockState(it).isAir }
@@ -86,8 +84,7 @@ class HistoryJobRequest(
 
         private fun restoreBatch(pos: BlockPos, change: BlockChange, job: BeeJob): TaskBatch {
             val task = BeeTask(change.undo, job, BlockPlacementClassifier.calculatePriority(pos, change.before.state))
-            val phase = if (change.undo is PlaceFluidAction) BlockPlacementClassifier.FLUID_PHASE else PLACEMENT_PHASE
-            return TaskBatch(listOf(task), job, pos, phase)
+            return TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.placementPhase(isFluid = change.undo is PlaceFluidAction))
         }
 
         fun reverseEdits(entry: HistoryEntry, currentState: (BlockPos) -> BlockState): Map<BlockPos, BlockChange> =

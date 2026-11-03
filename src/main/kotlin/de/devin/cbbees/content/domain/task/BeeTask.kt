@@ -46,6 +46,7 @@ data class BeeTask(
      */
     fun complete() {
         status = TaskStatus.COMPLETED
+        job.checkPhaseOpened()
         job.checkCompletion()
     }
 

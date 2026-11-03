@@ -10,7 +10,6 @@ import com.simibubi.create.content.logistics.stockTicker.PackageOrderWithCrafts
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.domain.job.MissingMaterials
 import de.devin.cbbees.content.domain.network.INetworkComponent
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
@@ -49,7 +48,6 @@ class WagglePortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bloc
             if (level?.isClientSide == false) ServerBeeNetworkManager.getNetworkFor(this)?.pendingRequests?.clear(id)
         }
 
-    private var nextRequestTick = 0L
     var lastOrder: List<BigItemStack> = emptyList()
         private set
 
@@ -73,19 +71,10 @@ class WagglePortBlockEntity(type: BlockEntityType<*>, pos: BlockPos, state: Bloc
         super.destroy()
     }
 
-    override fun tick() {
-        super.tick()
-        val level = level ?: return
-        if (level.isClientSide || level.gameTime < nextRequestTick) return
-        nextRequestTick = level.gameTime + CBBeesConfig.waggleRequestInterval.get()
-        requestMissing(level.gameTime)
-    }
-
-    fun requestMissing(now: Long): List<BigItemStack> {
-        if (address.isBlank()) return emptyList()
+    /** Orders whatever of [missing] the linked logistics network has in stock and nobody ordered yet. */
+    fun requestMissing(missing: List<BigItemStack>, now: Long): List<BigItemStack> {
+        if (address.isBlank() || missing.isEmpty()) return emptyList()
         val network = ServerBeeNetworkManager.getNetworkFor(this) ?: return emptyList()
-        val missing = MissingMaterials.forNetwork(network)
-        if (missing.isEmpty()) return emptyList()
 
         val stock = LogisticsManager.getSummaryOfNetwork(link.freqId, true)
         val order = network.pendingRequests.plan(missing, stock::getCountOf, now)

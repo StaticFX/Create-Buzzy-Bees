@@ -45,7 +45,8 @@ data class ClientJobInfo(
     val status: String,        // JobStatus name
     val completed: Int,
     val total: Int,
-    val reason: String?,       // null if not stuck
+    /** Why the job is stuck, or null if it isn't. */
+    val stall: Stall?,
     /** Bees currently working on this job. */
     val beeIds: List<UUID>,
     /** Items the unfinished tasks still need, merged by item. */

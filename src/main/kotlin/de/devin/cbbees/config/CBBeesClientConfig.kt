@@ -11,8 +11,9 @@ object CBBeesClientConfig {
     val ghostBlockOpacity: ModConfigSpec.DoubleValue
     val renderGhostBlockEntities: ModConfigSpec.BooleanValue
     val maxGhostBlockEntities: ModConfigSpec.IntValue
-    val beeShadowDistance: ModConfigSpec.IntValue
+    val beeRenderDistance: ModConfigSpec.IntValue
     val beeItemRenderDistance: ModConfigSpec.IntValue
+    val maxRenderedBees: ModConfigSpec.IntValue
     val keepSelectionBetweenPlanners: ModConfigSpec.BooleanValue
 
     init {
@@ -43,15 +44,19 @@ object CBBeesClientConfig {
 
         maxGhostBlockEntities = builder
             .comment("Maximum number of block entities to render per ghost preview, including belts. Lower values improve performance.")
-            .defineInRange("maxGhostBlockEntities", 100, 1, 1024)
+            .defineInRange("maxGhostBlockEntities", 256, 1, 1024)
 
-        beeShadowDistance = builder
-            .comment("Maximum distance (blocks) at which bee shadows are rendered. Lower for better FPS with many bees.")
-            .defineInRange("beeShadowDistance", 16, 4, 32)
+        beeRenderDistance = builder
+            .comment("Maximum distance (blocks) at which bees are rendered. Lower for better FPS with many bees.")
+            .defineInRange("beeRenderDistance", 64, 16, 256)
 
         beeItemRenderDistance = builder
             .comment("Maximum distance (blocks) at which carried items on bumble bees are rendered.")
             .defineInRange("beeItemRenderDistance", 24, 8, 64)
+
+        maxRenderedBees = builder
+            .comment("Maximum number of bees rendered at once. When more are in view, only the nearest ones are drawn. Lower for better FPS with many bees.")
+            .defineInRange("maxRenderedBees", 512, 0, 8192)
 
         builder.pop()
 

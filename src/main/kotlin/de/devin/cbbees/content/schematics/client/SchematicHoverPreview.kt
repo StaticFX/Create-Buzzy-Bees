@@ -97,6 +97,7 @@ object SchematicHoverPreview {
         currentSchematic = filename
         cachedTemplate = null
         schematicSize = Vec3i.ZERO
+        renderers.forEach { it?.close() }
         renderers = arrayOf(null, null, null)
         rendererBuilding = booleanArrayOf(false, false, false)
         outline = null
@@ -231,7 +232,7 @@ object SchematicHoverPreview {
                 TransformStack.of(poseStack).rotateYDegrees(rot)
                 poseStack.translate(-xO, 0.0, -zO)
 
-                renderer.render(poseStack, transparentBuffer)
+                renderer.renderGhost(poseStack, transparentBuffer, opacity)
                 poseStack.popPose()
             }
         }
@@ -255,6 +256,7 @@ object SchematicHoverPreview {
         currentSchematic = null
         cachedTemplate = null
         schematicSize = Vec3i.ZERO
+        renderers.forEach { it?.close() }
         renderers = arrayOf(null, null, null)
         rendererBuilding = booleanArrayOf(false, false, false)
         outline = null

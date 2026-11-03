@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.block.ModelBlockRenderer
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.SectionPos
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.BlockAndTintGetter
 import net.minecraft.world.level.LightLayer
@@ -27,6 +28,7 @@ import net.minecraft.world.level.material.Fluids
 import net.neoforged.neoforge.client.model.data.ModelData
 import java.util.BitSet
 import java.util.TreeMap
+import org.joml.Vector3f
 
 /**
  * Extends Create's [SchematicRenderer] to render ALL blocks regardless of
@@ -61,12 +63,23 @@ class GhostSchematicRenderer(
     private var modelOnlyBlockEntities: List<BlockEntity> = emptyList()
     private var needsRedraw = true
 
+    /** Schematic positions per 16³ section, for [renderGhost]. */
+    private val sectionBlocks: Map<Long, List<BlockPos>> by lazy {
+        schematic.blockMap.keys.map(BlockPos::immutable).groupBy(::sectionKey)
+    }
+    private val sectionMeshes = HashMap<Long, GhostMesh>()
+    private val dirtySections = LinkedHashSet<Long>()
+    private var sectionAlpha = Float.NaN
+    private var blockEntitiesStale = true
+
     @Volatile
     var isReady = false
         private set
 
     companion object {
         private val OBJECTS = ThreadLocal.withInitial { Objects() }
+        private const val SECTION_BUILD_BUDGET_NANOS = 3_000_000L
+        private val SECTION_NEIGHBOURS = listOf(BlockPos.ZERO) + Direction.entries.map { BlockPos.ZERO.relative(it) }
     }
 
     private class LayerCutLevel(private val level: BlockAndTintGetter, private val maxY: Int) : BlockAndTintGetter by level {
@@ -125,6 +138,7 @@ class GhostSchematicRenderer(
             }
         }
         modelOnlyBlockEntities = schematic.renderedBlockEntities.filter { hasNoModel(it.blockState) }
+        blockEntitiesStale = false
         needsRedraw = false
         isReady = true
     }
@@ -158,7 +172,85 @@ class GhostSchematicRenderer(
         sliceCache.headMap(maxY, true).values.forEach { slice ->
             for ((layer, buffer) in slice) buffer.renderInto(ms, buffers.getBuffer(layer))
         }
+        renderBlockEntities(ms, buffers, maxY)
+    }
 
+    /**
+     * Renders the geometry translucent at [alpha] from [GhostMesh]es on the GPU, for ghosts drawn in
+     * the world every frame. Block entities still go to [buffers], which should apply the same alpha.
+     *
+     * The geometry is split into 16³ sections, so [blocksChanged] only rebuilds the sections it touches,
+     * and each frame builds sections for at most [SECTION_BUILD_BUDGET_NANOS]; a large ghost appears
+     * over a few frames instead of stalling one.
+     */
+    fun renderGhost(ms: PoseStack, buffers: SuperRenderTypeBuffer, alpha: Float) {
+        val mc = Minecraft.getInstance()
+        if (mc.level == null || mc.player == null) return
+
+        val pose = ms.last().pose()
+        val camera = GhostMesh.cameraIn(pose)
+        if (alpha != sectionAlpha) {
+            sectionAlpha = alpha
+            dirtySections += sectionBlocks.keys
+        }
+        buildDirtySections(alpha, camera)
+
+        GhostMesh.drawAll(sectionMeshes.entries.sortedByDescending { (key, _) -> sectionCenterDistSq(key, camera) }.map { it.value }, pose)
+
+        if (blockEntitiesStale) {
+            modelOnlyBlockEntities = schematic.renderedBlockEntities.filter { hasNoModel(it.blockState) }
+            blockEntitiesStale = false
+        }
+        renderBlockEntities(ms, buffers, Int.MAX_VALUE)
+    }
+
+    /** Rebuilds only the sections around [positions] (schematic-local) after blocks were removed from the schematic. */
+    fun blocksChanged(positions: Collection<BlockPos>) {
+        for (pos in positions) {
+            // A removed block on a section edge uncovers faces in the neighbouring section
+            for (offset in SECTION_NEIGHBOURS) {
+                val key = sectionKey(pos.offset(offset))
+                if (key in sectionBlocks) dirtySections += key
+            }
+        }
+        blockEntitiesStale = true
+        needsRedraw = true
+    }
+
+    /** Frees the GPU meshes. Call on the render thread once this renderer is no longer used. */
+    fun close() {
+        sectionMeshes.values.forEach(GhostMesh::close)
+        sectionMeshes.clear()
+        sectionAlpha = Float.NaN
+    }
+
+    private fun buildDirtySections(alpha: Float, camera: Vector3f) {
+        val deadline = System.nanoTime() + SECTION_BUILD_BUDGET_NANOS
+        val iterator = dirtySections.iterator()
+        while (iterator.hasNext() && System.nanoTime() < deadline) {
+            val key = iterator.next()
+            iterator.remove()
+            val blocks = buildMap {
+                sectionBlocks[key]?.forEach { pos -> schematic.blockMap[pos]?.let { put(pos, it) } }
+            }
+            val geometry = RenderType.chunkBufferLayers().map { tesselate(it, blocks.entries, schematic) }.filterNot { it.isEmpty }
+            val mesh = if (geometry.isEmpty()) null else GhostMesh.build(geometry, alpha, camera)
+            sectionMeshes.remove(key)?.close()
+            mesh?.let { sectionMeshes[key] = it }
+        }
+    }
+
+    private fun sectionCenterDistSq(key: Long, camera: Vector3f): Float {
+        val dx = SectionPos.sectionToBlockCoord(SectionPos.x(key), 8) - origin.x - camera.x
+        val dy = SectionPos.sectionToBlockCoord(SectionPos.y(key), 8) - origin.y - camera.y
+        val dz = SectionPos.sectionToBlockCoord(SectionPos.z(key), 8) - origin.z - camera.z
+        return dx * dx + dy * dy + dz * dz
+    }
+
+    private fun sectionKey(pos: BlockPos): Long =
+        SectionPos.asLong(SectionPos.blockToSectionCoord(pos.x), SectionPos.blockToSectionCoord(pos.y), SectionPos.blockToSectionCoord(pos.z))
+
+    private fun renderBlockEntities(ms: PoseStack, buffers: SuperRenderTypeBuffer, maxY: Int) {
         val candidates = if (renderAllBlockEntities || CBBeesClientConfig.renderGhostBlockEntities.get())
             (modelOnlyBlockEntities + schematic.renderedBlockEntities).distinct()
         else modelOnlyBlockEntities

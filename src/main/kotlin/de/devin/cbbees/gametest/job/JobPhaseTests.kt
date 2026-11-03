@@ -1,10 +1,12 @@
 package de.devin.cbbees.gametest.job
 
+import de.devin.cbbees.content.domain.BatchDispatcher
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
+import de.devin.cbbees.content.domain.task.TaskStatus
 import de.devin.cbbees.gametest.dsl.unitTest
 import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
@@ -39,6 +41,23 @@ object JobPhaseTests {
         assertTrue(job.isPhaseReady(1), "nothing earlier is open")
         job.addBatches(listOf(batch(job, 0)))
         assertTrue(!job.isPhaseReady(1), "the new earlier batch blocks it in the same tick")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun finishingTheMainActionOfAPhase_wakesTheDispatcher(helper: GameTestHelper) = helper.unitTest {
+        val job = job(helper)
+        val first = batch(job, 0, BlockPos(0, 0, 0))
+        val second = batch(job, 0, BlockPos(1, 0, 0))
+        job.addBatches(listOf(first, second, batch(job, 1, BlockPos(2, 0, 0))))
+        listOf(first, second).forEach { it.status = TaskStatus.IN_PROGRESS }
+        BatchDispatcher.consumeWake()
+
+        first.tasks.first().complete()
+        assertTrue(!BatchDispatcher.consumeWake(), "the phase is still open while the second batch works")
+        second.tasks.first().complete()
+        assertTrue(BatchDispatcher.consumeWake(), "the next phase opens once every main action is done")
+        assertTrue(job.isPhaseReady(1), "batches still dropping off don't hold the next phase back")
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)

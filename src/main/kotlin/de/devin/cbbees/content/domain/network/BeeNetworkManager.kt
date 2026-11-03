@@ -55,7 +55,7 @@ object ServerBeeNetworkManager {
         networkById.clear()
         componentToNetwork.clear()
         hiveById.clear()
-        CreateBuzzyBeez.LOGGER.info("Cleared $size networks")
+        CreateBuzzyBeez.debug { "Cleared $size networks" }
     }
 
     fun registerComponent(component: INetworkComponent) {
@@ -75,16 +75,16 @@ object ServerBeeNetworkManager {
             }
             portableNet.addComponent(component)
             rebuildIndexes()
-            CreateBuzzyBeez.LOGGER.info("[NET] Registered PortableBeeHive into isolated network $stableId")
+            CreateBuzzyBeez.debug { "[NET] Registered PortableBeeHive into isolated network $stableId" }
             return
         }
 
-        CreateBuzzyBeez.LOGGER.info("[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}")
+        CreateBuzzyBeez.debug { "[NET] registerComponent: ${component.javaClass.simpleName} at ${component.pos}, isAnchor=${component.isAnchor()}, networkId=${component.networkId}" }
 
         val nearbyNetworks = networks.filter { it.canConnect(component) }.toMutableList()
-        CreateBuzzyBeez.LOGGER.info("[NET]   canConnect matched ${nearbyNetworks.size} network(s)")
+        CreateBuzzyBeez.debug { "[NET]   canConnect matched ${nearbyNetworks.size} network(s)" }
         for (net in nearbyNetworks) {
-            CreateBuzzyBeez.LOGGER.info("[NET]     - network ${net.id} (${net.components.size} components)")
+            CreateBuzzyBeez.debug { "[NET]     - network ${net.id} (${net.components.size} components)" }
         }
 
         // Anchors (beehives) can reconnect by saved networkId during world load,
@@ -96,7 +96,7 @@ object ServerBeeNetworkManager {
             if (idNetwork != null && !nearbyNetworks.contains(idNetwork)) {
                 if (idNetwork.level == null || idNetwork.level == component.world) {
                     nearbyNetworks.add(idNetwork)
-                    CreateBuzzyBeez.LOGGER.info("[NET]   anchor ID-match added network ${idNetwork.id}")
+                    CreateBuzzyBeez.debug { "[NET]   anchor ID-match added network ${idNetwork.id}" }
                 }
             }
         }
@@ -105,7 +105,7 @@ object ServerBeeNetworkManager {
         // They must join an existing network that has an anchor (mechanical beehive).
         if (nearbyNetworks.isEmpty() && !component.isAnchor()) {
             component.orphan()
-            CreateBuzzyBeez.LOGGER.info("[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}")
+            CreateBuzzyBeez.debug { "[NET]   REJECTED: no network with anchor for ${component.javaClass.simpleName} at ${component.pos}" }
             return
         }
 
@@ -114,7 +114,7 @@ object ServerBeeNetworkManager {
         if (nearbyNetworks.isEmpty()) {
             targetNetwork = BeeNetwork(component.networkId ?: UUID.randomUUID(), topology)
             networks.add(targetNetwork)
-            CreateBuzzyBeez.LOGGER.info("[NET]   CREATED new network ${targetNetwork.id}")
+            CreateBuzzyBeez.debug { "[NET]   CREATED new network ${targetNetwork.id}" }
         } else {
             targetNetwork = nearbyNetworks.first()
             if (nearbyNetworks.size > 1) {
@@ -122,9 +122,9 @@ object ServerBeeNetworkManager {
                     targetNetwork.merge(other)
                     networks.remove(other)
                 }
-                CreateBuzzyBeez.LOGGER.info("[NET]   MERGED ${nearbyNetworks.size} networks into ${targetNetwork.id}")
+                CreateBuzzyBeez.debug { "[NET]   MERGED ${nearbyNetworks.size} networks into ${targetNetwork.id}" }
             } else {
-                CreateBuzzyBeez.LOGGER.info("[NET]   JOINED existing network ${targetNetwork.id}")
+                CreateBuzzyBeez.debug { "[NET]   JOINED existing network ${targetNetwork.id}" }
             }
         }
 
@@ -150,7 +150,7 @@ object ServerBeeNetworkManager {
 
     private fun scanAndJoinNearbyComponents(network: BeeNetwork, level: Level, pos: BlockPos, range: Double) {
         val r = range.toInt()
-        CreateBuzzyBeez.LOGGER.info("[NET] scanAndJoin: from $pos, range=$range (r=$r)")
+        CreateBuzzyBeez.debug { "[NET] scanAndJoin: from $pos, range=$range (r=$r)" }
         val minX = (pos.x - r) shr 4
         val maxX = (pos.x + r) shr 4
         val minZ = (pos.z - r) shr 4
@@ -162,16 +162,16 @@ object ServerBeeNetworkManager {
                 for (be in chunk.blockEntities.values) {
                     if (be is INetworkComponent && be !in network.components) {
                         val connects = network.canConnect(be)
-                        CreateBuzzyBeez.LOGGER.info("[NET]   scan found ${be.javaClass.simpleName} at ${be.blockPos}, canConnect=$connects")
+                        CreateBuzzyBeez.debug { "[NET]   scan found ${be.javaClass.simpleName} at ${be.blockPos}, canConnect=$connects" }
                         if (connects) {
                             val other = getNetworkFor(be)
                             if (other != null && other != network) {
                                 network.merge(other)
                                 networks.remove(other)
-                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: merged network ${other.id}")
+                                CreateBuzzyBeez.debug { "[NET]   scan: merged network ${other.id}" }
                             } else {
                                 network.addComponent(be)
-                                CreateBuzzyBeez.LOGGER.info("[NET]   scan: added ${be.javaClass.simpleName} at ${be.blockPos}")
+                                CreateBuzzyBeez.debug { "[NET]   scan: added ${be.javaClass.simpleName} at ${be.blockPos}" }
                             }
                         }
                     }
@@ -297,7 +297,7 @@ object ServerBeeNetworkManager {
         for (net in networks) {
             if (net.id != stableId && net.components.contains(hive)) {
                 net.removeComponent(hive)
-                CreateBuzzyBeez.LOGGER.debug("[NET] Removed stale PortableBeeHive from network {}", net.id)
+                CreateBuzzyBeez.debug { "[NET] Removed stale PortableBeeHive from network ${net.id}" }
                 needsRebuild = true
             }
         }
@@ -373,7 +373,7 @@ object ClientBeeNetworkManager {
         val size = networks.size
         networks.clear()
         serverSnapshot.clear()
-        CreateBuzzyBeez.LOGGER.info("Cleared $size client networks")
+        CreateBuzzyBeez.debug { "Cleared $size client networks" }
     }
 
     fun getNetwork(id: UUID): BeeNetwork {

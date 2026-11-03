@@ -2,7 +2,6 @@ package de.devin.cbbees.content.domain.job
 
 import com.simibubi.create.content.logistics.BigItemStack
 import com.simibubi.create.content.schematics.cannon.MaterialChecklist
-import de.devin.cbbees.content.domain.GlobalJobPool
 import de.devin.cbbees.content.domain.action.ItemConsumingAction
 import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.task.BeeTask
@@ -17,10 +16,11 @@ object MissingMaterials {
     fun checklistFor(job: BeeJob, network: BeeNetwork?): MaterialChecklist =
         checklist(job.tasks.filter { it.status !in FINISHED }, network)
 
-    fun forNetwork(network: BeeNetwork): List<BigItemStack> {
-        val tasks = GlobalJobPool.getAllJobs()
+    /** What [network] still needs to order for the pending batches of [jobs] it can work on. */
+    fun forJobs(network: BeeNetwork, jobs: Collection<BeeJob>): List<BigItemStack> {
+        val tasks = jobs
             .filter { it.status == JobStatus.IN_PROGRESS }
-            .flatMap { it.batches }
+            .flatMap { it.pendingBatches }
             .filter(network::canWorkOn)
             .flatMap { it.tasks }
         return if (tasks.isEmpty()) emptyList() else toRequest(tasks, network)

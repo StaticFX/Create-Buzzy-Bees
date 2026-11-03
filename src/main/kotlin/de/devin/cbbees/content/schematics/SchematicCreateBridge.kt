@@ -86,7 +86,7 @@ class SchematicCreateBridge(
 
             schematicStack = blueprint.copy()
             isLoaded = true
-            CreateBuzzyBeez.LOGGER.info("Schematic loaded successfully")
+            CreateBuzzyBeez.debug { "Schematic loaded successfully" }
             return true
 
         } catch (e: Exception) {
@@ -379,13 +379,13 @@ class SchematicCreateBridge(
             job = job
         )
 
-        batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos, BUILD_PHASE))
+        batches.add(TaskBatch(listOf(buildTask), job, buildTask.targetPos, BlockPlacementClassifier.PLACEMENT_PHASE))
     }
 
     private fun handleFluid(pos: BlockPos, state: BlockState, job: BeeJob, batches: MutableList<TaskBatch>) {
         val fluid = FluidStack(state.fluidState.type, ServerBeeData.FLUID_CAPACITY)
         val task = BeeTask.placeFluid(pos, fluid, BlockPlacementClassifier.calculatePriority(pos, state), job)
-        batches.add(TaskBatch(listOf(task), job, pos, BUILD_PHASE + BlockPlacementClassifier.FLUID_PHASE))
+        batches.add(TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.FLUID_PLACEMENT_PHASE))
     }
 
     private fun handleBeltPlacement(
@@ -472,7 +472,7 @@ class SchematicCreateBridge(
         if (startShaftTask != null) startShaftPos.let(handledPositions::add)
         if (endShaftTask != null) endShaftPos.let(handledPositions::add)
 
-        batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos, BUILD_PHASE))
+        batches.add(TaskBatch(tasksInBatch, job, buildTask.targetPos, BlockPlacementClassifier.PLACEMENT_PHASE))
     }
 
     private fun createShaftTaskIfPresent(
@@ -510,8 +510,6 @@ class SchematicCreateBridge(
     }
 
     companion object {
-        private const val BUILD_PHASE = 4
-
         private fun deadlineAfter(budgetMs: Double) = System.nanoTime() + (budgetMs * 1_000_000).toLong()
 
         fun removalBatch(pos: BlockPos, state: BlockState, maxY: Int, job: BeeJob): TaskBatch {

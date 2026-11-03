@@ -71,7 +71,7 @@ class ZapperJobRequest(
             tag = paintData?.takeIf { state == paint }?.copy(),
             job = job
         )
-        return TaskBatch(listOf(task), job, pos, PLACEMENT_PHASE)
+        return TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.PLACEMENT_PHASE)
     }
 
     private fun Level.canShape(pos: BlockPos, target: BlockState): Boolean {
@@ -86,8 +86,4 @@ class ZapperJobRequest(
     }
 
     private fun BlockState.needsRemoval() = !isAir && block !is LiquidBlock
-
-    companion object {
-        private const val PLACEMENT_PHASE = 3
-    }
 }

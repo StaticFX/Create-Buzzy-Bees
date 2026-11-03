@@ -27,7 +27,7 @@ object MissingMaterialsTests {
             val pos = BlockPos(index, 0, 0)
             val task = BeeTask.place(pos, Blocks.STONE.defaultBlockState(), listOf(stack), job = job)
             task.status = status
-            job.batches.add(TaskBatch(listOf(task), job, pos))
+            job.addBatches(listOf(TaskBatch(listOf(task), job, pos)))
         }
         return job
     }

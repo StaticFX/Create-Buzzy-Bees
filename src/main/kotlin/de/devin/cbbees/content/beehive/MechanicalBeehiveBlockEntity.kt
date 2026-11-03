@@ -3,6 +3,7 @@ package de.devin.cbbees.content.beehive
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity
 import de.devin.cbbees.content.domain.network.addNetworkTooltip
+import de.devin.cbbees.compat.sable.toWorld
 import de.devin.cbbees.content.bee.*
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeManager
@@ -239,6 +240,22 @@ class MechanicalBeehiveBlockEntity(type: BlockEntityType<*>, pos: BlockPos, stat
         for (i in 0 until instList.size) {
             instructions.add(BeeInstruction.deserializeNBT(instList.getCompound(i)))
         }
+    }
+
+    /** Range check inputs for the current tick; the dispatcher asks once per batch it looks at. */
+    private var rangeTick = Long.MIN_VALUE
+    private var cachedWorkRange = 0
+    private var cachedWorldPos = Vec3.ZERO
+
+    override fun isInRange(pos: BlockPos): Boolean {
+        val level = level ?: return false
+        if (level.gameTime != rangeTick) {
+            rangeTick = level.gameTime
+            cachedWorkRange = getWorkRange().toInt()
+            cachedWorldPos = level.toWorld(blockPos)
+        }
+        val target = level.toWorld(pos)
+        return abs(target.x - cachedWorldPos.x) <= cachedWorkRange && abs(target.z - cachedWorldPos.z) <= cachedWorkRange
     }
 
     override fun getBeeContext(): BeeContext {

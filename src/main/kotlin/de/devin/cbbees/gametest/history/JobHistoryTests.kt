@@ -28,6 +28,7 @@ object JobHistoryTests {
     private val DIRT = BlockSnapshot(Blocks.DIRT.defaultBlockState(), null)
     private val STONE = BlockSnapshot(Blocks.STONE.defaultBlockState(), null)
     private val AIR = BlockSnapshot(Blocks.AIR.defaultBlockState(), null)
+    private val WATER = BlockSnapshot(Blocks.WATER.defaultBlockState(), null)
 
     @GameTest(template = CONSTRUCTION, timeoutTicks = 12000, setupTicks = 20)
     @JvmStatic
@@ -123,6 +124,22 @@ object JobHistoryTests {
         val change = loaded.changes[pos] ?: throw GameTestAssertException("Change missing after load")
         helper.assertTrue(change.before == STONE && change.after == DIRT, "Snapshots mismatch: $change")
         helper.assertTrue((change.undo as? PlaceBlockAction)?.blockState == STONE.state, "Undo should place stone back, got ${change.undo}")
+        helper.succeed()
+    }
+
+    @GameTest(template = EMPTY)
+    @JvmStatic
+    fun undo_placesFluidsAfterBlocks(helper: GameTestHelper) {
+        val water = helper.absolutePos(BlockPos(0, 1, 0))
+        val wall = helper.absolutePos(BlockPos(1, 1, 0))
+        val entry = entry().apply {
+            record(water, WATER, AIR)
+            record(wall, STONE, AIR)
+        }
+        val job = BeeJob(UUID.randomUUID(), wall, helper.level, JobType.Construction)
+        val edits = HistoryJobRequest.reverseEdits(entry) { helper.level.getBlockState(it) }
+        val phases = HistoryJobRequest.reverseBatches(helper.level, edits, job).associate { it.targetPosition to it.phase }
+        helper.assertTrue(phases.getValue(water) > phases.getValue(wall), "Water should come back after the wall, got $phases")
         helper.succeed()
     }
 

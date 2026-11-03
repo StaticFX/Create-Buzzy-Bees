@@ -5,6 +5,8 @@ import net.neoforged.neoforge.common.ModConfigSpec
 object CBBeesConfig {
     val SPEC: ModConfigSpec
 
+    val debugLogging: ModConfigSpec.BooleanValue
+
     // Features
     val enableExternalBrowser: ModConfigSpec.BooleanValue
 
@@ -303,6 +305,14 @@ object CBBeesConfig {
         maxDispatchesPerCycle = builder
             .comment("Maximum bees sent out from hives per redispatch attempt, across all networks. Bees that finish a task pick up the next one on their own; this limits how fast idle hives start working.")
             .defineInRange("maxDispatchesPerCycle", 64, 1, 1000)
+
+        builder.pop()
+
+        builder.comment("Debugging").push("debug")
+
+        debugLogging = builder
+            .comment("Log detailed bee, job and network activity. Only useful when tracking down a problem; very noisy with many bees.")
+            .define("debugLogging", false)
 
         builder.pop()
 

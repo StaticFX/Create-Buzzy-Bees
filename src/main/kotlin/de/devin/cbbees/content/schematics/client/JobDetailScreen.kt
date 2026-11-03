@@ -101,9 +101,9 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         var ty = y + 22
 
         val pct = if (j.total == 0) 1f else j.completed.toFloat() / j.total
-        val isStuck = j.reason != null
+        val stall = j.stall
         AllCCRGuiTextures.JOB_DETAIL_BAR.render(graphics, x + MARGIN, ty, innerW, BAR_H)
-        val bar = if (isStuck) AllCCRGuiTextures.JOB_DETAIL_BAR_STUCK else AllCCRGuiTextures.JOB_DETAIL_BAR_PROGRESS
+        val bar = if (stall != null) AllCCRGuiTextures.JOB_DETAIL_BAR_STUCK else AllCCRGuiTextures.JOB_DETAIL_BAR_PROGRESS
         bar.render(graphics, x + MARGIN, ty, (innerW * pct).toInt(), BAR_H)
         ty += BAR_H + 3
 
@@ -114,13 +114,8 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         graphics.drawString(font, "Bees: ${j.activeBees} active", x + MARGIN, ty, GRAY, false)
         ty += LINE_H + 3
 
-        if (isStuck) {
-            val reason = j.reason!!
-            val reasonText = if (reason.startsWith("cbbees.")) {
-                Component.translatable(reason).string
-            } else reason
-
-            val lines = font.splitter.splitLines(reasonText, innerW,
+        if (stall != null) {
+            val lines = font.splitter.splitLines(stall.describe(), innerW,
                 net.minecraft.network.chat.Style.EMPTY)
             for ((i, line) in lines.withIndex()) {
                 if (i >= 3) {
@@ -165,10 +160,8 @@ class JobDetailScreen(private val jobId: UUID) : AbstractSimiScreen(Component.tr
         h += LINE_H // stats
         h += LINE_H + 3 // bees
 
-        if (j.reason != null) {
-            val reason = if (j.reason.startsWith("cbbees."))
-                Component.translatable(j.reason).string else j.reason
-            val lines = font.splitter.splitLines(reason, PANEL_W - MARGIN * 2,
+        if (j.stall != null) {
+            val lines = font.splitter.splitLines(j.stall.describe(), PANEL_W - MARGIN * 2,
                 net.minecraft.network.chat.Style.EMPTY)
             h += minOf(lines.size, 3) * LINE_H + 2
             if (lines.size > 3) h += LINE_H

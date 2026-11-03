@@ -3,7 +3,6 @@ package de.devin.cbbees.network
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.content.beehive.client.ClientJobCache
 import de.devin.cbbees.content.domain.GlobalJobPool
-import de.devin.cbbees.content.domain.StuckReasonResolver
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.ClientJobInfo
 import de.devin.cbbees.content.domain.job.ClientNetworkInfo
@@ -11,6 +10,7 @@ import de.devin.cbbees.content.domain.job.HiveSnapshot
 import de.devin.cbbees.content.domain.job.JobStatus
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.job.SchematicPlacement
+import de.devin.cbbees.content.domain.job.Stall
 import de.devin.cbbees.content.domain.job.toClientInfo
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import io.netty.buffer.ByteBuf
@@ -53,7 +53,7 @@ class HiveJobsSyncPacket(
                 STRING_CODEC.encode(buf, j.status)
                 buf.writeVarInt(j.completed)
                 buf.writeVarInt(j.total)
-                buf.writeNullable(j.reason?.take(250)) { b, s -> STRING_CODEC.encode(b, s) }
+                buf.writeNullable(j.stall) { b, stall -> Stall.STREAM_CODEC.encode(buf, stall) }
                 UUID_LIST_CODEC.encode(buf, j.beeIds)
                 ITEM_LIST_CODEC.encode(buf, j.materials)
                 buf.writeNullable(j.bounds) { b, box -> BOUNDS_CODEC.encode(b, box) }
@@ -73,7 +73,7 @@ class HiveJobsSyncPacket(
                 val status = STRING_CODEC.decode(buf)
                 val completed = buf.readVarInt()
                 val total = buf.readVarInt()
-                val reason = buf.readNullable { b -> STRING_CODEC.decode(b) }
+                val stall = buf.readNullable { Stall.STREAM_CODEC.decode(buf) }
                 val beeIds = UUID_LIST_CODEC.decode(buf)
                 val materials = ITEM_LIST_CODEC.decode(buf)
                 val bounds = buf.readNullable { b -> BOUNDS_CODEC.decode(b) }
@@ -88,7 +88,7 @@ class HiveJobsSyncPacket(
                 val jobType = JobType.fromOrdinal(buf.readVarInt())
                 val ownerId = buf.readNullable { b -> UUID_CODEC.decode(b) }
                 val ownerName = buf.readNullable { b -> STRING_CODEC.decode(b) }
-                ClientJobInfo(id, name, status, completed, total, reason, beeIds, materials, bounds, placement, jobType, ownerId, ownerName)
+                ClientJobInfo(id, name, status, completed, total, stall, beeIds, materials, bounds, placement, jobType, ownerId, ownerName)
             }
         )
 
@@ -155,16 +155,14 @@ class HiveJobsSyncPacket(
 
         /**
          * Sends each player their own jobs plus other players' jobs nearby. Each job's
-         * [ClientJobInfo], including its stuck reason, is built once and shared.
+         * [ClientJobInfo] is built once and shared.
          */
         fun sendPlayerSnapshots(server: MinecraftServer, players: List<ServerPlayer> = server.playerList.players) {
             val jobs = GlobalJobPool.getAllJobs()
                 .filter { it.status != JobStatus.COMPLETED && it.status != JobStatus.CANCELLED }
             val infos = mutableMapOf<UUID, ClientJobInfo>()
             fun infoOf(job: BeeJob) = infos.getOrPut(job.jobId) {
-                val network = ServerBeeNetworkManager.findNetworkForJob(job)
-                val reason = if (network != null) StuckReasonResolver.firstReasonOrNull(network, job) else "cbbees.stall.no_network"
-                job.toClientInfo(server, reason)
+                job.toClientInfo(server, stall = job.stall.takeIf { job.workingBatches.isEmpty() })
             }
 
             for (player in players) {

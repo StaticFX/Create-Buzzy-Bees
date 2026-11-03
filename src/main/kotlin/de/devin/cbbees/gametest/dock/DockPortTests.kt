@@ -195,7 +195,7 @@ object DockPortTests {
 
     private fun fluidBatch(pos: BlockPos, job: BeeJob): TaskBatch {
         val task = BeeTask.placeFluid(pos, FluidStack(Fluids.WATER, ServerBeeData.FLUID_CAPACITY), job = job)
-        return TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.FLUID_PHASE)
+        return TaskBatch(listOf(task), job, pos, BlockPlacementClassifier.FLUID_PLACEMENT_PHASE)
     }
 
     private fun BeeTestScope.dispatch(type: JobType, center: BlockPos, batches: (BeeJob) -> List<TaskBatch>) {

@@ -1,18 +1,11 @@
 package de.devin.cbbees.content.domain
 
-import de.devin.cbbees.compat.sable.worldDistanceSqr
 import de.devin.cbbees.CreateBuzzyBeez
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.bee.server.ServerBeeManager
-import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobStatus
-import de.devin.cbbees.content.domain.action.ItemConsumingAction
-import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
-import de.devin.cbbees.content.domain.network.BeeNetwork
 import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
-import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
 import net.minecraft.core.HolderLookup
 import net.minecraft.nbt.CompoundTag
@@ -34,11 +27,9 @@ object GlobalJobPool : JobPool {
     private val jobBacklog = mutableListOf<BeeJob>()
     private var redispatchCounter = 0
     private var watchdogCounter = 0
-    private var lastRedispatchLogTick = 0L
     private val REDISPATCH_INTERVAL: Int get() = CBBeesConfig.redispatchInterval.get()
     private const val WATCHDOG_INTERVAL = 20
     private const val STALE_BATCH_TICKS = 600L
-    private const val LOG_INTERVAL_TICKS = 100L // ~5 seconds
 
     /** Reference to the SavedData wrapper for dirty-marking. */
     var savedData: SavedData? = null
@@ -109,7 +100,7 @@ object GlobalJobPool : JobPool {
             jobList.add(job.save(registries))
         }
         tag.put("Jobs", jobList)
-        CreateBuzzyBeez.LOGGER.debug("[JobPool] Saved ${jobList.size} jobs to disk")
+        CreateBuzzyBeez.debug { "[JobPool] Saved ${jobList.size} jobs to disk" }
     }
 
     fun loadJobs(tag: CompoundTag, registries: HolderLookup.Provider, server: MinecraftServer) {
@@ -159,7 +150,7 @@ object GlobalJobPool : JobPool {
         redispatchCounter++
         if (redispatchCounter >= REDISPATCH_INTERVAL) {
             redispatchCounter = 0
-            redispatchPendingBatches(gameTime)
+            redispatchPendingBatches()
         }
 
         watchdogCounter++
@@ -179,8 +170,7 @@ object GlobalJobPool : JobPool {
         for (job in jobBacklog) {
             if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
 
-            for (batch in job.batches) {
-                if (batch.status != TaskStatus.IN_PROGRESS && batch.status != TaskStatus.PICKED) continue
+            for (batch in job.workingBatches.toList()) {
                 if (batch.startedAtTick == 0L) continue
 
                 val elapsed = gameTime - batch.startedAtTick
@@ -196,9 +186,10 @@ object GlobalJobPool : JobPool {
         }
 
         cleanupOrphanedBees()
+        BatchDispatcher.unparkReachable(jobBacklog, ServerBeeNetworkManager.getNetworks())
 
         if (healedCount > 0) {
-            CreateBuzzyBeez.LOGGER.debug("[Watchdog] Healed $healedCount stale batches")
+            CreateBuzzyBeez.debug { "[Watchdog] Healed $healedCount stale batches" }
         }
     }
 
@@ -218,149 +209,23 @@ object GlobalJobPool : JobPool {
         }
     }
 
-    /**
-     * Scans for PENDING batches and dispatches them to networks that have available bees.
-     * Handles both:
-     * - Retrying failed/released batches
-     * - Assigning work to newly available bees in hives
-     */
     private val maxDispatchesPerCycle: Int get() = CBBeesConfig.maxDispatchesPerCycle.get()
 
-    private fun redispatchPendingBatches(gameTime: Long) {
-        val allNetworks = ServerBeeNetworkManager.getNetworks()
-        if (allNetworks.isEmpty()) return
+    /** Sends bees out of hives that have one free; bees already out pick their next batch themselves. */
+    private fun redispatchPendingBatches() {
+        val dispatched = BatchDispatcher.dispatch(jobBacklog, ServerBeeNetworkManager.getNetworks(), maxDispatchesPerCycle)
+        if (dispatched > 0) CreateBuzzyBeez.debug { "[Redispatch] Sent out $dispatched bees" }
+    }
 
-        val log = CreateBuzzyBeez.LOGGER
-        val verbose = gameTime - lastRedispatchLogTick >= LOG_INTERVAL_TICKS
-
-        // Throttled summary counters
-        var noRetry = 0; var noWorld = 0; var noRange = 0; var noBees = 0; var noMaterials = 0; var noCapacity = 0
-        var totalPending = 0
-
-        var dispatched = 0
-        for (job in jobBacklog) {
-            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
-
-            val inWorldNetworks = allNetworks.filter { network ->
-                val firstComp = network.components.firstOrNull()
-                firstComp != null && firstComp.world == job.level
-            }
-            if (inWorldNetworks.isEmpty()) { noWorld++; continue }
-
-            var withBees = inWorldNetworks.filter { it.hasFreeBees() }
-
-            for (batch in job.batches) {
-                if (dispatched >= maxDispatchesPerCycle) return
-                if (batch.status != TaskStatus.PENDING) continue
-                totalPending++
-                if (!batch.canRetry()) { noRetry++; continue }
-                if (!batch.isCooldownElapsed(gameTime)) continue
-                if (!job.isPhaseReady(batch.phase)) continue
-                if (withBees.isEmpty()) { noBees++; break }
-
-                val inRangeNetworks = withBees.filter { it.isInRange(batch.targetPosition) }
-                if (inRangeNetworks.isEmpty()) { noRange++; continue }
-
-                val withPorts = if (batch.beeType == BeeType.TRANSPORT) {
-                    inRangeNetworks.filter { it.findDropOff(net.minecraft.world.item.ItemStack.EMPTY) != null }
-                } else inRangeNetworks
-                if (withPorts.isEmpty()) continue
-
-                val targetNetwork = withPorts.minByOrNull { network ->
-                    network.hives.minOfOrNull { job.level.worldDistanceSqr(it.pos, batch.targetPosition) } ?: Double.MAX_VALUE
-                } ?: continue
-
-                if (!hasMaterialsAvailable(batch, targetNetwork)) { noMaterials++; continue }
-
-                batch.assignedNetworkId = targetNetwork.id
-                if (targetNetwork.dispatchBatch(batch)) {
-                    dispatched++
-                    // Only the network that just sent a bee can have run out
-                    if (!targetNetwork.hasFreeBees()) withBees = withBees - targetNetwork
-                } else {
-                    noCapacity++
-                    batch.assignedNetworkId = null
-                }
-            }
-        }
-
-        if (verbose && totalPending > 0) {
-            lastRedispatchLogTick = gameTime
-            log.debug("[Redispatch] pending=$totalPending, dispatched=$dispatched | blocked: noRetry=$noRetry, noWorld=$noWorld, noRange=$noRange, noBees=$noBees, noMaterials=$noMaterials, noCapacity=$noCapacity | networks=${allNetworks.size}")
-        }
+    /** Runs a dispatch right away when something [BatchDispatcher.wake]d it; called every server tick. */
+    fun dispatchIfWoken() {
+        if (BatchDispatcher.consumeWake()) redispatchPendingBatches()
     }
 
     override fun getAllJobs(): List<BeeJob> = jobBacklog
 
-    fun workBacklog(beeHive: BeeHive): TaskBatch? {
-        val network = beeHive.network()
-        val gameTime = (beeHive.world as? net.minecraft.server.level.ServerLevel)?.gameTime ?: 0L
-        val networkId = network.id
-        val hivePos = beeHive.pos
-
-        fun isDispatchable(batch: TaskBatch): Boolean =
-            batch.status == TaskStatus.PENDING && batch.canRetry() && batch.isCooldownElapsed(gameTime)
-                    && batch.job.isPhaseReady(batch.phase)
-
-        var bestAssigned: TaskBatch? = null
-        var bestAssignedDist = Double.MAX_VALUE
-        for (job in jobBacklog) {
-            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
-            for (batch in job.batches) {
-                if (batch.assignedNetworkId != networkId || !isDispatchable(batch)) continue
-                val dist = beeHive.world.worldDistanceSqr(batch.targetPosition, hivePos)
-                if (dist < bestAssignedDist) {
-                    bestAssignedDist = dist
-                    bestAssigned = batch
-                }
-            }
-        }
-
-        if (bestAssigned != null && hasMaterialsAvailable(bestAssigned, network)) {
-            bestAssigned.status = TaskStatus.PICKED
-            return bestAssigned
-        }
-
-        var bestJob: BeeJob? = null
-        var bestJobDist = Double.MAX_VALUE
-        for (job in jobBacklog) {
-            if (job.status == JobStatus.COMPLETED || job.status == JobStatus.CANCELLED) continue
-            if (!network.isInRange(job.centerPos)) continue
-            val hasDispatchable = job.batches.any { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
-            if (!hasDispatchable) continue
-            val dist = beeHive.world.worldDistanceSqr(job.centerPos, hivePos)
-            if (dist < bestJobDist) {
-                bestJobDist = dist
-                bestJob = job
-            }
-        }
-
-        val job = bestJob ?: return null
-        val batch = job.batches.firstOrNull { isDispatchable(it) && (it.assignedNetworkId == null || it.assignedNetworkId == networkId) }
-            ?: return null
-
-        if (!network.isInRange(batch.targetPosition)) return null
-        if (!hasMaterialsAvailable(batch, network)) return null
-
-        batch.assignedNetworkId = networkId
-        batch.status = TaskStatus.PICKED
-        return batch
-    }
-
-    private fun hasMaterialsAvailable(batch: TaskBatch, network: BeeNetwork): Boolean {
-        val actions = batch.tasks.map { it.action }
-        return actions.filterIsInstance<ItemConsumingAction>()
-            .flatMap { it.requiredItems }
-            .all { req -> network.findAvailableProvider(req) != null }
-                && actions.filterIsInstance<PlaceFluidAction>()
-            .all { network.findFluidProvider(it.fluid) != null }
-    }
-
     /**
-     * Registers a new job for processing. The job is added to the backlog immediately
-     * but batch-to-network assignment is deferred to [redispatchPendingBatches] which
-     * runs every few ticks. This avoids a synchronous O(batches × networks × hives)
-     * spike when placing large schematics.
+     * Registers a new job for processing and sends out any free bees right away.
      */
     override fun dispatchNewJob(job: BeeJob) {
         if (job.uniquenessKey != null && jobBacklog.any {
@@ -374,11 +239,8 @@ object GlobalJobPool : JobPool {
 
         // Dispatch immediately so bees start flying without waiting for the next
         // 10-tick redispatch cycle
-        redispatchPendingBatches(0L)
+        redispatchPendingBatches()
 
-        CreateBuzzyBeez.LOGGER.debug("[JobPool] Registered job with ${job.batches.size} batches")
+        CreateBuzzyBeez.debug { "[JobPool] Registered job with ${job.batches.size} batches" }
     }
 }
-
-private fun BeeNetwork.hasFreeBees(): Boolean =
-    hives.any { it.getAvailableBeeCount() > 0 && it.getActiveBeeCount() < it.getBeeContext().maxActiveBees }

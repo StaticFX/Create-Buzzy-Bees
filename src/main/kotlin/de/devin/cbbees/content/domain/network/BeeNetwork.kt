@@ -56,8 +56,10 @@ class BeeNetwork(
     private var _ownReservablePorts: List<NetworkPort>? = null
     private var _ownTransportPortsByPos: Map<BlockPos, TransportPort>? = null
     private var _ownDockPorts: List<DockPort>? = null
+    private var _anchors: List<INetworkComponent>? = null
 
     private fun invalidateComponentCaches() {
+        _anchors = null
         _hives = null
         _ownPorts = null
         _ownTransportPorts = null
@@ -161,9 +163,10 @@ class BeeNetwork(
     /**
      * The aggregate operational range of all anchors in this network.
      */
-    fun isInRange(pos: BlockPos): Boolean {
-        return components.any { topology.isAnchor(it) && topology.isOperationalRange(it, pos) }
-    }
+    fun isInRange(pos: BlockPos): Boolean = anchors.any { topology.isOperationalRange(it, pos) }
+
+    private val anchors: List<INetworkComponent>
+        get() = _anchors ?: components.filter { topology.isAnchor(it) }.also { _anchors = it }
 
     fun canWorkOn(batch: TaskBatch): Boolean = when (batch.assignedNetworkId) {
         id -> true
@@ -238,24 +241,12 @@ class BeeNetwork(
         reservablePorts.forEach { it.clearReservations() }
     }
 
-    fun dispatchBatch(batch: TaskBatch): Boolean {
-        val candidates = hives.filter {
-            topology.isOperationalRange(it, batch.targetPosition) &&
-                    it.getAvailableBeeCount() > 0
-        }.sortedBy { it.world.worldDistanceSqr(it.pos, batch.targetPosition) }
-
-        for (hive in candidates) {
-            if (hive.acceptBatch(batch)) {
-                CreateBuzzyBeez.LOGGER.debug("[DispatchBatch] Accepted by ${hive.javaClass.simpleName} at ${hive.pos}")
-                return true
-            }
-        }
-        return false
-    }
+    /** Whether bees from [hive] can work at [pos]. */
+    fun canReach(hive: BeeHive, pos: BlockPos): Boolean = topology.isOperationalRange(hive, pos)
 
     fun canConnect(component: INetworkComponent): Boolean {
         if (components.isEmpty()) {
-            CreateBuzzyBeez.LOGGER.info("[NET] canConnect: network $id is EMPTY → true")
+            CreateBuzzyBeez.debug { "[NET] canConnect: network $id is EMPTY → true" }
             return true
         }
         val firstComp = components.first()
@@ -269,7 +260,7 @@ class BeeNetwork(
         }
 
         val inRange = isInLogisticsRange(component.pos)
-        CreateBuzzyBeez.LOGGER.info("[NET] canConnect: isInLogisticsRange=$inRange for port at ${component.pos}")
+        CreateBuzzyBeez.debug { "[NET] canConnect: isInLogisticsRange=$inRange for port at ${component.pos}" }
         return inRange
     }
 
@@ -340,6 +331,7 @@ class BeeNetwork(
                         c.orphan()
                     }
                 }
+                invalidateComponentCaches()
                 return listOf(this)
             }
 

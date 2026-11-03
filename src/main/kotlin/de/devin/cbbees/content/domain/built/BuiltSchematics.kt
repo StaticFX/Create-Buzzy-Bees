@@ -2,6 +2,7 @@ package de.devin.cbbees.content.domain.built
 
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.job.BeeJob
 import de.devin.cbbees.content.domain.job.JobType
 import de.devin.cbbees.content.domain.task.TaskStatus
@@ -21,7 +22,7 @@ object BuiltSchematics {
         val ownerId = job.ownerId ?: return
         val server = job.level.server ?: return
         val blocks = job.tasks
-            .filter { it.status == TaskStatus.COMPLETED && (it.action is PlaceBlockAction || it.action is PlaceBeltAction) }
+            .filter { it.status == TaskStatus.COMPLETED && (it.action is PlaceBlockAction || it.action is PlaceBeltAction || it.action is PlaceFluidAction) }
             .flatMap { it.action.changedPositions }
             .associateWith { job.level.getBlockState(it) }
             .filterValues { !it.isAir }

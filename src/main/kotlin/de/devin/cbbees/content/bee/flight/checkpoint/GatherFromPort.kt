@@ -18,24 +18,20 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
     }
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val log = CreateBuzzyBeez.LOGGER
         val network = bee.network()
         if (network == null) {
-            log.debug("[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network")
+            CreateBuzzyBeez.debug { "[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)}: no network" }
             return bee.abandonTask()
         }
 
         val targetPort = network.ports.firstOrNull { it.id == providerId }
-        log.debug(
-            "[GatherFromPort] Bee ${
-                bee.id.toString().substring(0, 6)
-            } arrived, gathering ${items.size} item type(s) from ${targetPort?.javaClass?.simpleName ?: "fallback"}"
-        )
+        CreateBuzzyBeez.debug { "[GatherFromPort] Bee ${bee.id.toString().substring(0, 6)} arrived, gathering ${items.size} item type(s) from ${targetPort?.javaClass?.simpleName ?: "fallback"}" }
         val nextStop = bee.currentTask?.let { it.getRemainingTasks().firstOrNull()?.targetPos ?: it.targetPosition }
         var allGathered = true
         items.forEach { item ->
             if (bee.isInventoryFull()) {
-                log.debug("[GatherFromPort] Bee inventory full"); return@forEach
+                CreateBuzzyBeez.debug { "[GatherFromPort] Bee inventory full" }
+                return@forEach
             }
             // Use the planned provider if it still has the item, otherwise fall back to network scan
             val provider = if (targetPort != null && targetPort.hasItemStack(item)) {
@@ -45,7 +41,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
             }
 
             if (provider == null) {
-                log.debug("[GatherFromPort] No reachable provider for ${item.hoverName.string}")
+                CreateBuzzyBeez.debug { "[GatherFromPort] No reachable provider for ${item.hoverName.string}" }
                 allGathered = false
                 return@forEach
             }
@@ -54,9 +50,9 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
                 val remainder = bee.addToInventory(item.copy())
                 if (!remainder.isEmpty) provider.addItemStack(remainder)
                 bee.consumeSpring(CBBeesConfig.springDrainPickup.get())
-                log.debug("[GatherFromPort] Gathered ${item.hoverName.string} x${item.count} from ${provider.javaClass.simpleName}")
+                CreateBuzzyBeez.debug { "[GatherFromPort] Gathered ${item.hoverName.string} x${item.count} from ${provider.javaClass.simpleName}" }
             } else {
-                log.debug("[GatherFromPort] Provider ${provider.javaClass.simpleName} hasItemStack=false for ${item.hoverName.string}")
+                CreateBuzzyBeez.debug { "[GatherFromPort] Provider ${provider.javaClass.simpleName} hasItemStack=false for ${item.hoverName.string}" }
                 allGathered = false
             }
         }
@@ -65,14 +61,14 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
         targetPort?.releaseReservation(bee.id)
 
         if (allGathered) {
-            log.debug("[GatherFromPort] All items gathered successfully")
+            CreateBuzzyBeez.debug { "[GatherFromPort] All items gathered successfully" }
             return true
         }
 
         // Items unavailable — try to replan from current position with a different provider.
         val newPlan = FlightPlanComputer.replanFrom(bee, bee.currentTask, bee.network(), level)
         if (newPlan != null) {
-            log.debug("[GatherFromPort] Replanning flight for bee ${bee.id.toString().substring(0, 6)}")
+            CreateBuzzyBeez.debug { "[GatherFromPort] Replanning flight for bee ${bee.id.toString().substring(0, 6)}" }
             ServerBeeManager.reserveStock(bee, newPlan, network, gameTime)
             bee.flightPlan = newPlan
             bee.currentCheckpointIndex = 0
@@ -80,7 +76,7 @@ class GatherFromPort(val items: List<ItemStack>, val providerId: UUID) : Checkpo
             return true // advance past this checkpoint — the new plan starts fresh
         }
 
-        log.debug("[GatherFromPort] Gather FAILED, no alternative provider — releasing batch")
+        CreateBuzzyBeez.debug { "[GatherFromPort] Gather FAILED, no alternative provider — releasing batch" }
         return bee.abandonTask()
     }
 }

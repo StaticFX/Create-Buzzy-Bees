@@ -119,7 +119,7 @@ fun ensureSchematicUploaded(owner: String, schematicName: String) {
     try {
         Files.createDirectories(uploadedDir)
         Files.copy(sourceFile, uploadedFile, StandardCopyOption.REPLACE_EXISTING)
-        CreateBuzzyBeez.LOGGER.info("Copied schematic $schematicName to uploaded directory for $owner")
+        CreateBuzzyBeez.debug { "Copied schematic $schematicName to uploaded directory for $owner" }
     } catch (e: Exception) {
         CreateBuzzyBeez.LOGGER.error("Failed to copy schematic $schematicName: ${e.message}")
     }

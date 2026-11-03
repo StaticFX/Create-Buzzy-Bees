@@ -27,7 +27,7 @@ object SubLevelNetworkTracker {
     private fun splitDisconnected(): Boolean =
         movingNetworks().map { network ->
             ServerBeeNetworkManager.splitIfDisconnected(network).also { didSplit ->
-                if (didSplit) CreateBuzzyBeez.LOGGER.info("[NET] Network ${network.id} split after its sub-level moved")
+                if (didSplit) CreateBuzzyBeez.debug { "[NET] Network ${network.id} split after its sub-level moved" }
             }
         }.any { it }
 
@@ -40,7 +40,7 @@ object SubLevelNetworkTracker {
                 .filter { other -> other !== network && !other.isPortable() && anchors.any(other::canConnect) }
                 .forEach { other ->
                     ServerBeeNetworkManager.mergeNetworks(network, other)
-                    CreateBuzzyBeez.LOGGER.info("[NET] Network ${other.id} merged into ${network.id} after a sub-level moved into range")
+                    CreateBuzzyBeez.debug { "[NET] Network ${other.id} merged into ${network.id} after a sub-level moved into range" }
                     merged = true
                 }
         }

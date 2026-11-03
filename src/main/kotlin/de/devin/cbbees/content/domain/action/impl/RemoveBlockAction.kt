@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.BucketPickup
 import net.minecraft.world.level.block.state.BlockState
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction
@@ -122,6 +123,8 @@ class RemoveBlockAction(override val pos: BlockPos) : BeeAction {
         }
 
         fun diamondToolTicks(level: Level, pos: BlockPos, state: BlockState): Double {
+            // Fluids are scooped up like with a bucket; their hardness of 100 only keeps players from mining them
+            if (state.block is LiquidBlock) return 0.0
             val hardness = state.getDestroySpeed(level, pos)
             if (hardness <= 0f) return 0.0
             val tool = diamondTools.maxBy { it.getDestroySpeed(state) }

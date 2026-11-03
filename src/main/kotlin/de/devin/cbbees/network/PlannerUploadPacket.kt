@@ -103,7 +103,7 @@ class PlannerUploadPacket(
                 Files.deleteIfExists(uploadPath)
                 val stream = Files.newOutputStream(uploadPath)
                 activeStreams[key] = UploadEntry(stream, totalSize)
-                CreateBuzzyBeez.LOGGER.info("Started planner upload: $key ($totalSize bytes)")
+                CreateBuzzyBeez.debug { "Started planner upload: $key ($totalSize bytes)" }
             } catch (e: Exception) {
                 CreateBuzzyBeez.LOGGER.error("Failed to start planner upload: $key", e)
             }
@@ -131,7 +131,7 @@ class PlannerUploadPacket(
             val entry = activeStreams.remove(key) ?: return
             try {
                 entry.stream.close()
-                CreateBuzzyBeez.LOGGER.info("Completed planner upload: $key (${entry.bytesWritten} bytes)")
+                CreateBuzzyBeez.debug { "Completed planner upload: $key (${entry.bytesWritten} bytes)" }
             } catch (e: Exception) {
                 CreateBuzzyBeez.LOGGER.error("Error finishing planner upload: $key", e)
             }

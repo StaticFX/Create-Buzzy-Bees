@@ -4,15 +4,20 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import com.mojang.math.Axis
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.compat.sable.FlightPose
 import de.devin.cbbees.config.CBBeesClientConfig
+import de.devin.cbbees.content.bee.flight.ClientBeeFlightData
 import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.util.ClientSide
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.MultiBufferSource
 import net.minecraft.client.renderer.RenderType
+import net.minecraft.client.renderer.culling.Frustum
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent
 import software.bernie.geckolib.cache.GeckoLibCache
@@ -37,7 +42,8 @@ object BeeWorldRenderer {
     private val WING_BONES = setOf("leftwing_bone", "rightwing_bone")
     private const val GEAR_BONE = "gear2"
 
-    private const val MAX_RENDER_DIST_SQ = 64.0 * 64.0
+    /** Generous box around a bee for culling, so wings and carried items don't pop at the screen edge. */
+    private const val BEE_SIZE = 1.5
     private const val FULL_BRIGHT_LIGHT = 0xF000F0
     private const val WING_FLAP_SPEED = 25f
     private const val WING_FLAP_AMPLITUDE = 0.6f
@@ -63,25 +69,18 @@ object BeeWorldRenderer {
         if (flightBees.isEmpty()) return
 
         profiler.push("cbbees_beeRender")
-        val maxDistSq = MAX_RENDER_DIST_SQ
+        val renderDist = CBBeesClientConfig.beeRenderDistance.get().toDouble()
         val itemDist = CBBeesClientConfig.beeItemRenderDistance.get().toDouble()
         val itemDistSq = itemDist * itemDist
 
-        flightBees.forEach { bee ->
-            val pose = bee.lerpPose(partialTick)
-            val pos = pose.position
-            val dx = pos.x - camPos.x
-            val dy = pos.y - camPos.y
-            val dz = pos.z - camPos.z
-            if (dx * dx + dy * dy + dz * dz > maxDistSq) return@forEach
-
+        nearestBees(flightBees, camPos, renderDist * renderDist, event.frustum, partialTick, CBBeesClientConfig.maxRenderedBees.get()).forEach { (bee, pose, distSq) ->
             poseStack.pushPose()
-            poseStack.translate(dx, dy, dz)
+            poseStack.translate(pose.position.x - camPos.x, pose.position.y - camPos.y, pose.position.z - camPos.z)
             pose.rotation?.let(poseStack::mulPose)
             poseStack.mulPose(Axis.YP.rotationDegrees(180f - bee.yRot()))
 
             renderBee(poseStack, bufferSource, bee.type, FULL_BRIGHT_LIGHT)
-            if (!bee.carriedItem.isEmpty && dx * dx + dy * dy + dz * dz <= itemDistSq) {
+            if (!bee.carriedItem.isEmpty && distSq <= itemDistSq) {
                 renderCarriedItem(poseStack, bufferSource, bee.carriedItem, bee.id.hashCode())
             }
 
@@ -90,6 +89,26 @@ object BeeWorldRenderer {
 
         bufferSource.endBatch()
         profiler.pop()
+    }
+
+    private data class VisibleBee(val bee: ClientBeeFlightData, val pose: FlightPose, val distSq: Double)
+
+    /** Bees in view and within [maxDistSq], cut down to the [limit] nearest to the camera. */
+    private fun nearestBees(
+        bees: Collection<ClientBeeFlightData>,
+        camPos: Vec3,
+        maxDistSq: Double,
+        frustum: Frustum,
+        partialTick: Float,
+        limit: Int,
+    ): List<VisibleBee> {
+        val visible = bees.mapNotNull { bee ->
+            val pose = bee.lerpPose(partialTick)
+            val distSq = pose.position.distanceToSqr(camPos)
+            if (distSq > maxDistSq || !frustum.isVisible(AABB.ofSize(pose.position, BEE_SIZE, BEE_SIZE, BEE_SIZE))) null
+            else VisibleBee(bee, pose, distSq)
+        }
+        return if (visible.size <= limit) visible else visible.sortedBy { it.distSq }.take(limit)
     }
 
     fun renderCarriedItem(poseStack: PoseStack, bufferSource: MultiBufferSource, item: ItemStack, seed: Int) {

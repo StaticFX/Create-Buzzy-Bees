@@ -2,10 +2,8 @@ package de.devin.cbbees.content.logistics.storage
 
 import com.simibubi.create.content.logistics.BigItemStack
 import de.devin.cbbees.config.CBBeesConfig
-import de.devin.cbbees.content.domain.job.MissingMaterials
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.network.BeeNetwork
-import de.devin.cbbees.content.domain.network.ServerBeeNetworkManager
 import de.devin.cbbees.content.logistics.waggle.WagglePortBlockEntity
 import de.devin.cbbees.util.ServerSide
 import net.minecraft.world.item.Item
@@ -24,24 +22,17 @@ object AutocraftRequester {
 
     private val SOURCE: UUID = UUID.nameUUIDFromBytes("cbbees:autocraft".toByteArray())
 
-    private var nextScanTick = 0L
     private val retryAt = mutableMapOf<Pair<UUID, Item>, Long>()
     private val missingSince = mutableMapOf<Pair<UUID, Item>, Long>()
 
     fun clear() {
-        nextScanTick = 0L
         retryAt.clear()
         missingSince.clear()
     }
 
-    fun tick(gameTime: Long) {
-        if (!CBBeesConfig.autocraftMissing.get() || gameTime < nextScanTick) return
-        nextScanTick = gameTime + CBBeesConfig.autocraftInterval.get()
+    /** Crafts the [missing] materials [network]'s jobs reported, unless something already ordered them. */
+    fun request(network: BeeNetwork, missing: List<BigItemStack>, gameTime: Long): List<BigItemStack> {
         retryAt.values.removeIf { it <= gameTime }
-        ServerBeeNetworkManager.getNetworks().forEach { request(it, gameTime) }
-    }
-
-    fun request(network: BeeNetwork, gameTime: Long): List<BigItemStack> {
         val crafters = network.ports
             .filter { it.isValidForPickup() }
             .distinct()
@@ -50,10 +41,10 @@ object AutocraftRequester {
 
         val pending = network.pendingRequests
         pending.clear(SOURCE)
-        val missing = pending.plan(MissingMaterials.forNetwork(network), { Int.MAX_VALUE }, gameTime)
-        val due = missing.filter { isDue(network, it, gameTime) }
+        val unordered = pending.plan(missing, { Int.MAX_VALUE }, gameTime)
+        val due = unordered.filter { isDue(network, it, gameTime) }
 
-        missingSince.keys.removeIf { (id, item) -> id == network.id && missing.none { it.stack.item == item } }
+        missingSince.keys.removeIf { (id, item) -> id == network.id && unordered.none { it.stack.item == item } }
 
         val byPort = mutableMapOf<LogisticsPort, MutableList<BigItemStack>>()
         val requested = mutableListOf<BigItemStack>()

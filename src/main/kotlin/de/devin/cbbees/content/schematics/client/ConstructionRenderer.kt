@@ -62,7 +62,7 @@ object ConstructionRenderer {
     private const val BLOCK_CHECK_INTERVAL = 20L
 
     private class JobRenderer(
-        val renderer: SchematicRenderer,
+        val renderer: GhostSchematicRenderer,
         val schematicLevel: SchematicLevel,
         val anchor: BlockPos
     )
@@ -111,6 +111,7 @@ object ConstructionRenderer {
         if (jobs.isEmpty()) {
             outlineCache.clear()
             outlineBoundsCache.clear()
+            rendererCache.values.forEach { it.renderer.close() }
             rendererCache.clear()
             lastDataVersion = -1L
             return
@@ -131,7 +132,7 @@ object ConstructionRenderer {
 
         for (job in jobs) {
             val outline = outlineCache[job.jobId] ?: continue
-            val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
+            val color = if (job.stall != null) STUCK_COLOR else NORMAL_COLOR
             outline.params.colored(color)
         }
 
@@ -149,7 +150,7 @@ object ConstructionRenderer {
             SableCompat.render.draw(poseStack, anchor, camera, pt) { cam ->
                 poseStack.pushPose()
                 poseStack.translate(anchor.x - cam.x, anchor.y - cam.y, anchor.z - cam.z)
-                jobRenderer.renderer.render(poseStack, transparentBuffer)
+                jobRenderer.renderer.renderGhost(poseStack, transparentBuffer, opacity)
                 poseStack.popPose()
             }
         }
@@ -173,13 +174,14 @@ object ConstructionRenderer {
         val activeJobIds = jobs.map { it.jobId }.toSet()
         outlineCache.keys.removeAll { it !in activeJobIds }
         outlineBoundsCache.keys.removeAll { it !in activeJobIds }
-        rendererCache.keys.removeAll { it !in activeJobIds }
+        rendererCache.entries.removeAll { (id, job) -> (id !in activeJobIds).also { gone -> if (gone) job.renderer.close() } }
 
         for (job in jobs) {
             val existing = rendererCache[job.jobId]
             if (existing != null) {
-                if (checkBlocks && removePlacedBlocks(existing.schematicLevel, clientLevel)) {
-                    existing.renderer.update()
+                if (checkBlocks) {
+                    val removed = removePlacedBlocks(existing.schematicLevel, clientLevel)
+                    if (removed.isNotEmpty()) existing.renderer.blocksChanged(removed)
                 }
             } else {
                 val renderer = buildSchematicRenderer(job, clientLevel)
@@ -198,7 +200,7 @@ object ConstructionRenderer {
                         outlineBoundsCache[job.jobId] = bounds
                         val anchor = renderer?.anchor ?: BlockPos.containing(bounds.minX, bounds.minY, bounds.minZ)
                         val outline = AABBOutline(bounds.move(Vec3.atLowerCornerOf(anchor).scale(-1.0)))
-                        val color = if (job.reason != null) STUCK_COLOR else NORMAL_COLOR
+                        val color = if (job.stall != null) STUCK_COLOR else NORMAL_COLOR
                         outline.params
                             .colored(color)
                             .withFaceTexture(AllSpecialTextures.CHECKERED)
@@ -213,9 +215,9 @@ object ConstructionRenderer {
 
     /**
      * Removes blocks from the [SchematicLevel] that already exist in the real world.
-     * Returns true if any blocks were removed (renderer needs update).
+     * Returns the removed schematic-local positions.
      */
-    private fun removePlacedBlocks(schematicLevel: SchematicLevel, clientLevel: Level): Boolean {
+    private fun removePlacedBlocks(schematicLevel: SchematicLevel, clientLevel: Level): List<BlockPos> {
         val blockMap = schematicLevel.blockMap
         val toRemove = mutableListOf<BlockPos>()
 
@@ -226,12 +228,8 @@ object ConstructionRenderer {
             }
         }
 
-        if (toRemove.isEmpty()) return false
-
-        for (pos in toRemove) {
-            blockMap.remove(pos)
-        }
-        return true
+        toRemove.forEach(blockMap::remove)
+        return toRemove
     }
 
     /**

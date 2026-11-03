@@ -91,6 +91,11 @@ object CreateBuzzyBeez {
     // the logger for our mod
     val LOGGER: Logger = LogManager.getLogger(ID)
 
+    /** Logs [message] only when the [CBBeesConfig.debugLogging] server option is on. */
+    inline fun debug(message: () -> String) {
+        if (CBBeesConfig.SPEC.isLoaded && CBBeesConfig.debugLogging.get()) LOGGER.info(message())
+    }
+
     init {
         ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.SERVER, CBBeesConfig.SPEC)
         ModLoadingContext.get().activeContainer.registerConfig(ModConfig.Type.CLIENT, CBBeesClientConfig.SPEC)

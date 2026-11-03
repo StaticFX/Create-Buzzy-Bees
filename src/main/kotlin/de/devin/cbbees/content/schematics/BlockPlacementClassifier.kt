@@ -59,8 +59,13 @@ object BlockPlacementClassifier {
      */
     const val REMOVAL_NORMAL_OFFSET = 0
 
+    /** Blocks are placed once every [removalPhase] is done, so nothing is placed where something still has to go. */
+    const val PLACEMENT_PHASE = 4
+
     /** Fluids are placed after every block, so water can't flood parts that aren't built yet. */
-    const val FLUID_PHASE = 1
+    const val FLUID_PLACEMENT_PHASE = PLACEMENT_PHASE + 1
+
+    fun placementPhase(isFluid: Boolean): Int = if (isFluid) FLUID_PLACEMENT_PHASE else PLACEMENT_PHASE
 
     /**
      * Determines if a block should be deferred to a second pass.

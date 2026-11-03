@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.domain.job
 
 import de.devin.cbbees.CreateBuzzyBeez
+import de.devin.cbbees.content.domain.BatchDispatcher
 import de.devin.cbbees.content.domain.built.BuiltSchematics
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
@@ -17,6 +18,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.server.MinecraftServer
 import net.minecraft.world.level.Level
+import java.util.TreeSet
 import java.util.UUID
 
 /**
@@ -44,12 +46,32 @@ data class BeeJob(
     /** Schematic placement metadata for client-side ghost block rendering. */
     var schematicPlacement: SchematicPlacement? = null
 
-    /**
-     * The batches associated with this job.
-     */
-    val batches: MutableList<TaskBatch> = mutableListOf()
+    private val _batches = mutableListOf<TaskBatch>()
+    private val pending = TreeSet(buildOrder)
+    private val working = LinkedHashSet<TaskBatch>()
+
+    /** Pending batches no network can reach. They wait here without holding up later phases. */
+    private val parked = LinkedHashSet<TaskBatch>()
+
+    /** Working batches whose primary action may still be running; finished ones are dropped when found. */
+    private val unfinished = TreeSet(buildOrder)
+
+    /** The batches of this job, in build order. */
+    val batches: List<TaskBatch> get() = _batches
+
+    /** Batches waiting for a bee, earliest phase first, then build order. */
+    val pendingBatches: Collection<TaskBatch> get() = pending
+
+    /** Batches a bee is currently working on. */
+    val workingBatches: Collection<TaskBatch> get() = working
+
+    /** Pending batches set aside because no network can reach them; see [park]. */
+    val parkedBatches: Collection<TaskBatch> get() = parked
 
     val tasks: List<BeeTask> get() = batches.flatMap { it.tasks }
+
+    /** Why dispatch last found nothing to do for this job, or null when it is just waiting. */
+    var stall: Stall? = null
 
     var status: JobStatus = JobStatus.IN_PROGRESS
         internal set
@@ -60,19 +82,28 @@ data class BeeJob(
      * later phases so, e.g., dependent blocks are fully removed before
      * support blocks during deconstruction.
      */
-    fun isPhaseReady(phase: Int): Boolean {
-        val gameTime = level.gameTime
-        if (gameTime != phaseCheckedTick || batches.size != phaseCheckedSize) {
-            phaseCheckedTick = gameTime
-            phaseCheckedSize = batches.size
-            lowestOpenPhase = batches.filterNot { it.isPrimaryActionDone() }.minOfOrNull { it.phase } ?: Int.MAX_VALUE
-        }
-        return phase <= lowestOpenPhase
+    fun isPhaseReady(phase: Int): Boolean = phase <= lowestOpenPhase()
+
+    /** The earliest phase that still has a batch whose primary action isn't done. */
+    fun lowestOpenPhase(): Int {
+        // A done primary action only reopens through a release, which moves the batch back to pending
+        while (unfinished.firstOrNull()?.isPrimaryActionDone() == true) unfinished.pollFirst()
+        return minOf(pending.firstOrNull()?.phase ?: Int.MAX_VALUE, unfinished.firstOrNull()?.phase ?: Int.MAX_VALUE)
     }
 
-    private var phaseCheckedTick = Long.MIN_VALUE
-    private var phaseCheckedSize = -1
-    private var lowestOpenPhase = Int.MAX_VALUE
+    /** The open phase when last checked, so [checkPhaseOpened] can tell when a later one opens. */
+    private var openPhase = Int.MIN_VALUE
+
+    /**
+     * Wakes the dispatcher when a later phase opens, so idle bees start on it right away
+     * instead of on the next dispatch cycle. Called whenever a main action completes or a
+     * batch leaves the pending or working set.
+     */
+    internal fun checkPhaseOpened() {
+        val phase = lowestOpenPhase()
+        if (phase > openPhase && openPhase != Int.MIN_VALUE) BatchDispatcher.wake()
+        openPhase = phase
+    }
 
     /** Batches before this index were finished when last checked; lets [isComplete] skip them. */
     private var firstOpenBatch = 0
@@ -81,14 +112,57 @@ data class BeeJob(
      * Adds a task to this job.
      */
     fun addTask(task: BeeTask) {
-        batches.add(TaskBatch(listOf(task), this, task.targetPos))
+        addBatches(listOf(TaskBatch(listOf(task), this, task.targetPos)))
     }
 
     /**
      * Adds multiple batches to this job.
      */
     fun addBatches(newBatches: List<TaskBatch>) {
-        batches.addAll(newBatches)
+        newBatches.forEach { batch ->
+            batch.order = _batches.size
+            _batches.add(batch)
+            track(batch)
+        }
+    }
+
+    internal fun onStatusChanged(batch: TaskBatch, old: TaskStatus) {
+        when (old) {
+            TaskStatus.PENDING -> {
+                pending.remove(batch)
+                parked.remove(batch)
+            }
+            TaskStatus.PICKED, TaskStatus.IN_PROGRESS -> {
+                working.remove(batch)
+                unfinished.remove(batch)
+            }
+            else -> {}
+        }
+        track(batch)
+        checkPhaseOpened()
+    }
+
+    /** Sets a pending batch aside until a network can reach it; the job still can't finish without it. */
+    internal fun park(batch: TaskBatch) {
+        if (pending.remove(batch)) parked.add(batch)
+        checkPhaseOpened()
+    }
+
+    /** Puts a parked batch back in line for dispatch. */
+    internal fun unpark(batch: TaskBatch) {
+        if (parked.remove(batch)) pending.add(batch)
+    }
+
+    private fun track(batch: TaskBatch) {
+        when (batch.status) {
+            TaskStatus.PENDING -> pending.add(batch)
+            TaskStatus.PICKED, TaskStatus.IN_PROGRESS -> {
+                working.add(batch)
+                unfinished.add(batch)
+                stall = null
+            }
+            else -> {}
+        }
     }
 
     /**
@@ -164,6 +238,8 @@ data class BeeJob(
     }
 
     companion object {
+        private val buildOrder = compareBy<TaskBatch>({ it.phase }, { it.order })
+
         fun load(tag: CompoundTag, registries: HolderLookup.Provider, server: MinecraftServer): BeeJob? {
             val dimStr = tag.getString("Dimension")
             val dimKey = ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(dimStr))
@@ -200,10 +276,7 @@ data class BeeJob(
             }
 
             val batchList = tag.getList("Batches", Tag.TAG_COMPOUND.toInt())
-            for (i in 0 until batchList.size) {
-                val batch = TaskBatch.load(batchList.getCompound(i), registries, job) ?: continue
-                job.batches.add(batch)
-            }
+            job.addBatches((0 until batchList.size).mapNotNull { TaskBatch.load(batchList.getCompound(it), registries, job) })
 
             return job
         }

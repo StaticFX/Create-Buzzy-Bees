@@ -436,14 +436,13 @@ object FlightPlanComputer {
         from: BlockPos,
         to: BlockPos,
     ): LogisticsPort? {
-        val log = CreateBuzzyBeez.LOGGER
         val first = missing.firstOrNull() ?: return null
-        log.debug("[FlightPlan] Finding provider for ${first.hoverName.string} x${first.count}")
+        CreateBuzzyBeez.debug { "[FlightPlan] Finding provider for ${first.hoverName.string} x${first.count}" }
         val provider = network.findAvailableProvider(first.copyWithCount(1), beeId, from, to)
         if (provider == null) {
-            log.debug("[FlightPlan] No available provider found for ${first.hoverName.string}")
+            CreateBuzzyBeez.debug { "[FlightPlan] No available provider found for ${first.hoverName.string}" }
         } else {
-            log.debug("[FlightPlan] Selected provider: ${provider.javaClass.simpleName} at ${provider.pos}")
+            CreateBuzzyBeez.debug { "[FlightPlan] Selected provider: ${provider.javaClass.simpleName} at ${provider.pos}" }
         }
         return provider
     }

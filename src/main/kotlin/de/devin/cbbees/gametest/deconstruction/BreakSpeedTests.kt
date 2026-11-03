@@ -3,6 +3,7 @@ package de.devin.cbbees.gametest.deconstruction
 import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
 import de.devin.cbbees.gametest.dsl.unitTest
 import net.minecraft.core.BlockPos
+import com.simibubi.create.AllBlocks
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.level.block.Block
@@ -22,5 +23,8 @@ object BreakSpeedTests {
         assertEquals(188.0, ticks(helper, Blocks.OBSIDIAN), "obsidian with a diamond pickaxe")
         assertEquals(2.0, ticks(helper, Blocks.DIRT), "dirt with a diamond shovel")
         assertEquals(0.0, ticks(helper, Blocks.SHORT_GRASS), "grass breaks instantly")
-    }
+        assertEquals(0.0, ticks(helper, Blocks.WATER), "water is scooped up instantly")
+        assertEquals(0.0, ticks(helper, Blocks.LAVA), "lava is scooped up instantly")
+        assertEquals(6.0, ticks(helper, AllBlocks.ANDESITE_FUNNEL.get()), "andesite funnel with a diamond pickaxe")
+            }
 }

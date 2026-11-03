@@ -239,7 +239,7 @@ object DeployerPreviewRenderer {
 
             return GhostSchematicRenderer(schematicLevel)
         } catch (e: Exception) {
-            CreateBuzzyBeez.LOGGER.debug("Failed to load schematic for deployer preview: ${program.schematicName}", e)
+            CreateBuzzyBeez.debug { "Failed to load schematic for deployer preview: ${program.schematicName}: ${e.message}" }
             return null
         }
     }

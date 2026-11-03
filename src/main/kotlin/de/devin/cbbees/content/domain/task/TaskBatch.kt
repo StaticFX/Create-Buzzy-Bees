@@ -48,7 +48,15 @@ class TaskBatch(
         }
     }
 
+    /** Position in the job's build order, assigned when the job takes the batch. */
+    internal var order = -1
+
     var status: TaskStatus = TaskStatus.PENDING
+        set(value) {
+            val old = field
+            field = value
+            if (old != value && order >= 0) job.onStatusChanged(this, old)
+        }
     var assignedNetworkId: UUID? = null
     /** UUID of the bee currently working on this batch. */
     var assignedBeeId: UUID? = null
@@ -125,7 +133,7 @@ class TaskBatch(
         assignedBeeId = null
         tasks.forEach { it.release() }
         status = TaskStatus.PENDING
-        // Keep assignedNetworkId so the stall resolver can find the network
+        // Keep assignedNetworkId so the same network picks it up again
     }
 
     fun assignToBee(beeId: UUID, gameTime: Long) {

@@ -50,13 +50,11 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         if (!hasBeeOfType(batch.beeType)) return false
         if (getActiveBeeCountForJob(batch.job.jobId) >= getMaxContributionBees()) return false
 
-        val ctx = getBeeContext()
-        val honeyCost = (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-        if (!hasHoney(honeyCost)) return false
+        if (!hasFuel()) return false
 
         val beeItem = consumeBeeOfType(batch.beeType)
         if (beeItem.isEmpty) return false
-        CreateBuzzyBeez.LOGGER.debug("[PortableHive] Spawning bee for batch at ${batch.targetPosition}")
+        CreateBuzzyBeez.debug { "[PortableHive] Spawning bee for batch at ${batch.targetPosition}" }
         val spawned = spawnBee(batch)
         if (!spawned) {
             addBee(beeItem)
@@ -65,9 +63,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
     }
 
     private fun spawnBee(batch: TaskBatch): Boolean {
-        val ctx = getBeeContext()
-        val honeyCost = (CBBeesConfig.portableHoneyPerRewind.get() * ctx.fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
-        consumeHoney(honeyCost)
+        consumeHoney(rewindHoneyCost)
 
         val spawnPos = player.position().add(0.0, 2.0, 0.0)
         val bee = ServerBeeManager.spawnConstructionBee(
@@ -75,7 +71,7 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
             batch = batch,
             networkId = network().id,
             spawnPos = spawnPos,
-            context = ctx,
+            context = getBeeContext(),
             ownerId = player.uuid,
             beeType = batch.beeType,
         )
@@ -151,6 +147,12 @@ class PortableBeeHive(val player: Player) : BeeHive, LogisticsPort {
         backpack.set(AllDataComponents.HONEY_FUEL.get(), stored - toConsume)
         return toConsume
     }
+
+    private val rewindHoneyCost: Int
+        get() = (CBBeesConfig.portableHoneyPerRewind.get() * getBeeContext().fuelConsumptionMultiplier).toInt().coerceAtLeast(1)
+
+    /** Whether there is enough honey to send out another bee. */
+    fun hasFuel(): Boolean = hasHoney(rewindHoneyCost)
 
     fun hasHoney(amount: Int): Boolean {
         if (player.isCreative) return true

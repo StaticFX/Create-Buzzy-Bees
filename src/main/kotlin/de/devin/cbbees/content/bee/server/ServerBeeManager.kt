@@ -253,13 +253,12 @@ object ServerBeeManager {
         if (network != null) {
             FlightPlanComputer.computeAsync(bee, batch, network, beeWorld) { plan ->
                 if (plan == null) {
-                    CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan FAILED for bee ${bee.id.toString().substring(0, 6)}, returning to hive")
+                    CreateBuzzyBeez.debug { "[SpawnBee] Flight plan FAILED for bee ${bee.id.toString().substring(0, 6)}, returning to hive" }
                     batch.releaseWithoutRetry()
                     removeBee(bee.id)
                     returnBeeToHive(bee, beeWorld)
                     return@computeAsync
                 }
-                CreateBuzzyBeez.LOGGER.debug("[SpawnBee] Flight plan OK for bee ${bee.id.toString().substring(0, 6)}, ${plan.checkpoints.size} checkpoints")
                 startPlan(bee, plan, beeWorld.gameTime, network)
             }
         } else {

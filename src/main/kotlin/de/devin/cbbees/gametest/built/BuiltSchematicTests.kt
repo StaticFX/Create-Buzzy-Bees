@@ -1,5 +1,6 @@
 package de.devin.cbbees.gametest.built
 
+import de.devin.cbbees.content.domain.action.impl.PlaceFluidAction
 import de.devin.cbbees.content.domain.built.BuiltSchematic
 import de.devin.cbbees.content.domain.built.BuiltSchematics
 import de.devin.cbbees.content.domain.job.BeeJob
@@ -12,6 +13,9 @@ import net.minecraft.core.BlockPos
 import net.minecraft.gametest.framework.GameTest
 import net.minecraft.gametest.framework.GameTestHelper
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.material.Fluids
+import net.neoforged.neoforge.fluids.FluidStack
+import net.neoforged.neoforge.fluids.FluidType
 import java.util.UUID
 
 object BuiltSchematicTests {
@@ -44,6 +48,21 @@ object BuiltSchematicTests {
         assertNotNull(build, "build record")
         assertEquals(setOf(placed), build!!.blocks.keys, "recorded positions")
         assertEquals("hut", build.name, "build name")
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 20)
+    @JvmStatic
+    fun record_includesPlacedFluids(helper: GameTestHelper) = helper.unitTest {
+        val water = helper.absolutePos(BlockPos(1, 1, 0))
+        val job = constructionJob(helper).apply {
+            addTask(BeeTask(PlaceFluidAction(water, FluidStack(Fluids.WATER, FluidType.BUCKET_VOLUME)), this).apply { status = TaskStatus.COMPLETED })
+        }
+        helper.level.setBlockAndUpdate(water, Blocks.WATER.defaultBlockState())
+
+        BuiltSchematics.record(job)
+        val build = BuiltSchematics.data(helper.level.server).remove(job.jobId)
+        assertNotNull(build, "build record")
+        assertEquals(listOf(water), build!!.remainingBlocks(helper.level), "the water is removed with the build")
     }
 
     @GameTest(template = TEMPLATE, timeoutTicks = 20)

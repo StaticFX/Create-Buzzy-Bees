@@ -92,10 +92,7 @@ object JobLookOverlay {
         val percent = if (job.total == 0) 100 else job.completed * 100 / job.total
         add(Component.translatable("cbbees.job_overlay.progress", job.completed, job.total, percent).withStyle(ChatFormatting.GRAY))
         add(Component.translatable("cbbees.job_overlay.bees", job.activeBees).withStyle(ChatFormatting.GRAY))
-        job.reason?.let { reason ->
-            val text = if (reason.startsWith("cbbees.")) Component.translatable(reason) else Component.translatable("cbbees.job_overlay.missing_materials")
-            add(text.withStyle(ChatFormatting.RED))
-        }
+        job.stall?.let { add(Component.translatable(it.reason.translationKey).withStyle(ChatFormatting.RED)) }
         add(Component.translatable("cbbees.job_overlay.details").withStyle(ChatFormatting.DARK_GRAY))
     }
 }

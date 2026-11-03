@@ -8,22 +8,20 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.levelgen.structure.BoundingBox
 
-private val WORKING = setOf(TaskStatus.IN_PROGRESS, TaskStatus.PICKED)
-
 /**
  * Builds the client view of this job. It is the same for every viewer, so callers that
  * sync many players build it once per job and share it.
  *
- * @param reason why the job is stuck, or null
+ * @param stall why the job is stuck, or null
  */
-fun BeeJob.toClientInfo(server: MinecraftServer, reason: String?) = ClientJobInfo(
+fun BeeJob.toClientInfo(server: MinecraftServer, stall: Stall?) = ClientJobInfo(
     jobId = jobId,
     name = jobId.toString().substring(0, 6).uppercase(),
     status = status.name,
     completed = tasks.count { it.status == TaskStatus.COMPLETED },
     total = tasks.size,
-    reason = reason,
-    beeIds = batches.filter { it.status in WORKING }.mapNotNull { it.assignedBeeId }.distinct(),
+    stall = stall,
+    beeIds = workingBatches.mapNotNull { it.assignedBeeId }.distinct(),
     materials = remainingMaterials(),
     bounds = BoundingBox.encapsulatingPositions(batches.map { it.targetPosition }).orElse(null),
     schematicPlacement = schematicPlacement,

@@ -23,13 +23,9 @@ import net.minecraft.world.item.ItemStack
 class EnterHive : CheckpointAction {
 
     override fun onArrival(bee: ServerBeeData, level: ServerLevel, gameTime: Long): Boolean {
-        val log = CreateBuzzyBeez.LOGGER
         val hive = bee.hiveInstance ?: run {
-            log.debug(
-                "[EnterHive] Bee ${
-                    bee.id.toString().substring(0, 6)
-                }: no hiveInstance"
-            ); return false
+            CreateBuzzyBeez.debug { "[EnterHive] Bee ${bee.id.toString().substring(0, 6)}: no hiveInstance" }
+            return false
         }
 
         val deficit = 1.0f - bee.springTension
@@ -45,11 +41,7 @@ class EnterHive : CheckpointAction {
 
         if (hive.returnBee(beeItem)) {
             hive.onBeeRemovedById(bee.id)
-            log.debug(
-                "[EnterHive] Bee ${
-                    bee.id.toString().substring(0, 6)
-                } returned to ${hive.javaClass.simpleName}, activeBees=${hive.getActiveBeeCount()}"
-            )
+            CreateBuzzyBeez.debug { "[EnterHive] Bee ${bee.id.toString().substring(0, 6)} returned to ${hive.javaClass.simpleName}, activeBees=${hive.getActiveBeeCount()}" }
             ServerBeeManager.removeBee(bee.id)
             return true
         }
@@ -57,11 +49,7 @@ class EnterHive : CheckpointAction {
         bee.dropInventory()
         level.addFreshEntity(ItemEntity(level, bee.pos.x, bee.pos.y, bee.pos.z, beeItem))
         hive.onBeeRemovedById(bee.id)
-        log.debug(
-            "[EnterHive] Bee ${
-                bee.id.toString().substring(0, 6)
-            } dropped as item (hive full), activeBees=${hive.getActiveBeeCount()}"
-        )
+        CreateBuzzyBeez.debug { "[EnterHive] Bee ${bee.id.toString().substring(0, 6)} dropped as item (hive full), activeBees=${hive.getActiveBeeCount()}" }
         ServerBeeManager.removeBee(bee.id)
         return true
     }
