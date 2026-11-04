@@ -13,11 +13,14 @@ class TaskBatch(
     val tasks: List<BeeTask>,
     val job: BeeJob,
     val targetPosition: BlockPos,
-    /** Execution phase — all batches in phase N must complete before phase N+1 is dispatched. */
-    val phase: Int = 0,
+    phase: Int = 0,
     /** Which bee type should handle this batch. Hive uses this to consume the right item. */
     val beeType: BeeType = BeeType.CONSTRUCTION,
 ) {
+    /** Execution phase — all batches in phase N must complete before phase N+1 is dispatched. Fixed once added to a job. */
+    var phase: Int = phase
+        internal set
+
     companion object {
         const val MAX_RETRIES = 5
         /** Minimum ticks before a released batch can be re-dispatched (3 seconds). */

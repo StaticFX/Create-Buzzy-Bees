@@ -4,8 +4,13 @@ import com.simibubi.create.AllBlocks
 import com.simibubi.create.api.contraption.BlockMovementChecks
 import com.simibubi.create.content.kinetics.belt.BeltBlock
 import com.simibubi.create.content.kinetics.belt.BeltPart
+import de.devin.cbbees.content.domain.action.impl.PlaceBlockAction
+import de.devin.cbbees.content.domain.action.impl.RemoveBlockAction
+import de.devin.cbbees.content.domain.task.TaskBatch
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Direction
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.FallingBlock
 import net.minecraft.world.level.block.LiquidBlock
 import net.minecraft.world.level.block.piston.PistonHeadBlock
 import net.minecraft.world.level.block.state.BlockState
@@ -59,11 +64,23 @@ object BlockPlacementClassifier {
      */
     const val REMOVAL_NORMAL_OFFSET = 0
 
+    /** Most gravity blocks stacked in one column that still get a phase each; taller stacks share the last. */
+    const val GRAVITY_LAYERS = 4096
+
+    /** Gravity blocks are removed before what holds them up, top layer first; see [layerGravityBlocks]. */
+    const val GRAVITY_REMOVAL_PHASE = 3
+
+    /** Normal blocks are removed last. */
+    const val REMOVAL_LAST_PHASE = GRAVITY_REMOVAL_PHASE + GRAVITY_LAYERS
+
     /** Blocks are placed once every [removalPhase] is done, so nothing is placed where something still has to go. */
-    const val PLACEMENT_PHASE = 4
+    const val PLACEMENT_PHASE = REMOVAL_LAST_PHASE + 1
+
+    /** Gravity blocks are placed after the blocks holding them up, bottom layer first; see [layerGravityBlocks]. */
+    const val GRAVITY_PLACEMENT_PHASE = PLACEMENT_PHASE + 1
 
     /** Fluids are placed after every block, so water can't flood parts that aren't built yet. */
-    const val FLUID_PLACEMENT_PHASE = PLACEMENT_PHASE + 1
+    const val FLUID_PLACEMENT_PHASE = GRAVITY_PLACEMENT_PHASE + GRAVITY_LAYERS
 
     fun placementPhase(isFluid: Boolean): Int = if (isFluid) FLUID_PLACEMENT_PHASE else PLACEMENT_PHASE
 
@@ -152,7 +169,8 @@ object BlockPlacementClassifier {
      * Phase 0 (first): fluid sources, so water can't spread once its walls are gone
      * Phase 1: brittle/dependent blocks (tunnels, torches, rails, etc.)
      * Phase 2: support blocks (belts, gantry carriages, mechanical arms)
-     * Phase 3 (last): normal blocks
+     * [GRAVITY_REMOVAL_PHASE]: gravity blocks, so they can't fall once what's below them is gone
+     * [REMOVAL_LAST_PHASE]: normal blocks
      */
     fun removalPhase(state: BlockState): Int {
         if (state.block is LiquidBlock) return 0
@@ -164,7 +182,41 @@ object BlockPlacementClassifier {
             || AllBlocks.GANTRY_CARRIAGE.has(state)
             || AllBlocks.MECHANICAL_ARM.has(state)
         ) return 2
-        return 3
+        if (state.block is FallingBlock) return GRAVITY_REMOVAL_PHASE
+        return REMOVAL_LAST_PHASE
+    }
+
+    /**
+     * Gives stacked gravity blocks a phase per layer, so bees working in parallel never leave one
+     * without support: removal goes from the top layer down, placement from the bottom layer up.
+     * A layer counts the gravity blocks of [batches] directly above (removal) or below (placement).
+     */
+    fun layerGravityBlocks(batches: List<TaskBatch>) {
+        val removals = HashMap<BlockPos, TaskBatch>()
+        val placements = HashMap<BlockPos, TaskBatch>()
+        for (batch in batches) {
+            when (val action = batch.tasks.firstOrNull()?.action) {
+                is RemoveBlockAction -> if (batch.phase == GRAVITY_REMOVAL_PHASE) removals[action.pos] = batch
+                is PlaceBlockAction -> if (batch.phase == PLACEMENT_PHASE && batch.tasks.size == 1 && action.blockState.block is FallingBlock) {
+                    placements[action.pos] = batch
+                }
+                else -> {}
+            }
+        }
+        // Removals hold exactly the gravity blocks in the world, placements the ones to be placed
+        layer(removals, Direction.UP, GRAVITY_REMOVAL_PHASE)
+        layer(placements, Direction.DOWN, GRAVITY_PLACEMENT_PHASE)
+    }
+
+    /** Sets each batch's phase to [base] plus the number of batches stacked toward [first], which go first. */
+    private fun layer(batches: Map<BlockPos, TaskBatch>, first: Direction, base: Int) {
+        val layers = HashMap<BlockPos, Int>()
+        val firstToLast = batches.keys.sortedBy { if (first == Direction.UP) -it.y else it.y }
+        for (pos in firstToLast) {
+            val layer = layers[pos.relative(first)]?.let { minOf(it + 1, GRAVITY_LAYERS - 1) } ?: 0
+            layers[pos] = layer
+            batches.getValue(pos).phase = base + layer
+        }
     }
 
     /** The block without its fluid, as Create's placement leaves it. */

@@ -65,7 +65,7 @@ object CBBeesConfig {
     val adaptiveBlockBudget: ModConfigSpec.BooleanValue
     val targetTickMs: ModConfigSpec.DoubleValue
     val taskGenerationBudgetMs: ModConfigSpec.DoubleValue
-    val maxCheckpointsPerTick: ModConfigSpec.IntValue
+    val checkpointBudgetMs: ModConfigSpec.DoubleValue
     val redispatchInterval: ModConfigSpec.IntValue
     val maxDispatchesPerCycle: ModConfigSpec.IntValue
 
@@ -304,9 +304,9 @@ object CBBeesConfig {
             .comment("Milliseconds per server tick spent scanning schematics and areas when planning build/removal jobs. Higher values finish planning faster; lower values reduce TPS impact.")
             .defineInRange("taskGenerationBudgetMs", 15.0, 1.0, 40.0)
 
-        maxCheckpointsPerTick = builder
-            .comment("Maximum bee waypoint arrivals (gathering, drop-off, entering the hive) processed per server tick. Block placing and breaking is limited by blockOperationBudgetMs instead.")
-            .defineInRange("maxCheckpointsPerTick", 30, 1, 500)
+        checkpointBudgetMs = builder
+            .comment("Milliseconds per server tick all bees together may spend at their other stops: gathering, picking their next task, drop-off and entering the hive. Bees that don't fit wait for the next tick, first in line. Block placing and breaking is limited by blockOperationBudgetMs instead.")
+            .defineInRange("checkpointBudgetMs", 3.0, 0.5, 20.0)
 
         redispatchInterval = builder
             .comment("How many GlobalJobPool tick cycles between redispatch attempts for pending batches. GlobalJobPool ticks every 10 server ticks, so interval of 4 = every 40 ticks (2 seconds). Lower = faster bee deployment but more server work.")

@@ -6,6 +6,7 @@ import de.devin.cbbees.content.domain.built.BuiltSchematics
 import de.devin.cbbees.content.domain.task.BeeTask
 import de.devin.cbbees.content.domain.task.TaskBatch
 import de.devin.cbbees.content.domain.task.TaskStatus
+import de.devin.cbbees.content.schematics.BlockPlacementClassifier
 import de.devin.cbbees.content.schematics.SchematicJobKey
 import net.minecraft.core.BlockPos
 import net.minecraft.core.HolderLookup
@@ -132,9 +133,15 @@ data class BeeJob(
     }
 
     /**
-     * Adds multiple batches to this job.
+     * Adds multiple batches to this job, giving stacked gravity blocks a phase per layer.
      */
     fun addBatches(newBatches: List<TaskBatch>) {
+        BlockPlacementClassifier.layerGravityBlocks(newBatches)
+        restoreBatches(newBatches)
+    }
+
+    /** Adds batches as they are, e.g. loaded ones whose phases were already set. */
+    private fun restoreBatches(newBatches: List<TaskBatch>) {
         newBatches.forEach { batch ->
             batch.order = _batches.size
             _batches.add(batch)
@@ -298,7 +305,7 @@ data class BeeJob(
             }
 
             val batchList = tag.getList("Batches", Tag.TAG_COMPOUND.toInt())
-            job.addBatches((0 until batchList.size).mapNotNull { TaskBatch.load(batchList.getCompound(it), registries, job) })
+            job.restoreBatches((0 until batchList.size).mapNotNull { TaskBatch.load(batchList.getCompound(it), registries, job) })
 
             return job
         }

@@ -38,6 +38,7 @@ object CBBeesGameTests {
         de.devin.cbbees.gametest.network.ProviderChoiceTests::class.java,
         de.devin.cbbees.gametest.built.BuiltSchematicTests::class.java,
         de.devin.cbbees.gametest.job.JobPhaseTests::class.java,
+        de.devin.cbbees.gametest.job.GravityPhaseTests::class.java,
         de.devin.cbbees.gametest.job.JobStallTests::class.java,
         de.devin.cbbees.gametest.job.UnreachableTests::class.java,
         de.devin.cbbees.gametest.deconstruction.BreakSpeedTests::class.java,

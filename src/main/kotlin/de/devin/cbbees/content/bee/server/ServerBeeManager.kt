@@ -105,7 +105,10 @@ object ServerBeeManager {
     private const val VIEWER_SYNC_INTERVAL = 10L
     private const val VIEWER_MARGIN = 32.0
 
-    private val maxCheckpointsPerTick: Int get() = CBBeesConfig.maxCheckpointsPerTick.get()
+    private val checkpointBudgetNanos: Long get() = (CBBeesConfig.checkpointBudgetMs.get() * 1_000_000).toLong()
+
+    /** Where in the bee list the checkpoint budget last ran out; the bees left waiting go first on the next tick. */
+    private var checkpointCursor = 0
     private val reservedActions = HashMap<Long, Int>()
 
     private fun reserveAction(earliest: Long): Long {
@@ -123,12 +126,16 @@ object ServerBeeManager {
         val profiler = serverLevel.profiler
 
         val snapshot = bees.values.toTypedArray()
-        var checkpointsThisTick = 0
+        val start = if (snapshot.isEmpty()) 0 else checkpointCursor % snapshot.size
+        var checkpointNanos = 0L
+        var firstDeferred = -1
         val confirmBatch = mutableListOf<Pair<ServerBeeData, BeeCheckpointConfirmPacket.Entry>>()
         val carriedItemBatch = mutableListOf<Pair<ServerBeeData, BeeCarriedItemPacket.Entry>>()
 
         profiler.push("checkpoints")
-        for (bee in snapshot) {
+        for (i in snapshot.indices) {
+            val index = (start + i) % snapshot.size
+            val bee = snapshot[index]
             if (bee.id in pendingRemovals) continue
 
             val plan = bee.flightPlan
@@ -136,16 +143,20 @@ object ServerBeeManager {
 
             if (gameTime < bee.nextCheckpointArrivalTick) continue
             val checkpoint = plan.checkpoints[bee.currentCheckpointIndex]
-            if (checkpoint.action !is ExecuteBeeAction) {
-                if (checkpointsThisTick >= maxCheckpointsPerTick) continue
-                checkpointsThisTick++
+            // Block actions have their own budget; fly-throughs and stops still waiting cost next to nothing here
+            val budgeted = checkpoint.action !is ExecuteBeeAction
+            if (budgeted && checkpointNanos >= checkpointBudgetNanos) {
+                if (firstDeferred < 0) firstDeferred = index
+                continue
             }
 
             profiler.push("arrival")
             bee.pos = Vec3.atCenterOf(checkpoint.pos)
 
             val beeLevel = bee._level as? ServerLevel ?: serverLevel
+            val arrivalStart = System.nanoTime()
             val completed = checkpoint.action.onArrival(bee, beeLevel, gameTime)
+            if (budgeted) checkpointNanos += System.nanoTime() - arrivalStart
             val carried = bee.carriedItem()
             if (!ItemStack.isSameItemSameComponents(carried, bee.syncedCarriedItem)) {
                 bee.syncedCarriedItem = carried.copyWithCount(1)
@@ -165,6 +176,7 @@ object ServerBeeManager {
             }
         }
         profiler.pop()
+        if (firstDeferred >= 0) checkpointCursor = firstDeferred
 
         profiler.push("broadcast")
         sendPerViewer(confirmBatch, ::BeeCheckpointConfirmPacket)
