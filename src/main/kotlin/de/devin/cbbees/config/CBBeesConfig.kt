@@ -93,7 +93,7 @@ object CBBeesConfig {
 
         maxBeesPerHive = builder
             .comment("Hard cap on active bees per hive, after RPM and upgrade scaling. Even with max RPM and upgrades, a hive will never exceed this.")
-            .defineInRange("maxBeesPerHive", 16, 1, 64)
+            .defineInRange("maxBeesPerHive", 64, 1, 64)
 
         minActiveBeesAtRpm = builder
             .comment("Minimum active bees when the hive has any RPM. Ensures even slow shafts deploy at least this many bees.")
@@ -105,7 +105,7 @@ object CBBeesConfig {
 
         hiveRangePerRpm = builder
             .comment("Work range added per RPM. Formula: range = baseRange + RPM * this. Example: 64 RPM * 0.25 = 16 + 10 base = 26 blocks.")
-            .defineInRange("hiveRangePerRpm", 0.25, 0.01, 10.0)
+            .defineInRange("hiveRangePerRpm", 1.0, 0.01, 10.0)
 
         hiveRpmSpeedDivisor = builder
             .comment("RPM divisor for bee flight speed and spring efficiency. Formula: multiplier = 1 + RPM / this. Higher = slower scaling.")
@@ -113,7 +113,7 @@ object CBBeesConfig {
 
         hiveRpmBeeDivisor = builder
             .comment("RPM divisor for max active bees. Formula: extra bees = RPM / this. Example: 64 RPM / 8 = 8 extra bees.")
-            .defineInRange("hiveRpmBeeDivisor", 8.0, 1.0, 256.0)
+            .defineInRange("hiveRpmBeeDivisor", 1.0, 1.0, 256.0)
 
         builder.pop()
 
