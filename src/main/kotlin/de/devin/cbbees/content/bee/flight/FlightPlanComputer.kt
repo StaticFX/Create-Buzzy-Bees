@@ -57,6 +57,9 @@ object FlightPlanComputer {
     private const val DEPOSIT_PAUSE_TICKS = 5
     private const val DROP_OFF_PAUSE_TICKS = 5
 
+    /** Flight speed in blocks per tick, scaled by hive RPM and Rapid Wings. */
+    private fun speedOf(bee: ServerBeeData): Float = DEFAULT_SPEED * bee.getBeeContext().speedMultiplier.toFloat()
+
     private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
         Thread(r, "BeeFlightPlanner").apply { isDaemon = true }
     }
@@ -88,7 +91,7 @@ object FlightPlanComputer {
 
         executor.submit {
             val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, crossings)
-            level.server.execute { onComplete(FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, finalCheckpoints, level)) }
+            level.server.execute { onComplete(FlightPlan.of(bee.id, bee.type, speedOf(bee), finalCheckpoints, level)) }
         }
     }
 
@@ -107,7 +110,7 @@ object FlightPlanComputer {
 
         executor.submit {
             val finalCheckpoints = insertObstacleWaypointsFromSnapshot(rawCheckpoints, collisionSnapshot, crossings)
-            level.server.execute { onComplete(FlightPlan.of(bee.id, BeeType.TRANSPORT, DEFAULT_SPEED, finalCheckpoints, level)) }
+            level.server.execute { onComplete(FlightPlan.of(bee.id, BeeType.TRANSPORT, speedOf(bee), finalCheckpoints, level)) }
         }
     }
 
@@ -162,7 +165,7 @@ object FlightPlanComputer {
     ): FlightPlan? {
         val raw = buildRawConstructionCheckpoints(bee, batch, network) ?: return null
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
+        return FlightPlan.of(bee.id, bee.type, speedOf(bee), checkpoints, level)
     }
 
     /**
@@ -172,7 +175,7 @@ object FlightPlanComputer {
     fun forTransport(bee: ServerBeeData, task: TransportTask, level: ServerLevel? = null): FlightPlan {
         val raw = buildRawTransportCheckpoints(bee, task)
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
+        return FlightPlan.of(bee.id, bee.type, speedOf(bee), checkpoints, level)
     }
 
     /**
@@ -186,7 +189,7 @@ object FlightPlanComputer {
             Checkpoint(hiveApproach, EnterHive()),
         )
         val checkpoints = if (level != null) insertObstacleWaypoints(raw, level) else raw
-        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, checkpoints, level)
+        return FlightPlan.of(bee.id, bee.type, speedOf(bee), checkpoints, level)
     }
 
     fun forRewind(bee: ServerBeeData, batch: TaskBatch, level: ServerLevel): FlightPlan {
@@ -199,7 +202,7 @@ object FlightPlanComputer {
             Checkpoint(hiveApproach, ResumeConstruction(batch)),
             Checkpoint(hiveApproach, EnterHive()),
         )
-        return FlightPlan.of(bee.id, bee.type, DEFAULT_SPEED, insertObstacleWaypoints(raw, level), level)
+        return FlightPlan.of(bee.id, bee.type, speedOf(bee), insertObstacleWaypoints(raw, level), level)
     }
 
     private fun buildRawConstructionCheckpoints(bee: ServerBeeData, batch: TaskBatch, network: BeeNetwork): List<Checkpoint>? = buildList {

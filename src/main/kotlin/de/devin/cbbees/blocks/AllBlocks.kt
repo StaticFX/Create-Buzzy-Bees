@@ -38,7 +38,7 @@ object AllBlocks {
                 p.models().getExistingFile(p.modLoc("block/mechanical_beehive/block"))
             )
         }
-        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 128.0 } }
+        .onRegister { block -> BlockStressValues.IMPACTS.register(block) { 16.0 } }
         .item()
         .model { c, p -> p.withExistingParent(c.name, p.modLoc("block/mechanical_beehive/item")) }
         .build()
