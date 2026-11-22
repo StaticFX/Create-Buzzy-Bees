@@ -18,8 +18,9 @@ export default defineConfig({
     starlight({
       title: 'Create Buzzy Beez',
       description: 'Config reference and addon API',
-      favicon: '/favicon.svg',
+      favicon: '/favicon.png',
       head: [
+        { tag: 'link', attrs: { rel: 'apple-touch-icon', href: '/Create-Buzzy-Bees/apple-touch-icon.png' } },
         {
           tag: 'link',
           attrs: { rel: 'preload', href: '/Create-Buzzy-Bees/fonts/Monocraft.ttf', as: 'font', type: 'font/ttf', crossorigin: '' },
