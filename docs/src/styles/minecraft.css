@@ -1,0 +1,174 @@
+/* Minecraft look for Starlight: Monocraft headings and code, inventory-style bevels, honey and brass colours. */
+@font-face {
+  font-family: "Monocraft";
+  src: url("/Create-Buzzy-Bees/fonts/Monocraft.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Monocraft";
+  src: url("/Create-Buzzy-Bees/fonts/Monocraft-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Dark (Starlight's default) */
+:root {
+  --mc-pixel-font: "Monocraft", monospace;
+  --sl-font-mono: "Monocraft", monospace;
+  --sl-content-width: 52rem;
+  --mc-toc-width: 15rem;
+  --mc-bevel-light: #5a5a5a;
+  --mc-bevel-dark: #141414;
+  --mc-slot: #2b2b2b;
+  --mc-outline: #000000;
+  --mc-honey: #f5b731;
+  --mc-line: #f5b731;
+
+  --sl-color-accent-low: #3b2a12;
+  --sl-color-accent: #d9921a;
+  --sl-color-accent-high: #f5c75a;
+  --sl-color-black: #1d1b18;
+  --sl-color-gray-6: #26231f;
+  --sl-color-gray-5: #3a352e;
+}
+
+:root[data-theme="light"] {
+  --mc-line: #9a6512;
+  --mc-bevel-light: #ffffff;
+  --mc-bevel-dark: #555555;
+  --mc-slot: #c6c6c6;
+  --mc-outline: #1e1e1e;
+
+  --sl-color-accent-low: #f7e3b0;
+  --sl-color-accent: #9a6512;
+  --sl-color-accent-high: #4a3210;
+  --sl-color-white: #1e1a14;
+  --sl-color-gray-5: #d8cfbd;
+  --sl-color-gray-6: #ece4d3;
+  --sl-color-gray-7: #f6f1e6;
+  --sl-color-black: #fffcf4;
+}
+
+/* Pixel font for titles only, so body text stays easy to read. */
+.site-title,
+.sidebar-content .group-label,
+.sl-markdown-content :is(h1, h2, h3),
+h1#_top,
+.sl-markdown-content th,
+starlight-tabs [role="tab"],
+.starlight-aside__title {
+  font-family: var(--mc-pixel-font);
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: none;
+}
+
+h1#_top {
+  font-weight: 700;
+  text-shadow: 3px 3px 0 color-mix(in srgb, var(--sl-color-white) 20%, transparent);
+}
+
+/* Honey strip under the header. */
+.header {
+  border-bottom: 4px solid var(--mc-honey);
+  box-shadow: 0 2px 0 var(--mc-outline);
+}
+
+/* Inventory bevel: light top-left edge, dark bottom-right edge. */
+.sl-markdown-content table,
+.sl-markdown-content .expressive-code .frame,
+.starlight-aside,
+starlight-tabs {
+  border: 2px solid var(--mc-outline);
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 var(--mc-bevel-light), inset -2px -2px 0 var(--mc-bevel-dark);
+}
+
+.sl-markdown-content .expressive-code {
+  --ec-brdRad: 0;
+}
+
+.sl-markdown-content th {
+  background: var(--mc-slot);
+}
+
+.sl-markdown-content code,
+.pagination-links a,
+site-search button {
+  border-radius: 0;
+}
+
+/* Keep the "On this page" column narrow instead of growing with the window, and centre the content. */
+@media (min-width: 72rem) {
+  .right-sidebar-container {
+    width: var(--mc-toc-width);
+  }
+
+  [data-has-sidebar][data-has-toc] .main-pane {
+    --sl-content-margin-inline: auto;
+    width: calc(100% - var(--mc-toc-width));
+  }
+}
+
+img {
+  image-rendering: pixelated;
+}
+
+/* Diagrams: inventory-style boxes. Mermaid lays out its labels in Monocraft itself (see astro.config.mjs). */
+pre.mermaid {
+  background: transparent;
+  border: 0;
+  display: flex;
+  justify-content: center;
+}
+
+pre.mermaid :is(.node rect, .node polygon, .cluster rect, .actor, .note) {
+  fill: var(--mc-slot) !important;
+  stroke: var(--mc-outline) !important;
+  stroke-width: 2px !important;
+  rx: 0 !important;
+  ry: 0 !important;
+}
+
+pre.mermaid :is(.nodeLabel, .label, .cluster-label, text.actor, .messageText, .noteText, .edgeLabel) {
+  color: var(--sl-color-white) !important;
+  fill: var(--sl-color-white) !important;
+}
+
+pre.mermaid :is(.flowchart-link, .messageLine0, .messageLine1, .actor-line) {
+  stroke: var(--mc-line) !important;
+}
+
+pre.mermaid :is(.arrowheadPath, marker path) {
+  fill: var(--mc-line) !important;
+  stroke: var(--mc-line) !important;
+}
+
+pre.mermaid :is(.edgeLabel, .labelBkg) {
+  background: var(--sl-color-black) !important;
+}
+
+pre.mermaid .edgeLabel rect {
+  fill: var(--sl-color-black) !important;
+}
+
+/* Tables fill the content width on wide screens; on narrow ones they stay scrollable. */
+.sl-markdown-content table {
+  border-collapse: collapse;
+}
+
+.sl-markdown-content :is(th, td) {
+  padding: 0.5rem 0.75rem;
+}
+
+.sl-markdown-content td code {
+  white-space: nowrap;
+}
+
+@media (min-width: 50rem) {
+  .sl-markdown-content table {
+    display: table;
+    width: 100%;
+  }
+}

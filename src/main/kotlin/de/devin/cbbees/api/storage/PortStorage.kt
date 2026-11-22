@@ -5,7 +5,11 @@ import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 
-/** The item storage behind a port: a plain inventory or a whole storage network. */
+/**
+ * The item storage behind a port: a plain inventory or a whole storage network.
+ * @see de.devin.cbbees.compat.ae2.MEPortStorage
+ * @see de.devin.cbbees.compat.refinedstorage.RSPortStorage
+ */
 interface PortStorage {
 
     /** Every stack the storage holds. */
@@ -42,7 +46,10 @@ enum class CraftResult {
     UNAVAILABLE
 }
 
-/** Finds the [PortStorage] a port facing [side] at [pos] is attached to, or null if it isn't yours. */
+/**
+ * Finds the [PortStorage] a port facing [side] at [pos] is attached to, or null if it isn't yours.
+ * @see de.devin.cbbees.compat.ae2.MEPortStorage.Companion.find
+ */
 fun interface PortStorageProvider {
     fun find(level: Level, pos: BlockPos, side: Direction): PortStorage?
 }

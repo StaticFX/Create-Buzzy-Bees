@@ -11,7 +11,10 @@ import net.minecraft.world.level.block.state.BlockState
  */
 class Substitute(val state: BlockState, val finish: BeeAction? = null)
 
-/** Replaces schematic blocks bees can't place directly; return null to leave the block alone. */
+/**
+ * Replaces schematic blocks bees can't place directly; return null to leave the block alone.
+ * @see de.devin.cbbees.compat.immersiveengineering.MultiblockSchematics.substitute
+ */
 fun interface SchematicSubstitute {
     fun substitute(pos: BlockPos, state: BlockState, blockEntity: BlockEntity?): Substitute?
 }

@@ -12,19 +12,31 @@ import de.devin.cbbees.content.schematics.SchematicSubstitutes
 /** Entry point for other mods. Call these during mod setup; providers are asked in registration order. */
 object CBBeesApi {
 
-    /** Lets ports read from and write into your storage blocks or networks. */
+    /**
+     * Lets ports read from and write into your storage blocks or networks.
+     * @sample de.devin.cbbees.compat.ae2.AE2Compat.register
+     */
     @JvmStatic
     fun registerPortStorage(provider: PortStorageProvider) = PortStorages.register(provider)
 
-    /** Lets bees build blocks that can't be placed as they are in the schematic. */
+    /**
+     * Lets bees build blocks that can't be placed as they are in the schematic.
+     * @sample de.devin.cbbees.compat.immersiveengineering.MultiblockSchematics.register
+     */
     @JvmStatic
     fun registerSchematicSubstitute(substitute: SchematicSubstitute) = SchematicSubstitutes.register(substitute)
 
-    /** Lets schematics rotate and mirror your blocks correctly. */
+    /**
+     * Lets schematics rotate and mirror your blocks correctly.
+     * @sample de.devin.cbbees.compat.refinedstorage.RefinedStorageSchematics.register
+     */
     @JvmStatic
     fun registerBlockTransform(transform: BlockTransform) = BlockTransforms.register(transform)
 
-    /** Lets your custom bee actions be saved with their job. */
+    /**
+     * Lets your custom bee actions be saved with their job.
+     * @sample de.devin.cbbees.compat.immersiveengineering.ImmersiveEngineeringCompat.register
+     */
     @JvmStatic
     fun registerBeeAction(codec: BeeActionCodec<*>) = BeeActionSerializer.register(codec)
 }

@@ -1,0 +1,123 @@
+---
+title: Adding compat
+description: Hook your mod into Buzzy Beez.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Buzzy Beez has a small API for other mods. Everything is in the `de.devin.cbbees.api` package.
+You register your code through `CBBeesApi` during mod setup. Only register it when your mod is loaded.
+
+## Custom storages
+
+Bees take building materials from inventories next to a Logistics Port. They can't see items that are stored anywhere else, such as in a storage network.
+
+Add a `PortStorage` for your storage, and bees will use it like a normal inventory. It can also ask your storage to craft items that are missing.
+
+Register it in your mod setup:
+
+<Tabs syncKey="lang">
+  <TabItem label="Kotlin">
+    ```kotlin
+    CBBeesApi.registerPortStorage(MyStorage)
+    ```
+  </TabItem>
+  <TabItem label="Java">
+    ```java
+    CBBeesApi.registerPortStorage(MyStorage.INSTANCE);
+    ```
+  </TabItem>
+</Tabs>
+
+In your compat class:
+
+- Implement [`PortStorage`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/api/storage/PortStorage.kt) for the storage itself.
+- Implement `PortStorageProvider.find(level, pos, side)`. Return null for blocks that aren't yours.
+- If your storage can craft, set `canCraft = true` and implement `craft`.
+
+Examples: [`MEPortStorage`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/compat/ae2/MEPortStorage.kt) (AE2), [`RSPortStorage`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/compat/refinedstorage/RSPortStorage.kt) (Refined Storage)
+
+## Unplaceable blocks
+
+Some blocks can't be placed straight from a schematic. For example, the parts of a formed multiblock only exist after the multiblock is formed. If bees place them one by one, the structure breaks.
+
+Add a substitute. It tells bees to place a different block instead, such as the unformed block. It can also run a `finish` action after the whole schematic is built, for example to form the multiblock again.
+
+Register it in your mod setup:
+
+<Tabs syncKey="lang">
+  <TabItem label="Kotlin">
+    ```kotlin
+    CBBeesApi.registerSchematicSubstitute(MySubstitute)
+    ```
+  </TabItem>
+  <TabItem label="Java">
+    ```java
+    CBBeesApi.registerSchematicSubstitute(MySubstitute.INSTANCE);
+    ```
+  </TabItem>
+</Tabs>
+
+In your compat class:
+
+- Implement [`SchematicSubstitute`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/api/schematic/SchematicSubstitute.kt). Return null for blocks that aren't yours.
+- Return a `Substitute` with the block state bees should place.
+- If something has to happen after the build, pass a `finish` action.
+
+Example: [`MultiblockSchematics`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/compat/immersiveengineering/MultiblockSchematics.kt) (Immersive Engineering)
+
+## Custom rotation
+
+When a schematic is rotated or mirrored, vanilla turns blocks that use the standard facing properties. If your block stores its direction another way, it ends up facing the wrong way.
+
+Add a transform. It gets each block state before vanilla does, so you can rotate or mirror it yourself.
+
+Register it in your mod setup:
+
+<Tabs syncKey="lang">
+  <TabItem label="Kotlin">
+    ```kotlin
+    CBBeesApi.registerBlockTransform(MyTransform)
+    ```
+  </TabItem>
+  <TabItem label="Java">
+    ```java
+    CBBeesApi.registerBlockTransform(MyTransform.INSTANCE);
+    ```
+  </TabItem>
+</Tabs>
+
+In your compat class:
+
+- Implement [`BlockTransform`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/api/schematic/BlockTransform.kt) with `rotate` and `mirror`.
+- Return null from both for blocks that aren't yours.
+
+Example: [`RefinedStorageSchematics`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/compat/refinedstorage/RefinedStorageSchematics.kt) (Refined Storage)
+
+## Custom bee actions
+
+Queued bee tasks and the undo history are saved with the world. Bees only know how to save their own actions. If one of your actions is queued, for example a substitute's `finish`, saving fails.
+
+Add a codec. It tells bees how to save and load your action.
+
+Register it in your mod setup:
+
+<Tabs syncKey="lang">
+  <TabItem label="Kotlin">
+    ```kotlin
+    CBBeesApi.registerBeeAction(MyAction.Codec)
+    ```
+  </TabItem>
+  <TabItem label="Java">
+    ```java
+    CBBeesApi.registerBeeAction(MyAction.Codec.INSTANCE);
+    ```
+  </TabItem>
+</Tabs>
+
+In your compat class:
+
+- Implement [`BeeActionCodec`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/api/action/BeeActionCodec.kt) with `save` and `load`.
+- Start the `id` with your mod id, so it can't clash with other mods.
+
+Example: [`FormMultiblockAction.Codec`](https://github.com/StaticFX/Create-Buzzy-Bees/blob/main/src/main/kotlin/de/devin/cbbees/compat/immersiveengineering/FormMultiblockAction.kt) (Immersive Engineering)
