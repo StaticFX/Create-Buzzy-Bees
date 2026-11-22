@@ -114,7 +114,7 @@ object SharedSchematicChat {
         val from = matrix.transformPosition(Vector3f(0f, lines.minOf { it.y } - 1f, 0f))
         val to = matrix.transformPosition(Vector3f(BOX_WIDTH.toFloat(), lines.maxOf { it.y } - 1f + lineHeight, 0f))
         graphics.enableScissor(floor(from.x).toInt(), floor(from.y).toInt(), ceil(to.x).toInt(), ceil(to.y).toInt())
-        SpinningPreview.render(graphics, ready.renderer, ready.size, 0, top, BOX_WIDTH, SharedSchematics.PREVIEW_LINES * lineHeight)
+        SchematicPreviewRenderer.renderSpinning(graphics, ready.renderer, ready.size, 0, top, BOX_WIDTH, SharedSchematics.PREVIEW_LINES * lineHeight)
         graphics.disableScissor()
     }
 

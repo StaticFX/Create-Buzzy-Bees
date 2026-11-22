@@ -61,9 +61,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private var hiddenLayers = 0
     private var draggingScrollbar: Area? = null
 
-    private var previewRotX = DEFAULT_ROT_X
-    private var previewRotY = DEFAULT_ROT_Y
-    private var previewZoom = 1f
+    private val camera = PreviewCamera()
 
     private var search = Area(0, 0, 0, 0)
     private var titleArea = Area(0, 0, 0, 0)
@@ -301,9 +299,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     }
 
     private fun resetView() {
-        previewRotX = DEFAULT_ROT_X
-        previewRotY = DEFAULT_ROT_Y
-        previewZoom = 1f
+        camera.reset()
     }
 
     private fun navigateToGroup(groupPath: String) {
@@ -431,16 +427,11 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
         }
 
         SchematicPreviewRenderer.loadFromFile(schematic.value)
-        SchematicPreviewRenderer.renderPreview(
-            schematic.value, guiGraphics,
-            viewport.x, viewport.y, viewport.w, viewport.h,
-            previewRotX, previewRotY, previewZoom,
+        camera.render(
+            schematic.value, guiGraphics, viewport.x, viewport.y, viewport.w, viewport.h,
             if (hiddenLayers == 0) Int.MAX_VALUE else layerCount() - 1 - hiddenLayers
         )
         renderLayerSlider(guiGraphics)
-        SchematicPreviewRenderer.renderAxisIndicator(
-            guiGraphics, viewport.x, viewport.y, viewport.w, viewport.h, previewRotX, previewRotY
-        )
 
         val x = info.x + 3
         val y = info.y + 1
@@ -569,6 +560,12 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             return true
         }
 
+        // A right-click on the preview activates the schematic on release, unless it was dragged to pan
+        if (selectedSchematic != null && viewport.contains(mouseX, mouseY) && !isMacCtrlClick(button)) {
+            camera.press(button)
+            return true
+        }
+
         if (button == 1 && !isMacCtrlClick(button)) {
             val entry = selectedEntry ?: return false
             if (entry.type == BrowserEntryType.SCHEMATIC && hasShiftDown()) instantConstruct(entry.value) else activate(entry)
@@ -580,6 +577,13 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     private fun scrollTracks() = listOfNotNull(listTrack, materialsTrack, layerTrack.takeIf { layerCount() > 1 })
 
     override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        camera.release(button)?.let { clicked ->
+            val entry = selectedEntry
+            if (clicked && button == 1 && entry != null) {
+                if (entry.type == BrowserEntryType.SCHEMATIC && hasShiftDown()) instantConstruct(entry.value) else activate(entry)
+            }
+            return true
+        }
         draggingScrollbar = null
         val row = pressed
         if (row == null) return super.mouseReleased(mouseX, mouseY, button)
@@ -602,7 +606,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
                 hiddenLayers = (hiddenLayers - delta).coerceIn(0, layerCount() - 1)
 
             viewport.contains(mouseX, mouseY) && selectedSchematic != null ->
-                previewZoom = (previewZoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
+                camera.scroll(scrollY)
 
             materialsPanel.contains(mouseX, mouseY) ->
                 materialScroll = (materialScroll - delta).coerceIn(0, maxMaterialScroll(currentMaterialCount()))
@@ -630,11 +634,7 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
             }
             return true
         }
-        if (button == 0 && selectedSchematic != null && viewport.contains(mouseX, mouseY)) {
-            previewRotY += dragX.toFloat()
-            previewRotX = (previewRotX - dragY.toFloat()).coerceIn(-90f, 90f)
-            return true
-        }
+        if (camera.drag(button, dragX, dragY)) return true
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
     }
 
@@ -662,8 +662,6 @@ class ConstructionPlannerScreen : Screen(Component.translatable("gui.cbbees.cons
     data class BrowserEntry(val type: BrowserEntryType, val value: String, val displayName: String, val group: String)
 
     companion object {
-        private const val DEFAULT_ROT_X = 30f
-        private const val DEFAULT_ROT_Y = -45f
         private const val MARGIN = 6
         private const val GAP = 4
         private const val ROW_HEIGHT = 18

@@ -1,7 +1,7 @@
 package de.devin.cbbees.content.zapper.client
 
 import de.devin.cbbees.content.schematics.client.GhostSchematicRenderer
-import de.devin.cbbees.content.schematics.client.SpinningPreview
+import de.devin.cbbees.content.schematics.client.SchematicPreviewRenderer
 import de.devin.cbbees.content.zapper.shape.ShapeSettings
 import de.devin.cbbees.content.zapper.shape.SolidShape
 import de.devin.cbbees.content.zapper.shape.ZapperShape
@@ -72,7 +72,7 @@ class ZapperShapePreview {
 
     private fun renderShape(graphics: GuiGraphics, ready: Ready, x: Int, y: Int, w: Int, h: Int) {
         graphics.enableScissor(x, y, x + w, y + h)
-        SpinningPreview.render(graphics, ready.renderer, ready.size, x, y, w, h)
+        SchematicPreviewRenderer.renderSpinning(graphics, ready.renderer, ready.size, x, y, w, h)
         graphics.disableScissor()
     }
 

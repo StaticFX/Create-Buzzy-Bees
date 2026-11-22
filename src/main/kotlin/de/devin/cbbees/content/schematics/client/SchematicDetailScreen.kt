@@ -20,7 +20,7 @@ import kotlin.math.min
  * Full-screen detail view for a single remote schematic.
  *
  * Shows a large 3D preview (auto-loaded), schematic metadata, material list,
- * and a download button. Supports mouse-drag rotation and scroll-to-zoom.
+ * and a download button. Left-drag rotates, right-drag pans and scrolling zooms.
  */
 @OnlyIn(Dist.CLIENT)
 class SchematicDetailScreen(
@@ -39,9 +39,7 @@ class SchematicDetailScreen(
     private var statusMessage: Component? = null
 
     // Camera
-    private var rotX = 30f
-    private var rotY = -45f
-    private var zoom = 1f
+    private val camera = PreviewCamera()
 
     // Layout regions
     private var previewLeft = 0
@@ -206,18 +204,7 @@ class SchematicDetailScreen(
 
         val key = previewKey
         if (key != null) {
-            SchematicPreviewRenderer.renderPreview(
-                key, guiGraphics,
-                previewLeft + 4, previewTop + 4,
-                previewW - 8, previewH - 8,
-                rotX, rotY, zoom
-            )
-            SchematicPreviewRenderer.renderAxisIndicator(
-                guiGraphics,
-                previewLeft + 4, previewTop + 4,
-                previewW - 8, previewH - 8,
-                rotX, rotY
-            )
+            camera.render(key, guiGraphics, previewLeft + 4, previewTop + 4, previewW - 8, previewH - 8)
         } else if (previewLoading) {
             guiGraphics.drawCenteredString(
                 font,
@@ -393,10 +380,8 @@ class SchematicDetailScreen(
 
     override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
         // Zoom on preview area
-        if (mouseX >= previewLeft && mouseX < previewLeft + previewW
-            && mouseY >= previewTop && mouseY < previewTop + previewH
-        ) {
-            zoom = (zoom + scrollY.toFloat() * 0.1f).coerceIn(0.2f, 5f)
+        if (isOverPreview(mouseX, mouseY)) {
+            camera.scroll(scrollY)
             return true
         }
         // Scroll material list on info panel
@@ -409,17 +394,21 @@ class SchematicDetailScreen(
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
     }
 
-    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
-        if (button == 0 && previewKey != null
-            && mouseX >= previewLeft && mouseX < previewLeft + previewW
-            && mouseY >= previewTop && mouseY < previewTop + previewH
-        ) {
-            rotY += dragX.toFloat()
-            rotX = (rotX - dragY.toFloat()).coerceIn(-90f, 90f)
-            return true
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        if (super.mouseClicked(mouseX, mouseY, button)) return true
+        if (previewKey == null || !isOverPreview(mouseX, mouseY)) return false
+        camera.press(button)
+        return true
     }
+
+    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean =
+        camera.drag(button, dragX, dragY) || super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+
+    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean =
+        camera.release(button) != null || super.mouseReleased(mouseX, mouseY, button)
+
+    private fun isOverPreview(mouseX: Double, mouseY: Double) =
+        mouseX >= previewLeft && mouseX < previewLeft + previewW && mouseY >= previewTop && mouseY < previewTop + previewH
 
     override fun removed() {
         super.removed()

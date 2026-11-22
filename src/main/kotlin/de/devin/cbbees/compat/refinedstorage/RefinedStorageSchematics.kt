@@ -4,8 +4,8 @@ import com.refinedmods.refinedstorage.common.api.configurationcard.Configuration
 import com.refinedmods.refinedstorage.common.support.AbstractDirectionalBlock
 import com.simibubi.create.api.schematic.nbt.SafeNbtWriterRegistry
 import com.simibubi.create.api.schematic.nbt.SafeNbtWriterRegistry.SafeNbtWriter
-import de.devin.cbbees.content.schematics.BlockTransform
-import de.devin.cbbees.content.schematics.BlockTransforms
+import de.devin.cbbees.api.CBBeesApi
+import de.devin.cbbees.api.schematic.BlockTransform
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.world.level.block.Mirror
@@ -19,7 +19,7 @@ object RefinedStorageSchematics : BlockTransform {
     private const val DIRECTION = "direction"
 
     fun register() {
-        BlockTransforms.register(this)
+        CBBeesApi.registerBlockTransform(this)
         SafeNbtWriterRegistry.REGISTRY.registerProvider { type ->
             writer.takeIf { BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type)?.namespace == NAMESPACE }
         }

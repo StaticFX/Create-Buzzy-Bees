@@ -1,6 +1,6 @@
 package de.devin.cbbees.compat.refinedstorage
 
-import de.devin.cbbees.content.logistics.storage.PortStorages
+import de.devin.cbbees.api.CBBeesApi
 import net.neoforged.fml.ModList
 
 object RefinedStorageCompat {
@@ -9,7 +9,7 @@ object RefinedStorageCompat {
 
     fun register() {
         if (!isLoaded) return
-        PortStorages.register(RSPortStorage)
+        CBBeesApi.registerPortStorage(RSPortStorage)
         RefinedStorageSchematics.register()
     }
 }

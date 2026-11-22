@@ -7,7 +7,7 @@ import appeng.api.networking.crafting.ICraftingService
 import appeng.api.networking.crafting.ICraftingSimulationRequester
 import appeng.api.networking.security.IActionSource
 import appeng.api.stacks.AEItemKey
-import de.devin.cbbees.content.logistics.storage.CraftResult
+import de.devin.cbbees.api.storage.CraftResult
 import net.minecraft.world.level.Level
 import java.util.WeakHashMap
 import java.util.concurrent.Future

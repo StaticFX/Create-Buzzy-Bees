@@ -125,7 +125,8 @@ object DockPortTests {
         setupNetwork()
         val tankPos = helper.absolutePos(TANK_POS)
         placeDockPort(tankPos, PortType.INSERT)
-        val pool = listOf(BlockPos(1, 1, 1), BlockPos(2, 1, 1), BlockPos(1, 1, 2), BlockPos(2, 1, 2)).map(helper::absolutePos)
+        val pool =
+            listOf(BlockPos(1, 1, 1), BlockPos(2, 1, 1), BlockPos(1, 1, 2), BlockPos(2, 1, 2)).map(helper::absolutePos)
         pool.forEach {
             level.setBlockAndUpdate(it.below(), Blocks.STONE.defaultBlockState())
             level.setBlockAndUpdate(it, Blocks.WATER.defaultBlockState())
@@ -159,11 +160,20 @@ object DockPortTests {
             helper.assertTrue(dock != null, "The full tank should be offered")
 
             dock!!.reserve(first, listOf(water), level.gameTime)
-            helper.assertTrue(network.findFluidProvider(water, second) == null, "Reserved water must not be offered to another bee")
-            helper.assertTrue(network.findFluidProvider(water, first) == dock, "The bee that reserved it should still find it")
+            helper.assertTrue(
+                network.findFluidProvider(water, second) == null,
+                "Reserved water must not be offered to another bee"
+            )
+            helper.assertTrue(
+                network.findFluidProvider(water, first) == dock,
+                "The bee that reserved it should still find it"
+            )
 
             network.releaseReservations(first)
-            helper.assertTrue(network.findFluidProvider(water, second) == dock, "Released water should be offered again")
+            helper.assertTrue(
+                network.findFluidProvider(water, second) == dock,
+                "Released water should be offered again"
+            )
             helper.succeed()
         }
     }

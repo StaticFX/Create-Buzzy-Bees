@@ -4,7 +4,7 @@ import de.devin.cbbees.content.bee.server.BeeType
 import de.devin.cbbees.content.domain.beehive.BeeHive
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorage
 import de.devin.cbbees.content.upgrades.BeeContext
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack

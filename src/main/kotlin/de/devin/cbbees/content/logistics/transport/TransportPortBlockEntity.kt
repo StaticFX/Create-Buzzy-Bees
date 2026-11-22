@@ -11,7 +11,7 @@ import de.devin.cbbees.content.domain.logistics.TransportPort
 import de.devin.cbbees.content.logistics.ports.LogisticsPortSelectionValueBox
 import de.devin.cbbees.content.logistics.ports.PortState
 import de.devin.cbbees.content.logistics.ports.addInvalidPortTooltip
-import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorage
 import de.devin.cbbees.content.logistics.storage.PortStorageCache
 import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang

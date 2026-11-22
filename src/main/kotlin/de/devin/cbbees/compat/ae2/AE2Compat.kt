@@ -1,6 +1,6 @@
 package de.devin.cbbees.compat.ae2
 
-import de.devin.cbbees.content.logistics.storage.PortStorages
+import de.devin.cbbees.api.CBBeesApi
 import net.neoforged.fml.ModList
 
 object AE2Compat {
@@ -9,7 +9,7 @@ object AE2Compat {
 
     fun register() {
         if (!isLoaded) return
-        PortStorages.register(MEPortStorage)
+        CBBeesApi.registerPortStorage(MEPortStorage)
         CableBusSchematics.register()
     }
 }

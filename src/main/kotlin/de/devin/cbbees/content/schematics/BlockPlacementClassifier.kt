@@ -82,6 +82,9 @@ object BlockPlacementClassifier {
     /** Fluids are placed after every block, so water can't flood parts that aren't built yet. */
     const val FLUID_PLACEMENT_PHASE = GRAVITY_PLACEMENT_PHASE + GRAVITY_LAYERS
 
+    /** Follow-up work on finished blocks, such as forming a multiblock, waits until everything is placed. */
+    const val FINISHING_PHASE = FLUID_PLACEMENT_PHASE + 1
+
     fun placementPhase(isFluid: Boolean): Int = if (isFluid) FLUID_PLACEMENT_PHASE else PLACEMENT_PHASE
 
     /**

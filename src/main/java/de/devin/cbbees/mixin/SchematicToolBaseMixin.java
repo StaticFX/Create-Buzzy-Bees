@@ -2,6 +2,9 @@ package de.devin.cbbees.mixin;
 
 import com.simibubi.create.content.schematics.client.tools.SchematicToolBase;
 import de.devin.cbbees.content.drone.client.DroneAim;
+import de.devin.cbbees.content.schematics.client.SchematicFaceAim;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
@@ -13,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Lets Create's schematic tools aim from the drone (straight down) during drone view,
- * instead of from the player standing still on the ground.
+ * instead of from the player standing still on the ground, and picks the schematic face
+ * correctly when the schematic sits on a rotated sub-level.
  */
 @Mixin(value = SchematicToolBase.class, remap = false)
 public abstract class SchematicToolBaseMixin {
@@ -39,5 +43,17 @@ public abstract class SchematicToolBaseMixin {
         selectedPos = aim.getTarget();
         if (snap && selectedPos != null)
             lastChasingSelectedPos = chasingSelectedPos = Vec3.atLowerCornerOf(selectedPos);
+    }
+
+    /**
+     * Sable traces the schematic face from the eye moved onto the sub-level, but along the world look
+     * direction, so on a rotated ship the move and mirror tools pick the wrong face or none at all.
+     */
+    @Inject(method = "updateTargetPos", at = @At("RETURN"))
+    private void ccr$aimOnSubLevel(CallbackInfo ci) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || !SchematicFaceAim.onSubLevel(player)) return;
+        selectedFace = SchematicFaceAim.underCrosshair(player);
+        schematicSelected = selectedFace != null;
     }
 }

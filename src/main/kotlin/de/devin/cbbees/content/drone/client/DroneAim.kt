@@ -1,9 +1,7 @@
 package de.devin.cbbees.content.drone.client
 
-import com.simibubi.create.CreateClient
-import com.simibubi.create.foundation.utility.RaycastHelper
+import de.devin.cbbees.content.schematics.client.SchematicFaceAim
 import de.devin.cbbees.util.ClientSide
-import net.createmod.catnip.math.VecHelper
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -28,18 +26,7 @@ object DroneAim {
         val from = drone.position()
         val to = from.add(0.0, -REACH, 0.0)
         val target = if (ignoreBlocks) BlockPos.containing(from.add(0.0, -range.toDouble(), 0.0)) else groundBelow(player, from, to)
-        return Result(schematicFaceBelow(from, to), target)
-    }
-
-    private fun schematicFaceBelow(from: Vec3, to: Vec3): Direction? {
-        val handler = CreateClient.SCHEMATIC_HANDLER
-        if (!handler.isDeployed) return null
-        val transform = handler.transformation
-        val bounds = handler.bounds
-        val hit = RaycastHelper.rayTraceUntil(transform.toLocalSpace(from), transform.toLocalSpace(to)) {
-            bounds.contains(VecHelper.getCenterOf(it))
-        }
-        return if (hit.missed()) null else hit.facing
+        return Result(SchematicFaceAim.along(from, to), target)
     }
 
     private fun groundBelow(player: Player, from: Vec3, to: Vec3): BlockPos? {

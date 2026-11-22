@@ -1,13 +1,9 @@
 package de.devin.cbbees.content.schematics
 
+import de.devin.cbbees.api.schematic.BlockTransform
 import net.minecraft.world.level.block.Mirror
 import net.minecraft.world.level.block.Rotation
 import net.minecraft.world.level.block.state.BlockState
-
-interface BlockTransform {
-    fun mirror(state: BlockState, mirror: Mirror): BlockState?
-    fun rotate(state: BlockState, rotation: Rotation): BlockState?
-}
 
 object BlockTransforms {
 

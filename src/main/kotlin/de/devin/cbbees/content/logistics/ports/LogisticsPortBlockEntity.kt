@@ -11,7 +11,7 @@ import de.devin.cbbees.content.domain.network.addNetworkTooltip
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.logistics.ports.PortBlock.Companion.PORT_STATE
-import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorage
 import de.devin.cbbees.content.logistics.storage.PortStorageCache
 import de.devin.cbbees.content.logistics.storage.PortStorages
 import net.createmod.catnip.lang.Lang

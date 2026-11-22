@@ -6,10 +6,10 @@ import appeng.api.networking.IGridNode
 import appeng.api.networking.security.IActionSource
 import appeng.api.stacks.AEItemKey
 import appeng.api.storage.MEStorage
-import de.devin.cbbees.content.logistics.storage.CraftResult
-import de.devin.cbbees.content.logistics.storage.PortStorage
-import de.devin.cbbees.content.logistics.storage.PortStorageProvider
-import de.devin.cbbees.content.logistics.storage.toIntClamped
+import de.devin.cbbees.api.storage.CraftResult
+import de.devin.cbbees.api.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorageProvider
+import de.devin.cbbees.util.toIntClamped
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack

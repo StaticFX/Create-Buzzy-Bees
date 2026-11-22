@@ -1,6 +1,6 @@
 package de.devin.cbbees.content.domain.logistics
 
-import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorage
 import net.minecraft.core.BlockPos
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level

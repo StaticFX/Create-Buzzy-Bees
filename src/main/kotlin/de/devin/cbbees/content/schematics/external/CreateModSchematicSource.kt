@@ -1,6 +1,7 @@
 package de.devin.cbbees.content.schematics.external
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.simibubi.create.CreateClient
 import de.devin.cbbees.CreateBuzzyBeez
@@ -77,36 +78,35 @@ class CreateModSchematicSource(
 
                 val items = json.getAsJsonArray("items")?.map { elem ->
                     val obj = elem.asJsonObject
-                    val recordId = obj.get("id")?.asString ?: ""
+                    val recordId = obj.string("id") ?: ""
                     RemoteSchematic(
-                        id = obj.get("name")?.asString ?: "",
-                        name = (obj.get("title")?.asString ?: "").sanitize(),
-                        author = (obj.get("author")?.let { authorEl ->
-                            if (authorEl.isJsonObject) authorEl.asJsonObject.get("username")?.asString
-                            else authorEl.asString
+                        id = obj.string("name") ?: "",
+                        name = (obj.string("title") ?: "").sanitize(),
+                        author = (obj.field("author")?.let { author ->
+                            if (author.isJsonObject) author.asJsonObject.string("username") else author.asString
                         } ?: "Unknown").sanitize(),
-                        description = (obj.get("excerpt")?.asString ?: "").sanitize(),
-                        downloads = obj.get("downloads")?.asInt ?: 0,
-                        sizeX = obj.get("dimX")?.asInt ?: 0,
-                        sizeY = obj.get("dimY")?.asInt ?: 0,
-                        sizeZ = obj.get("dimZ")?.asInt ?: 0,
-                        thumbnailUrl = obj.get("featuredImage")?.asString?.let { img ->
+                        description = (obj.string("excerpt") ?: "").sanitize(),
+                        downloads = obj.int("downloads") ?: 0,
+                        sizeX = obj.int("dimX") ?: 0,
+                        sizeY = obj.int("dimY") ?: 0,
+                        sizeZ = obj.int("dimZ") ?: 0,
+                        thumbnailUrl = obj.string("featuredImage")?.let { img ->
                             if (img.isNotEmpty()) "$baseUrl/api/files/schematics/$recordId/$img?thumb=640x360" else null
                         },
-                        views = obj.get("views")?.asInt ?: 0,
-                        blockCount = obj.get("blockCount")?.asInt ?: 0,
-                        rating = obj.get("rating")?.asString ?: "",
-                        ratingCount = obj.get("ratingCount")?.asInt ?: 0,
-                        createmodVersion = (obj.get("createmodVersion")?.asString ?: "").sanitize(),
-                        minecraftVersion = (obj.get("minecraftVersion")?.asString ?: "").sanitize(),
-                        categories = obj.get("categories")?.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull {
-                            it.asJsonObject?.get("name")?.asString?.sanitize()
+                        views = obj.int("views") ?: 0,
+                        blockCount = obj.int("blockCount") ?: 0,
+                        rating = obj.string("rating") ?: "",
+                        ratingCount = obj.int("ratingCount") ?: 0,
+                        createmodVersion = (obj.string("createmodVersion") ?: "").sanitize(),
+                        minecraftVersion = (obj.string("minecraftVersion") ?: "").sanitize(),
+                        categories = obj.field("categories")?.takeIf { it.isJsonArray }?.asJsonArray?.mapNotNull {
+                            it.takeIf { it.isJsonObject }?.asJsonObject?.string("name")?.sanitize()
                         } ?: emptyList(),
-                        createdHumanReadable = (obj.get("createdHumanReadable")?.asString ?: "").sanitize()
+                        createdHumanReadable = (obj.string("createdHumanReadable") ?: "").sanitize()
                     )
                 } ?: emptyList()
 
-                val totalPages = json.get("total")?.asInt ?: 1
+                val totalPages = json.int("total") ?: 1
 
                 SchematicListResult(
                     schematics = items,
@@ -141,6 +141,9 @@ class CreateModSchematicSource(
                 val request = HttpRequest.newBuilder()
                     .uri(URI.create("$baseUrl/api/mod/download"))
                     .header("Content-Type", "application/json")
+                    // Cloudflare only lets mod requests through when they carry the signature headers
+                    .header("X-Mod-Message", message)
+                    .header("X-Mod-Signature", signature)
                     .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8))
                     .build()
 
@@ -218,16 +221,16 @@ class CreateModSchematicSource(
 
                 val json = gson.fromJson(response.body(), JsonObject::class.java)
 
-                val dims = json.getAsJsonObject("dimensions")
+                val dims = json.field("dimensions")?.takeIf { it.isJsonObject }?.asJsonObject
                 RemoteSchematic(
-                    id = json.get("token")?.asString ?: "",
+                    id = json.string("token") ?: "",
                     name = localFilename.removeSuffix(".nbt"),
                     author = net.minecraft.client.Minecraft.getInstance().user.name,
                     description = "Uploaded from Create: Buzzy Beez",
                     downloads = 0,
-                    sizeX = dims?.get("x")?.asInt ?: 0,
-                    sizeY = dims?.get("y")?.asInt ?: 0,
-                    sizeZ = dims?.get("z")?.asInt ?: 0
+                    sizeX = dims?.int("x") ?: 0,
+                    sizeY = dims?.int("y") ?: 0,
+                    sizeZ = dims?.int("z") ?: 0
                 )
             } catch (e: Exception) {
                 CreateBuzzyBeez.LOGGER.error("Failed to upload schematic '$localFilename' to $baseUrl", e)
@@ -276,3 +279,10 @@ class CreateModSchematicSource(
     /** Strip control characters (CR, etc.) that Minecraft renders as blocks. */
     private fun String.sanitize(): String = replace(Regex("[\\x00-\\x1F\\x7F]"), "").trim()
 }
+
+/** A field of this object, or null when it is missing or JSON `null`. */
+private fun JsonObject.field(key: String): JsonElement? = get(key)?.takeUnless { it.isJsonNull }
+
+private fun JsonObject.string(key: String): String? = field(key)?.asString
+
+private fun JsonObject.int(key: String): Int? = field(key)?.asInt

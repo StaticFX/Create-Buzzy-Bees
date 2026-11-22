@@ -187,13 +187,22 @@ class SchematicCreateBridge(
         val requirement = printer.currentRequirement
         val items = getItemsFromRequirement(requirement)
 
-        printer.handleCurrentTarget({ pos, state, blockEntity ->
+        printer.handleCurrentTarget({ pos, schematicState, schematicBlockEntity ->
             val existing = level.getBlockState(pos)
-            if (state == null || state.isAir) {
+            if (schematicState == null || schematicState.isAir) {
                 if (buildMode.clearsEmptySpots) clearSpot(pos, existing, job, batches)
                 return@handleCurrentTarget
             }
             if (handledPositions.contains(pos)) return@handleCurrentTarget
+
+            val substitute = SchematicSubstitutes.of(pos, schematicState, schematicBlockEntity)
+            if (substitute != null && existing == schematicState) return@handleCurrentTarget
+            substitute?.finish?.let { finish ->
+                batches.add(TaskBatch(listOf(BeeTask(finish, job)), job, finish.pos, BlockPlacementClassifier.FINISHING_PHASE))
+            }
+            val state = substitute?.state ?: schematicState
+            val blockEntity = schematicBlockEntity.takeIf { substitute == null }
+
             if (state.fluidState.isSource) handleFluid(pos, state, job, batches)
             if (BlockPlacementClassifier.shouldSkipBlock(state)) return@handleCurrentTarget
             if (existing == BlockPlacementClassifier.withoutFluid(state)) return@handleCurrentTarget
@@ -350,10 +359,15 @@ class SchematicCreateBridge(
 
         val items = mutableListOf<ItemStack>()
 
-        // Get required items from the requirement
-        // StackRequirement has a 'stack' field containing the ItemStack
+        // Mirror Create's matching: only StrictNbtStackRequirement compares components.
+        // Plain StackRequirements (e.g. a configured list filter) accept any stack of the item,
+        // the configuration itself is restored from the block entity tag on placement.
         requirement.requiredItems.forEach { reqItem ->
-            items.add(reqItem.stack.copy())
+            val stack = reqItem.stack
+            items.add(
+                if (reqItem is ItemRequirement.StrictNbtStackRequirement) stack.copy()
+                else ItemStack(stack.item, stack.count)
+            )
         }
 
         return items

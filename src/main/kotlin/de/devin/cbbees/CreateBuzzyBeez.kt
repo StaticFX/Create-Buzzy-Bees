@@ -5,6 +5,7 @@ import com.simibubi.create.foundation.item.ItemDescription
 import com.simibubi.create.foundation.item.KineticStats
 import com.simibubi.create.foundation.item.TooltipModifier
 import de.devin.cbbees.compat.ae2.AE2Compat
+import de.devin.cbbees.compat.immersiveengineering.ImmersiveEngineeringCompat
 import de.devin.cbbees.compat.refinedstorage.RefinedStorageCompat
 import de.devin.cbbees.compat.sable.SableCompat
 import de.devin.cbbees.compat.sable.SubLevelNetworkTracker
@@ -221,6 +222,7 @@ object CreateBuzzyBeez {
         if (SableCompat.isLoaded) NeoForge.EVENT_BUS.register(SubLevelNetworkTracker::class.java)
         AE2Compat.register()
         RefinedStorageCompat.register()
+        ImmersiveEngineeringCompat.register()
     }
 
     fun asResource(path: String): ResourceLocation {

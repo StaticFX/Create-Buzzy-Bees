@@ -6,7 +6,7 @@ import de.devin.cbbees.content.bee.server.ServerBeeManager
 import de.devin.cbbees.content.domain.logistics.LogisticsPort
 import de.devin.cbbees.content.domain.logistics.ReservationManager
 import de.devin.cbbees.content.domain.task.TaskBatch
-import de.devin.cbbees.content.logistics.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorage
 import de.devin.cbbees.content.upgrades.BeeContext
 import de.devin.cbbees.config.CBBeesConfig
 import de.devin.cbbees.registry.AllDataComponents

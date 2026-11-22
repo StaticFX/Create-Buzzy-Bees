@@ -1,5 +1,7 @@
 package de.devin.cbbees.content.logistics.storage
 
+import de.devin.cbbees.api.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorageProvider
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.level.Level

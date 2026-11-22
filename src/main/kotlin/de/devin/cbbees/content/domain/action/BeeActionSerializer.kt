@@ -1,5 +1,6 @@
 package de.devin.cbbees.content.domain.action
 
+import de.devin.cbbees.api.action.BeeActionCodec
 import de.devin.cbbees.content.domain.action.impl.DropOffItemsAction
 import de.devin.cbbees.content.domain.action.impl.PickupItemsAction
 import de.devin.cbbees.content.domain.action.impl.PlaceBeltAction
@@ -14,6 +15,12 @@ import net.minecraft.nbt.CompoundTag
  * Uses a type discriminator string to dispatch save/load to the correct implementation.
  */
 object BeeActionSerializer {
+
+    private val codecs = mutableMapOf<String, BeeActionCodec<*>>()
+
+    fun register(codec: BeeActionCodec<*>) {
+        codecs[codec.id] = codec
+    }
 
     private const val TYPE_KEY = "ActionType"
     private const val DATA_KEY = "ActionData"
@@ -52,10 +59,18 @@ object BeeActionSerializer {
                 tag.putString(TYPE_KEY, PLACE_FLUID)
                 tag.put(DATA_KEY, action.save(registries))
             }
-            else -> throw IllegalArgumentException("Unknown BeeAction type: ${action::class}")
+            else -> {
+                val codec = codecs.values.firstOrNull { it.type.isInstance(action) }
+                    ?: throw IllegalArgumentException("Unknown BeeAction type: ${action::class}")
+                tag.putString(TYPE_KEY, codec.id)
+                tag.put(DATA_KEY, saveWith(codec, action, registries))
+            }
         }
         return tag
     }
+
+    private fun <T : BeeAction> saveWith(codec: BeeActionCodec<T>, action: BeeAction, registries: HolderLookup.Provider) =
+        codec.save(codec.type.cast(action), registries)
 
     fun load(tag: CompoundTag, registries: HolderLookup.Provider): BeeAction? {
         val type = tag.getString(TYPE_KEY)
@@ -67,7 +82,7 @@ object BeeActionSerializer {
             DROP_OFF -> DropOffItemsAction.load(data)
             PICKUP -> PickupItemsAction.load(data)
             PLACE_FLUID -> PlaceFluidAction.load(data, registries)
-            else -> null
+            else -> codecs[type]?.load(data, registries)
         }
     }
 }

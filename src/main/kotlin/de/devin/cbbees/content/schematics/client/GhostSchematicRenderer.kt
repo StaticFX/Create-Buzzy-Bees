@@ -5,11 +5,13 @@ import com.simibubi.create.content.schematics.client.SchematicRenderer
 import com.simibubi.create.foundation.render.BlockEntityRenderHelper
 import de.devin.cbbees.config.CBBeesClientConfig
 import net.createmod.catnip.animation.AnimationTickHolder
+import net.createmod.catnip.impl.client.render.TransformingVertexConsumer
 import net.createmod.catnip.levelWrappers.SchematicLevel
 import net.createmod.catnip.render.ShadedBlockSbbBuilder
 import net.createmod.catnip.render.SuperByteBuffer
 import net.createmod.catnip.render.SuperRenderTypeBuffer
 import net.minecraft.client.Minecraft
+import net.minecraft.client.renderer.ItemBlockRenderTypes
 import net.minecraft.client.renderer.RenderType
 import net.minecraft.client.renderer.block.ModelBlockRenderer
 import net.minecraft.client.renderer.texture.OverlayTexture
@@ -104,6 +106,7 @@ class GhostSchematicRenderer(
         val random: RandomSource = RandomSource.createNewThreadLocalInstance()
         val mutableBlockPos = BlockPos.MutableBlockPos()
         val sbbBuilder: ShadedBlockSbbBuilder = ShadedBlockSbbBuilder.create()
+        val fluidConsumer = TransformingVertexConsumer()
     }
 
     /**
@@ -291,9 +294,10 @@ class GhostSchematicRenderer(
         // Iterate only over blocks that actually exist in the schematic,
         // not the entire bounding volume (which can be orders of magnitude larger)
         for ((localPos, state) in blocks) {
+            val pos = mutableBlockPos.setWithOffset(localPos, anchor)
+            tesselateFluid(layer, localPos, pos, state, level, objects)
             if (state.renderShape == RenderShape.INVISIBLE) continue
 
-            val pos = mutableBlockPos.setWithOffset(localPos, anchor)
             val model = dispatcher.getBlockModel(state)
             val blockEntity = renderWorld.getBlockEntity(localPos)
             val modelData = if (blockEntity != null) blockEntity.modelData else ModelData.EMPTY
@@ -319,7 +323,28 @@ class GhostSchematicRenderer(
 
         ModelBlockRenderer.clearCache()
         renderWorld.renderMode = false
+        objects.fluidConsumer.clear()
 
         return sbbBuilder.end()
+    }
+
+    /**
+     * Fluid sources and waterlogged blocks have no baked model, so they go through the vanilla liquid renderer.
+     * It writes vertices relative to the 16³ section of [pos], which the pose moves back to [localPos].
+     */
+    private fun tesselateFluid(layer: RenderType, localPos: BlockPos, pos: BlockPos, state: BlockState, level: BlockAndTintGetter, objects: Objects) {
+        val fluid = state.fluidState
+        if (fluid.isEmpty || ItemBlockRenderTypes.getRenderLayer(fluid) != layer) return
+
+        val poseStack = objects.poseStack
+        poseStack.pushPose()
+        poseStack.translate(
+            (localPos.x - origin.x - (pos.x and 15)).toDouble(),
+            (localPos.y - origin.y - (pos.y and 15)).toDouble(),
+            (localPos.z - origin.z - (pos.z and 15)).toDouble()
+        )
+        objects.fluidConsumer.prepare(objects.sbbBuilder.unwrap(false), poseStack)
+        Minecraft.getInstance().blockRenderer.renderLiquid(pos, level, objects.fluidConsumer, state, fluid)
+        poseStack.popPose()
     }
 }

@@ -10,10 +10,10 @@ import com.refinedmods.refinedstorage.api.storage.Actor
 import com.refinedmods.refinedstorage.common.api.support.network.NetworkNodeContainerProvider
 import com.refinedmods.refinedstorage.common.support.resource.ItemResource
 import com.refinedmods.refinedstorage.neoforge.api.RefinedStorageNeoForgeApi
-import de.devin.cbbees.content.logistics.storage.CraftResult
-import de.devin.cbbees.content.logistics.storage.PortStorage
-import de.devin.cbbees.content.logistics.storage.PortStorageProvider
-import de.devin.cbbees.content.logistics.storage.toIntClamped
+import de.devin.cbbees.api.storage.CraftResult
+import de.devin.cbbees.api.storage.PortStorage
+import de.devin.cbbees.api.storage.PortStorageProvider
+import de.devin.cbbees.util.toIntClamped
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.world.item.ItemStack

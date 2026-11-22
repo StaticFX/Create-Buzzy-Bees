@@ -152,6 +152,7 @@ dependencies {
 
     compileOnly("org.appliedenergistics:appliedenergistics2:${ae2_version}") { transitive = false }
     compileOnly("com.refinedmods.refinedstorage:refinedstorage-neoforge:${refinedstorage_version}") { transitive = false }
+    compileOnly("blusunrize.immersiveengineering:ImmersiveEngineering:${immersiveengineering_version}:api") { transitive = false }
 
     // WebP thumbnail support (pure Java ImageIO plugin)
     // implementation = compile classpath, jarJar = bundled in prod, additionalRuntimeClasspath = dev runtime
@@ -264,6 +265,7 @@ if (System.getenv("CURSEFORGE_TOKEN")) {
         mainFile.addOptional('sable')
         mainFile.addOptional('applied-energistics-2')
         mainFile.addOptional('refined-storage')
+        mainFile.addOptional('immersive-engineering')
     }
 }
 
@@ -286,6 +288,7 @@ if (System.getenv("MODRINTH_TOKEN")) {
             optional.project 'sable'
             optional.project 'ae2'
             optional.project 'refined-storage'
+            optional.project 'immersiveengineering'
         }
     }
 }
